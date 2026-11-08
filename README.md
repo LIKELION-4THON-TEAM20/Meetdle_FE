@@ -1,6 +1,3 @@
-# Meetdle_FE
-
-
 # Meetdle Frontend
 
 멋쟁이사자처럼 4호선톤 팀 프로젝트 **Meetdle**의 Frontend Repository입니다.
