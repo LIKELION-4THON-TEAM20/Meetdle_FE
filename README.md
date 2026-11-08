@@ -119,5 +119,3 @@ FIX: 지도 오류 수정
 
 
 **초기 세팅 PR:** [#1 CHORE: 프론트엔드 초기 세팅](https://github.com/LIKELION-4THON-TEAM20/Meetdle_FE/pull/1)
-
-※ 다른 팀원 및 담당 기능은 추후 추가 예정입니다.
