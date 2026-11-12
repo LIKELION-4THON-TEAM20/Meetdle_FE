@@ -68,6 +68,16 @@ npm run build
 npm run lint
 ```
 
+## 페이지 경로
+
+- `/rooms/create`: 약속방 생성 UI (API 미연결)
+- `/`: 홈 화면 구현 전까지 `/rooms/create`로 리다이렉트
+- 그 외 경로: 페이지 없음 안내
+
+경로는 `src/router/index.tsx`에서 관리합니다.
+배포 시 `/rooms/create` 직접 접속 및 새로고침이 동작하려면 호스팅 서버에서
+정적 파일 외 경로를 `index.html`로 연결하는 SPA fallback 설정이 필요합니다.
+
 ## 브랜치 전략
 
 - main: 최종 배포용
