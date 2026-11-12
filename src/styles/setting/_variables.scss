@@ -1,0 +1,13 @@
+// Figma UI: 198:8094, topbar: 198:8116.
+$color-black: #090909;
+$color-white: #fff;
+
+// index.html에서 로드하는 Pretendard Variable 웹폰트와 동일한 이름 사용
+$font-family-base: 'Pretendard Variable', sans-serif;
+$font-weight-bold: 700;
+$header-title-font-size: 18px;
+$header-title-line-height: 1.4;
+
+$header-height: 54px;
+// 피그마 화면의 기준 너비이며, 화면 너비를 고정하는 용도로 사용 X
+$mobile-design-width: 390px;

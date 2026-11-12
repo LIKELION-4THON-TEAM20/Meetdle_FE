@@ -1,0 +1,28 @@
+@use './variables' as variables;
+
+body {
+  min-width: 320px;
+  font-family: variables.$font-family-base;
+  color: variables.$color-black;
+  background-color: variables.$color-white;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  // 모바일 브라우저의 주소창 높이 변화에 맞춰 화면을 채운다.
+  min-height: 100dvh;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 440px;
+  min-width: 0;
+  min-height: 100dvh;
+  margin: 0 auto;
+  background-color: variables.$color-white;
+}
