@@ -6,6 +6,7 @@ import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatu
 import MeetingConfirmed from '../pages/MeetingConfirmed/MeetingConfirmed';
 import MeetingInfo from '../pages/MeetingInfo/MeetingInfo';
 import PlaceRegistrationSetup from '../pages/PlaceRegistrationSetup/PlaceRegistrationSetup';
+import PlaceRegistrationStatus from '../pages/PlaceRegistrationStatus/PlaceRegistrationStatus';
 
 export const router = createBrowserRouter([
   // 홈 화면 구현 전까지 약속방 생성 화면을 진입점으로 사용한다.
@@ -40,6 +41,10 @@ export const router = createBrowserRouter([
   {
     path: '/rooms/registration/setup',
     element: <PlaceRegistrationSetup />,
+  },
+  {
+    path: '/rooms/registration/status',
+    element: <PlaceRegistrationStatus />,
   },
   {
     path: '*',
