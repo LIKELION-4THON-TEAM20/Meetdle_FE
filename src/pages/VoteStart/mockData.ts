@@ -20,7 +20,7 @@ export function createCandidateMock(
         ? 0
         : counts[index];
     return {
-      id: String(index),
+      id: ['restaurant', 'cafe', 'pub', 'culture'][index],
       name,
       required: index < 2,
       candidates: Array.from({ length: count }, (_, i) => ({ id: `${index}-${i}`, valid: true })),

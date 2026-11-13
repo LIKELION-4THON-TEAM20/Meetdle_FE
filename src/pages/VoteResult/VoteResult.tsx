@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import ResultPlaceCard from './components/ResultPlaceCard';
@@ -12,34 +12,64 @@ import { createResultMock, meetingSummary, tieCandidates } from './mockData';
 import { saveVisitOrder, selectTiePlace, incrementMockRevote } from './resultUtils';
 import type { ResultRole } from './types';
 import './VoteResult.scss';
+import { useMockRoom } from '../../features/mockRoom/context';
 
-function VoteResultScreen({ scenario, role }: { scenario: string | null; role: ResultRole }) {
+function VoteResultScreen({
+  scenario,
+  role: fixtureRole,
+}: {
+  scenario: string | null;
+  role: ResultRole;
+}) {
   const navigate = useNavigate();
-  const [result, setResult] = useState(() => createResultMock(scenario));
+  const { room, send, isolated } = useMockRoom();
+  const role = isolated ? fixtureRole : room.role;
+  const [localResult, setResult] = useState(() => createResultMock(scenario));
+  const result = isolated
+    ? localResult
+    : (room.result ?? { categories: [], order: [], unresolvedTie: false, revotesUsed: 0 });
+  const tie = isolated ? { id: 'cafe', name: '카페', places: tieCandidates } : room.ties[0];
   const [breakdown, setBreakdown] = useState(scenario === 'breakdown' || scenario === 'zeroVotes');
   const [sheetOpen, setSheetOpen] = useState(scenario === 'order');
   const [notice, setNotice] = useState('');
-  const pending = scenario === 'pending' || (result.unresolvedTie && role === 'participant');
-  const noResult = scenario === 'noResult' || scenario === 'revoteUsed';
+  const pending =
+    (!isolated && room.result === null) ||
+    scenario === 'pending' ||
+    (result.unresolvedTie && role === 'participant');
+  const noResult =
+    (!isolated && room.result !== null && !result.categories.length) ||
+    scenario === 'noResult' ||
+    scenario === 'revoteUsed';
   const normal = !pending && !noResult && !result.unresolvedTie;
   return (
     <div className="page vote-result">
       <Header title="최종 결과" showBackButton onBack={() => navigate(-1)} />
       <main className="vote-result__content">
+        <p className="vote-result__mock-note">
+          개발용 목 결과예요. 서버에서 확정된 결과가 아니에요.
+        </p>
+        {!isolated && !room.result && <Link to="/rooms/vote/status">투표 현황으로 이동</Link>}
         {pending ? (
           <ResultPending />
         ) : noResult ? (
           <RevoteNotice
             used={result.revotesUsed}
-            onRevote={() => setResult((previous) => incrementMockRevote(previous))}
+            canRevote={role === 'host'}
+            onRevote={() => {
+              if (role !== 'host') return;
+              if (isolated) setResult((previous) => incrementMockRevote(previous));
+              else send({ type: 'revoteNotice' });
+            }}
           />
         ) : result.unresolvedTie ? (
           <TieBreakModal
-            category="카페"
-            candidates={tieCandidates}
+            category={tie?.name ?? ''}
+            candidates={tie?.places ?? []}
             onSelect={(id) => {
               if (role !== 'host') return;
-              setResult((previous) => selectTiePlace(previous, 'cafe', id, tieCandidates, role));
+              if (isolated)
+                setResult((previous) => selectTiePlace(previous, 'cafe', id, tieCandidates, role));
+              else if (tie) send({ type: 'tie', categoryId: tie.id, placeId: id });
               setNotice('선택한 후보를 현재 화면에 반영했어요. 서버에는 저장되지 않았어요.');
             }}
           />
@@ -47,7 +77,11 @@ function VoteResultScreen({ scenario, role }: { scenario: string | null; role: R
           <>
             <div className="vote-result__intro">
               <h2>모두가 함께 갈 수 있는 곳으로 정했어요</h2>
-              <p>{meetingSummary}</p>
+              <p>
+                {isolated
+                  ? meetingSummary
+                  : `${new Date(room.meetingAt).toLocaleString('ko-KR')} · ${room.area}`}
+              </p>
             </div>
             {result.categories.map((category) => (
               <section
@@ -104,7 +138,8 @@ function VoteResultScreen({ scenario, role }: { scenario: string | null; role: R
           onClose={() => setSheetOpen(false)}
           onSave={(order) => {
             if (role !== 'host') return;
-            setResult((previous) => saveVisitOrder(previous, order, role));
+            if (isolated) setResult((previous) => saveVisitOrder(previous, order, role));
+            else send({ type: 'order', order });
             setSheetOpen(false);
             setNotice('');
           }}

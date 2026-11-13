@@ -10,12 +10,15 @@ import {
   MissingRequiredModal,
 } from '../VoteStart/components/CandidateNotices';
 import './RegistrationClose.scss';
+import { useMockRoom } from '../../features/mockRoom/context';
+import { candidateCategories } from '../../features/mockRoom/model';
 
 export default function RegistrationClose() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const scenario = import.meta.env.DEV ? params.get('scenario') : null;
-  const categories = createCandidateMock('close', scenario);
+  const { room, send, isolated } = useMockRoom();
+  const categories = isolated ? createCandidateMock('close', scenario) : candidateCategories(room);
   const summary = summarizeCandidates(categories);
   const [missingOpen, setMissingOpen] = useState(false);
   return (
@@ -37,12 +40,19 @@ export default function RegistrationClose() {
       </main>
       <footer className="registration-close__footer">
         <Button
-          disabled={summary.total === 0}
+          disabled={
+            summary.total === 0 ||
+            room.role !== 'host' ||
+            (!isolated && room.phase !== 'registration')
+          }
           onClick={() => {
+            if (room.role !== 'host') return;
             if (summary.missingRequired.length) {
               setMissingOpen(true);
               return;
             }
+            if (!isolated && !room.registrationClosed && !send({ type: 'closeRegistration' }))
+              return;
             navigate(
               `/rooms/vote/start${import.meta.env.DEV && scenario ? `?scenario=${encodeURIComponent(scenario)}` : ''}`,
               { state: { categories } },

@@ -7,6 +7,7 @@ import type { RegistrationParticipant } from '../types';
 import './RegistrationStatusModal.scss';
 
 interface RegistrationStatusModalProps {
+  canManage?: boolean;
   open: boolean;
   waiting: boolean;
   participants: RegistrationParticipant[];
@@ -19,6 +20,7 @@ interface RegistrationStatusModalProps {
 }
 
 function RegistrationStatusModal({
+  canManage = true,
   open,
   waiting,
   participants,
@@ -64,6 +66,7 @@ function RegistrationStatusModal({
           )}
           <button
             type="button"
+            disabled={!canManage}
             className="registration-status-modal__hour"
             onClick={() => onExtend(60)}
           >
@@ -88,7 +91,7 @@ function RegistrationStatusModal({
                 value={extensionMinutes}
                 onChange={(event) => setExtensionMinutes(event.target.value)}
               />
-              <Button type="submit" disabled={!validExtension}>
+              <Button type="submit" disabled={!validExtension || !canManage}>
                 목 데이터에 적용
               </Button>
             </form>
@@ -96,19 +99,22 @@ function RegistrationStatusModal({
           <div className="registration-status-modal__actions">
             <Button
               variant="secondary"
+              disabled={!canManage}
               className="registration-status-modal__outline"
               onClick={() => setShowExtensionInput((current) => !current)}
             >
               추가 시간 설정
             </Button>
-            <Button onClick={onVote}>현재 후보로 진행</Button>
+            <Button disabled={!canManage} onClick={onVote}>
+              현재 후보로 진행
+            </Button>
           </div>
         </>
       ) : (
         <>
           <RegistrationParticipantList participants={participants} />
           {summary.expired || summary.allCompleted ? (
-            <Button onClick={onVote}>
+            <Button disabled={!canManage} onClick={onVote}>
               {summary.expired ? '현재 후보로 투표 시작하기' : '투표 시작하기'}
             </Button>
           ) : (
@@ -120,7 +126,9 @@ function RegistrationStatusModal({
               >
                 조금 더 기다리기
               </Button>
-              <Button onClick={onNext}>다음 단계로 이동</Button>
+              <Button disabled={!canManage} onClick={onNext}>
+                다음 단계로 이동
+              </Button>
             </div>
           )}
         </>

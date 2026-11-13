@@ -35,7 +35,7 @@ export function createResultMock(scenario: string | null): ResultState {
     },
     { id: 'cafe', name: '카페', place: { ...tieCandidates[0] } },
     {
-      id: 'bar',
+      id: 'pub',
       name: '주점',
       place: {
         id: 'bar-d',

@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import PlaceVoteCard from './components/PlaceVoteCard';
 import { createVoteMock, FIXED_VOTE_NOW } from './mockData';
 import { formatVoteRemaining, getVoteProgress, updateVote } from './voteUtils';
 import './PlaceVote.scss';
+import { useMockRoom } from '../../features/mockRoom/context';
+import { currentVote, validCandidates } from '../../features/mockRoom/model';
 
 function PlaceVoteScreen({
   scenario,
@@ -15,13 +17,23 @@ function PlaceVoteScreen({
   fixedClock: boolean;
 }) {
   const navigate = useNavigate();
-  const [initial] = useState(() => {
+  const { room, send, isolated } = useMockRoom();
+  const [fixture] = useState(() => {
     const now = fixedClock ? FIXED_VOTE_NOW : Date.now();
     return { ...createVoteMock(now, scenario), now };
   });
+  const initial = isolated
+    ? fixture
+    : {
+        now: fixture.now,
+        roomName: room.name,
+        categories: room.categories,
+        deadline: room.voteDeadline,
+        state: currentVote(room),
+      };
   const [now, setNow] = useState(initial.now);
-  const [vote, setVote] = useState(initial.state);
-  const [showStatusNotice, setShowStatusNotice] = useState(false);
+  const [localVote, setVote] = useState(initial.state);
+  const vote = isolated ? localVote : currentVote(room);
   useEffect(() => {
     if (fixedClock) return;
     const refresh = () => setNow(Date.now());
@@ -32,8 +44,14 @@ function PlaceVoteScreen({
       globalThis.removeEventListener('focus', refresh);
     };
   }, [fixedClock]);
-  const progress = getVoteProgress(initial.categories, vote.responses);
-  const expired = now >= initial.deadline;
+  const measuredProgress = getVoteProgress(initial.categories, vote.responses);
+  const automaticOnly =
+    !isolated &&
+    validCandidates(room) &&
+    initial.categories.every(({ places }) => places.length <= 1);
+  const progress = automaticOnly ? { ...measuredProgress, complete: true } : measuredProgress;
+  const expired = now >= initial.deadline || (!isolated && room.phase !== 'voting');
+  const started = isolated || room.phase !== 'registration';
   const locked = vote.submitted || expired;
   const pageRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLElement>(null);
@@ -69,7 +87,11 @@ function PlaceVoteScreen({
           <div className="place-vote__title-row">
             <h2 id="place-vote-title">장소 투표</h2>
             <span className="place-vote__timer" role="timer">
-              {expired ? '투표 마감' : `마감까지 ${formatVoteRemaining(initial.deadline, now)}`}
+              {!started
+                ? '투표 시작 전'
+                : expired
+                  ? '투표 마감'
+                  : `마감까지 ${formatVoteRemaining(initial.deadline, now)}`}
             </span>
           </div>
           <div
@@ -90,11 +112,18 @@ function PlaceVoteScreen({
           <p className="place-vote__description">
             각 후보마다 하나씩 골라주세요. 내 선택은 나만 볼 수 있어요.
           </p>
+          {!isolated && room.phase === 'registration' && (
+            <p>
+              아직 목 투표가 시작되지 않았어요.{' '}
+              <Link to="/rooms/registration/status">등록 현황으로 이동</Link>
+            </p>
+          )}
+          {automaticOnly && <p>모든 후보가 자동 선정 대상이에요. 응답 없이 제출할 수 있어요.</p>}
           {vote.submitted && (
             <div className="place-vote__submitted" role="status">
               <h3>투표 제출 완료</h3>
               <p>제출한 투표는 수정할 수 없어요.</p>
-              <p>현재 화면에서만 반영된 목 상태이며, 서버에 저장되지 않았어요.</p>
+              <p>개발용 목 상태이며, 서버에 저장되지 않았어요.</p>
             </div>
           )}
         </section>
@@ -121,6 +150,13 @@ function PlaceVoteScreen({
                   onChoose={(choice) => {
                     const time = fixedClock ? initial.now : Date.now();
                     setNow(time);
+                    if (!isolated) {
+                      send({
+                        type: 'vote',
+                        action: { type: 'choose', placeId: place.id, choice, now: time },
+                      });
+                      return;
+                    }
                     setVote((previous) =>
                       updateVote(
                         previous,
@@ -141,19 +177,14 @@ function PlaceVoteScreen({
             <p>제출한 투표는 수정할 수 없어요.</p>
             <a
               className="place-vote__status-link"
-              href="#vote-status"
+              href="/rooms/vote/status"
               onClick={(event) => {
                 event.preventDefault();
-                setShowStatusNotice(true);
+                navigate('/rooms/vote/status');
               }}
             >
               투표 현황 보기
             </a>
-            {showStatusNotice && (
-              <p id="vote-status" role="status">
-                투표 현황 화면은 준비 중이에요. 현재 선택은 서버에 저장되지 않았어요.
-              </p>
-            )}
           </>
         ) : (
           <>
@@ -162,12 +193,18 @@ function PlaceVoteScreen({
                 아직 선택하지 않은 장소가 있어요. 모두 선택해야 제출할 수 있어요.
               </p>
             )}
-            {expired && <p role="status">투표가 마감되어 더 이상 선택하거나 제출할 수 없어요.</p>}
+            {expired && started && (
+              <p role="status">투표가 마감되어 더 이상 선택하거나 제출할 수 없어요.</p>
+            )}
             <Button
               disabled={!progress.complete || expired}
               onClick={() => {
                 const time = fixedClock ? initial.now : Date.now();
                 setNow(time);
+                if (!isolated) {
+                  send({ type: 'vote', action: { type: 'submit', now: time } });
+                  return;
+                }
                 setVote((previous) =>
                   updateVote(
                     previous,

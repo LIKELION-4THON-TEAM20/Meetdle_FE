@@ -36,7 +36,7 @@ export const voteCategories: VoteCategory[] = [
     ],
   },
   {
-    id: 'bar',
+    id: 'pub',
     name: '주점',
     places: [
       { id: 'bar-a', name: 'A 주점', distanceMeters: 210, address: '서울 성동구 왕십리로 30' },

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import Modal from '../../components/common/Modal/Modal';
@@ -14,25 +14,30 @@ import {
   MissingRequiredModal,
 } from './components/CandidateNotices';
 import './VoteStart.scss';
+import { useMockRoom } from '../../features/mockRoom/context';
+import { candidateCategories } from '../../features/mockRoom/model';
 
 function VoteStartScreen({ scenario }: { scenario: string | null }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { room, send, isolated } = useMockRoom();
   const [initial] = useState(() => {
     const now = Date.now();
     return {
       now,
-      meeting: now + 12 * HOUR,
-      categories:
-        (location.state?.categories as CandidateCategory[] | undefined) ??
-        createCandidateMock('vote', scenario),
+      meeting: isolated ? now + 12 * HOUR : room.meetingAt,
+      categories: isolated
+        ? ((location.state?.categories as CandidateCategory[] | undefined) ??
+          createCandidateMock('vote', scenario))
+        : candidateCategories(room),
     };
   });
   const [now, setNow] = useState(initial.now);
-  const [deadline, setDeadline] = useState(
-    () =>
-      Math.ceil((initial.now + (scenario === 'invalidDeadline' ? HOUR / 6 : 2 * HOUR)) / 60000) *
-      60000,
+  const [deadline, setDeadline] = useState(() =>
+    isolated
+      ? Math.ceil((initial.now + (scenario === 'invalidDeadline' ? HOUR / 6 : 2 * HOUR)) / 60000) *
+        60000
+      : room.voteDeadline,
   );
   const [modal, setModal] = useState<'deadline' | 'missing' | 'notice' | null>(null);
   useEffect(() => {
@@ -50,6 +55,12 @@ function VoteStartScreen({ scenario }: { scenario: string | null }) {
     <div className="page vote-start">
       <Header title="투표 시작" showBackButton onBack={() => navigate(-1)} />
       <main className="vote-start__content">
+        {!isolated && !room.registrationClosed && (
+          <p>
+            먼저 목 등록을 마감해주세요.{' '}
+            <Link to="/rooms/registration/close">등록 마감으로 이동</Link>
+          </p>
+        )}
         <section className="vote-start__hero">
           <span className="vote-start__emoji" aria-hidden="true">
             🗳️
@@ -76,7 +87,11 @@ function VoteStartScreen({ scenario }: { scenario: string | null }) {
               </div>
               <div>
                 <dt>등록 완료 인원</dt>
-                <dd>3 / 4명</dd>
+                <dd>
+                  {isolated
+                    ? '3 / 4명'
+                    : `${room.participants.filter(({ status }) => status === 'completed').length} / ${room.participants.length}명`}
+                </dd>
               </div>
             </dl>
             <ExcludedCategories categories={summary.excluded} />
@@ -87,8 +102,10 @@ function VoteStartScreen({ scenario }: { scenario: string | null }) {
           <button
             type="button"
             aria-haspopup="dialog"
+            disabled={room.role !== 'host' || (!isolated && room.phase !== 'registration')}
             aria-label={`투표 마감 시간 설정: ${formatDeadline(deadline, now)}`}
             onClick={() => {
+              if (room.role !== 'host') return;
               setNow(Date.now());
               setModal('deadline');
             }}
@@ -112,15 +129,23 @@ function VoteStartScreen({ scenario }: { scenario: string | null }) {
       </main>
       <footer className="vote-start__footer">
         <Button
-          disabled={summary.total === 0 || !valid}
+          disabled={
+            summary.total === 0 ||
+            !valid ||
+            room.role !== 'host' ||
+            (!isolated && (!room.registrationClosed || room.phase !== 'registration'))
+          }
           onClick={() => {
+            if (room.role !== 'host') return;
             const current = Date.now();
             setNow(current);
             if (
               !isValidVoteDeadline(new Date(deadline), new Date(current), new Date(initial.meeting))
             )
               return;
-            setModal(summary.missingRequired.length ? 'missing' : 'notice');
+            if (summary.missingRequired.length) setModal('missing');
+            else if (isolated) setModal('notice');
+            else if (send({ type: 'start', deadline, now: current })) navigate('/rooms/vote');
           }}
         >
           투표 시작하기
@@ -133,6 +158,7 @@ function VoteStartScreen({ scenario }: { scenario: string | null }) {
           meeting={initial.meeting}
           onClose={() => setModal(null)}
           onConfirm={(value) => {
+            if (!isolated && !send({ type: 'deadline', deadline: value, now: Date.now() })) return;
             setDeadline(value);
             setModal(null);
           }}
