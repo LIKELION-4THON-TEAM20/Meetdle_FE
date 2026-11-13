@@ -2,6 +2,38 @@
 
 .place-vote {
   color: #1e1e1e;
+  &--with-fixed-cta {
+    // Reserve the measured CTA height, including wrapped notices and the safe area.
+    padding-bottom: var(--place-vote-footer-height, calc(220px + env(safe-area-inset-bottom, 0px)));
+
+    .place-vote__footer {
+      position: fixed;
+      z-index: 10;
+      bottom: 0;
+      left: 50%;
+      box-sizing: border-box;
+      width: 100%;
+      max-width: 440px;
+      padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+      background: #fff;
+      transform: translateX(-50%);
+
+      &::before {
+        position: absolute;
+        right: 0;
+        bottom: 100%;
+        left: 0;
+        height: 16px;
+        background: linear-gradient(to bottom, transparent, #fff);
+        content: '';
+        pointer-events: none;
+      }
+
+      p {
+        overflow-wrap: anywhere;
+      }
+    }
+  }
   &__content {
     display: flex;
     flex-direction: column;

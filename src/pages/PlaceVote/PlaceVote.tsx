@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
@@ -35,9 +35,34 @@ function PlaceVoteScreen({
   const progress = getVoteProgress(initial.categories, vote.responses);
   const expired = now >= initial.deadline;
   const locked = vote.submitted || expired;
+  const pageRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    const page = pageRef.current;
+    const footer = footerRef.current;
+    if (!page || !footer || vote.submitted) return;
+
+    const reserveFooterSpace = () => {
+      page.style.setProperty(
+        '--place-vote-footer-height',
+        `${footer.getBoundingClientRect().height}px`,
+      );
+    };
+    reserveFooterSpace();
+    const observer = new ResizeObserver(reserveFooterSpace);
+    observer.observe(footer);
+    return () => {
+      observer.disconnect();
+      page.style.removeProperty('--place-vote-footer-height');
+    };
+  }, [vote.submitted]);
 
   return (
-    <div className="page place-vote">
+    <div
+      ref={pageRef}
+      className={`page place-vote${vote.submitted ? '' : ' place-vote--with-fixed-cta'}`}
+    >
       <Header title={initial.roomName} showBackButton onBack={() => navigate(-1)} />
       <main className="place-vote__content">
         <section className="place-vote__intro" aria-labelledby="place-vote-title">
@@ -110,7 +135,7 @@ function PlaceVoteScreen({
             </section>
           ))}
       </main>
-      <footer className="place-vote__footer">
+      <footer ref={footerRef} className="place-vote__footer">
         {vote.submitted ? (
           <>
             <p>제출한 투표는 수정할 수 없어요.</p>
