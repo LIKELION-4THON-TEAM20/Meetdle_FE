@@ -26,3 +26,11 @@ body {
   margin: 0 auto;
   background-color: variables.$color-white;
 }
+
+// 조작 요소의 텍스트 선택과 모바일 기본 탭 하이라이트를 방지한다.
+button,
+[role='slider'] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
