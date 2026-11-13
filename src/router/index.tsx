@@ -11,8 +11,10 @@ import RegistrationClose from '../pages/RegistrationClose/RegistrationClose';
 import VoteStart from '../pages/VoteStart/VoteStart';
 import PlaceVote from '../pages/PlaceVote/PlaceVote';
 import VoteStatus from '../pages/VoteStatus/VoteStatus';
+import VoteResult from '../pages/VoteResult/VoteResult';
 
 export const router = createBrowserRouter([
+  { path: '/rooms/vote/result', element: <VoteResult /> },
   { path: '/rooms/vote/status', element: <VoteStatus /> },
   { path: '/rooms/vote', element: <PlaceVote /> },
   { path: '/rooms/registration/close', element: <RegistrationClose /> },
