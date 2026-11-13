@@ -9,8 +9,10 @@ import PlaceRegistrationSetup from '../pages/PlaceRegistrationSetup/PlaceRegistr
 import PlaceRegistrationStatus from '../pages/PlaceRegistrationStatus/PlaceRegistrationStatus';
 import RegistrationClose from '../pages/RegistrationClose/RegistrationClose';
 import VoteStart from '../pages/VoteStart/VoteStart';
+import PlaceVote from '../pages/PlaceVote/PlaceVote';
 
 export const router = createBrowserRouter([
+  { path: '/rooms/vote', element: <PlaceVote /> },
   { path: '/rooms/registration/close', element: <RegistrationClose /> },
   { path: '/rooms/vote/start', element: <VoteStart /> },
   // 홈 화면 구현 전까지 약속방 생성 화면을 진입점으로 사용한다.
