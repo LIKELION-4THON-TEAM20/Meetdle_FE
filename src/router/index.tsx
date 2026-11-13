@@ -1,5 +1,7 @@
 import { createBrowserRouter, Link, Navigate } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
+import RoomCreated from '../pages/RoomCreated/RoomCreated';
+import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
 
 export const router = createBrowserRouter([
   // 홈 화면 구현 전까지 약속방 생성 화면을 진입점으로 사용한다.
@@ -10,6 +12,14 @@ export const router = createBrowserRouter([
   {
     path: '/rooms/create',
     element: <CreateRoom />,
+  },
+  {
+    path: '/rooms/create/complete',
+    element: <RoomCreated />,
+  },
+  {
+    path: '/rooms/invite',
+    element: <RoomInvitation />,
   },
   {
     path: '*',

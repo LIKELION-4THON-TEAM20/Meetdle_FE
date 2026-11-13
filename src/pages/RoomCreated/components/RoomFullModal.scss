@@ -1,0 +1,27 @@
+.room-full-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 328px;
+  padding: 24px;
+  color: #03000f;
+
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 26px;
+  }
+
+  p {
+    margin: 0;
+    color: #969696;
+    font-size: 14px;
+    line-height: 22px;
+    word-break: keep-all;
+  }
+
+  &__confirm {
+    font-weight: 500;
+  }
+}
