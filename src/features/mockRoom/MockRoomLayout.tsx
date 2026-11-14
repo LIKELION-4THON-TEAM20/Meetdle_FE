@@ -1,14 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { MockRoomContext } from './context';
-import {
-  createMockRoom,
-  reduceRoom,
-  restoreRoom,
-  STORAGE_KEY,
-  type Action,
-  type MockRoom,
-} from './model';
+import { createRoomDispatcher } from './dispatcher';
+import { createMockRoom, restoreRoom, STORAGE_KEY, type MockRoom } from './model';
 
 function Provider({
   children,
@@ -35,6 +29,18 @@ function Provider({
       ? { ...initial, role, currentUserId: role === 'host' ? 'sangmin' : 'haneul' }
       : initial;
   });
+  const [send] = useState(() =>
+    createRoomDispatcher(room, (next) => {
+      setRoom(next);
+      if (!isolated) {
+        try {
+          window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          /* In-memory fallback. */
+        }
+      }
+    }),
+  );
   useEffect(() => {
     if (!isolated) {
       try {
@@ -46,28 +52,14 @@ function Provider({
   }, [isolated, room]);
   useEffect(() => {
     if (isolated) return;
-    const refresh = () =>
-      setRoom((previous) => reduceRoom(previous, { type: 'tick', now: Date.now() }));
+    const refresh = () => send({ type: 'tick', now: Date.now() });
     const timer = globalThis.setInterval(refresh, 1000);
     globalThis.addEventListener('focus', refresh);
     return () => {
       globalThis.clearInterval(timer);
       globalThis.removeEventListener('focus', refresh);
     };
-  }, [isolated]);
-  const send = (action: Action) => {
-    const next = reduceRoom(room, action);
-    if (next === room) return false;
-    setRoom(next);
-    if (!isolated) {
-      try {
-        window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        /* In-memory fallback. */
-      }
-    }
-    return true;
-  };
+  }, [isolated, send]);
   return (
     <MockRoomContext.Provider value={{ room, send, isolated }}>{children}</MockRoomContext.Provider>
   );

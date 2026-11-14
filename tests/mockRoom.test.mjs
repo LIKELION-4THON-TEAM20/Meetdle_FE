@@ -10,6 +10,7 @@ async function loadModule(input) {
   return import(`data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`);
 }
 const model = await loadModule('src/features/mockRoom/model.ts');
+const { createRoomDispatcher } = await loadModule('src/features/mockRoom/dispatcher.ts');
 const { getVotePercentages } = await loadModule('src/pages/VoteResult/resultUtils.ts');
 const {
   createMockRoom,
@@ -249,4 +250,111 @@ test('displayed vote ratios total 100%, or zero when there are no votes', () => 
     );
     assert.equal(percentages.total, votes.like + votes.neutral + votes.dislike);
   }
+});
+
+test('malformed rendered result fields and candidate fields reset persisted rooms safely', () => {
+  let room = answer(start());
+  room = reduceRoom(room, { type: 'vote', action: { type: 'submit', now } });
+  room = reduceRoom(room, { type: 'closeVote', now });
+  room = reduceRoom(room, { type: 'count', now });
+  assert.equal(isMockRoom(room), true);
+  const corruptions = [
+    (value) => {
+      value.result.categories[0].name = { invalid: true };
+    },
+    (value) => {
+      value.result.categories[0].id = {};
+    },
+    (value) => {
+      value.result.categories[0].place = null;
+    },
+    ...['name', 'address', 'id', 'distanceMeters', 'kakaoMapUrl', 'tieVotes', 'votes'].map(
+      (field) => (value) => {
+        value.result.categories[0].place[field] = { invalid: true };
+      },
+    ),
+    (value) => {
+      value.result.categories[0].place.votes.like = -1;
+    },
+    (value) => {
+      value.categories[0].name = {};
+    },
+    (value) => {
+      value.categories[0].places[0].name = {};
+    },
+    (value) => {
+      value.categories[0].places[0].address = {};
+    },
+    (value) => {
+      value.categories[0].places[0].kakaoMapUrl = {};
+    },
+    (value) => {
+      value.participants[0].name = {};
+    },
+  ];
+  for (const corrupt of corruptions) {
+    const malformed = structuredClone(room);
+    corrupt(malformed);
+    assert.equal(isMockRoom(malformed), false);
+    assert.deepEqual(
+      restoreRoom({ getItem: () => JSON.stringify(malformed) }, now),
+      createMockRoom(now),
+    );
+  }
+});
+
+test('tie rendering fields are validated and valid ties survive restoration', () => {
+  let room = answer(start());
+  const responses = currentVote(room).responses;
+  room = {
+    ...room,
+    participants: room.participants.map((participant) => ({
+      ...participant,
+      vote: { submitted: true, responses: { ...responses } },
+    })),
+  };
+  room = reduceRoom(room, { type: 'count', now });
+  assert.ok(room.ties.length > 0);
+  assert.equal(isMockRoom(room), true);
+  assert.deepEqual(restoreRoom({ getItem: () => JSON.stringify(room) }, now), room);
+  for (const field of ['name', 'address', 'distanceMeters', 'kakaoMapUrl', 'tieVotes']) {
+    const malformed = structuredClone(room);
+    malformed.ties[0].places[0][field] = {};
+    assert.equal(isMockRoom(malformed), false);
+    assert.deepEqual(
+      restoreRoom({ getItem: () => JSON.stringify(malformed) }, now),
+      createMockRoom(now),
+    );
+  }
+  const malformed = structuredClone(room);
+  malformed.ties[0].name = {};
+  assert.equal(isMockRoom(malformed), false);
+});
+
+test('consecutive commands and timer ticks use latest state and persist every accepted change', () => {
+  const updates = [];
+  let persisted = null;
+  const send = createRoomDispatcher(createMockRoom(now), (room) => {
+    updates.push(room);
+    persisted = JSON.stringify(room);
+  });
+  assert.equal(send({ type: 'closeRegistration' }), true);
+  assert.equal(send({ type: 'start', deadline: now + 3600000, now }), true);
+  for (const placeId of ['restaurant-a', 'restaurant-b']) {
+    assert.equal(
+      send({ type: 'vote', action: { type: 'choose', placeId, choice: 'like', now } }),
+      true,
+    );
+  }
+  assert.deepEqual(currentVote(updates.at(-1)).responses, {
+    'restaurant-a': 'like',
+    'restaurant-b': 'like',
+  });
+  assert.deepEqual(restoreRoom({ getItem: () => persisted }, now), updates.at(-1));
+  assert.equal(send({ type: 'tick', now: now + 3600000 }), true);
+  assert.equal(updates.at(-1).phase, 'insufficient');
+  const count = updates.length;
+  assert.equal(send({ type: 'vote', action: { type: 'submit', now } }), false);
+  assert.equal(updates.length, count);
+  assert.deepEqual(restoreRoom({ getItem: () => persisted }, now), updates.at(-1));
 });

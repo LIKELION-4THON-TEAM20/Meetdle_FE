@@ -11,7 +11,7 @@ function ParticipationStatus() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
-  
+
   const participants = getMockParticipants(
     import.meta.env.DEV ? searchParams.get('scenario') : null,
   );

@@ -50,14 +50,14 @@ assert.deepEqual(
 
 // Pointer and keyboard operations share the same move/save path.
 const moved = moveVisitOrder(initial.order, 'restaurant', 2);
-assert.deepEqual(moved, ['cafe', 'bar', 'restaurant']);
-assert.deepEqual(initial.order, ['restaurant', 'cafe', 'bar']);
+assert.deepEqual(moved, ['cafe', 'pub', 'restaurant']);
+assert.deepEqual(initial.order, ['restaurant', 'cafe', 'pub']);
 const saved = saveVisitOrder(initial, moved, 'host');
 assert.deepEqual(saved.order, moved);
 moved.reverse();
-assert.deepEqual(saved.order, ['cafe', 'bar', 'restaurant']);
-assert.equal(saveVisitOrder(initial, ['cafe', 'bar', 'restaurant'], 'participant'), initial);
-for (const order of [['cafe', 'cafe', 'bar'], ['cafe'], ['unknown', 'bar', 'restaurant']])
+assert.deepEqual(saved.order, ['cafe', 'pub', 'restaurant']);
+assert.equal(saveVisitOrder(initial, ['cafe', 'pub', 'restaurant'], 'participant'), initial);
+for (const order of [['cafe', 'cafe', 'pub'], ['cafe'], ['unknown', 'pub', 'restaurant']])
   assert.equal(saveVisitOrder(initial, order, 'host'), initial);
 assert.equal(moveVisitOrder(initial.order, 'unknown', 0), initial.order);
 assert.equal(moveVisitOrder(initial.order, 'cafe', -1), initial.order);

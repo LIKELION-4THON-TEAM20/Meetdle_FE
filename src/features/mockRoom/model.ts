@@ -1,4 +1,9 @@
-import type { VoteCategory, VoteResponses, VoteState } from '../../pages/PlaceVote/types';
+import type {
+  VoteCategory,
+  VotePlace,
+  VoteResponses,
+  VoteState,
+} from '../../pages/PlaceVote/types';
 import { voteCategories } from '../../pages/PlaceVote/mockData';
 import { getVoteProgress, updateVote, type VoteAction } from '../../pages/PlaceVote/voteUtils';
 import type { ResultPlace, ResultRole, ResultState } from '../../pages/VoteResult/types';
@@ -305,6 +310,30 @@ export function reduceRoom(room: MockRoom, action: Action): MockRoom {
   }
 }
 
+function isVotePlace(place: VotePlace): boolean {
+  return (
+    place !== null &&
+    typeof place === 'object' &&
+    typeof place.id === 'string' &&
+    typeof place.name === 'string' &&
+    typeof place.address === 'string' &&
+    Number.isFinite(place.distanceMeters) &&
+    (place.kakaoMapUrl === undefined || typeof place.kakaoMapUrl === 'string')
+  );
+}
+
+function isResultPlace(place: ResultPlace): boolean {
+  return (
+    isVotePlace(place) &&
+    (place.tieVotes === undefined || (Number.isInteger(place.tieVotes) && place.tieVotes >= 0)) &&
+    place.votes !== null &&
+    typeof place.votes === 'object' &&
+    (['like', 'neutral', 'dislike'] as const).every(
+      (key) => Number.isInteger(place.votes[key]) && place.votes[key] >= 0,
+    )
+  );
+}
+
 // Validate the complete persisted shape and vote references before trusting session data.
 export function isMockRoom(value: unknown): value is MockRoom {
   if (!value || typeof value !== 'object') return false;
@@ -340,14 +369,7 @@ export function isMockRoom(value: unknown): value is MockRoom {
         return false;
       ids.add(category.id);
       for (const place of category.places) {
-        if (
-          typeof place.id !== 'string' ||
-          ids.has(place.id) ||
-          typeof place.name !== 'string' ||
-          typeof place.address !== 'string' ||
-          !Number.isFinite(place.distanceMeters)
-        )
-          return false;
+        if (!isVotePlace(place) || ids.has(place.id)) return false;
         ids.add(place.id);
       }
     }
@@ -388,14 +410,12 @@ export function isMockRoom(value: unknown): value is MockRoom {
         if (resultIds.has(category.id)) return false;
         resultIds.add(category.id);
         if (
+          typeof category.id !== 'string' ||
+          typeof category.name !== 'string' ||
+          !isResultPlace(category.place) ||
           !room.categories.some(
             ({ id, places }) =>
               id === category.id && places.some(({ id }) => id === category.place.id),
-          ) ||
-          !['like', 'neutral', 'dislike'].every(
-            (key) =>
-              Number.isInteger(category.place.votes[key as keyof typeof category.place.votes]) &&
-              category.place.votes[key as keyof typeof category.place.votes] >= 0,
           )
         )
           return false;
@@ -437,10 +457,12 @@ export function isMockRoom(value: unknown): value is MockRoom {
       new Set(room.ties.map(({ id }) => id)).size === room.ties.length &&
       room.ties.every(
         (tie) =>
+          typeof tie.id === 'string' &&
+          typeof tie.name === 'string' &&
           room.categories.some(({ id }) => id === tie.id) &&
           Array.isArray(tie.places) &&
           tie.places.length > 1 &&
-          tie.places.every((place) => ids.has(place.id)),
+          tie.places.every((place) => isResultPlace(place) && ids.has(place.id)),
       )
     );
   } catch {
