@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import type { CreateRoomState } from './createRoomState';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import DateCalendar from './DateCalendar';
@@ -7,6 +9,7 @@ import CapacityPicker, { MIN_CAPACITY, MAX_CAPACITY } from './CapacityPicker';
 import './CreateRoom.scss';
 
 function CreateRoom() {
+  const navigate = useNavigate();
   const [roomName, setRoomName] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [capacity, setCapacity] = useState(4);
@@ -19,7 +22,15 @@ function CreateRoom() {
   return (
     <div className="page create-room">
       <Header title="새 약속 잡기" />
-      <form className="create-room__form" onSubmit={(event) => event.preventDefault()}>
+      <form
+        className="create-room__form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!canCreate || !dateRange) return;
+          const state: CreateRoomState = { name: roomName.trim(), dateRange, capacity };
+          navigate('/rooms/create/complete', { state });
+        }}
+      >
         <main className="create-room__content">
           <div className="create-room__intro">
             <h2>새 약속방 만들기</h2>

@@ -1,0 +1,44 @@
+.incomplete-participants-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 328px;
+  padding: 24px;
+  color: #03000f;
+  word-break: keep-all;
+
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 26px;
+  }
+
+  p {
+    margin: 0;
+    color: #969696;
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  &__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+
+    .common-button {
+      min-width: 0;
+      min-height: 43px;
+      padding: 8px 6px;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 24px;
+    }
+  }
+
+  .incomplete-participants-modal__wait {
+    border: 1.5px solid #d5d4d9;
+    background: #fff;
+    color: #7c5cff;
+  }
+}
