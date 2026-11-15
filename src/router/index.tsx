@@ -16,6 +16,7 @@ import PlaceVote from '../pages/PlaceVote/PlaceVote';
 import VoteStatus from '../pages/VoteStatus/VoteStatus';
 import VoteResult from '../pages/VoteResult/VoteResult';
 import MockRoomLayout from '../features/mockRoom/MockRoomLayout';
+import ScheduleTransit from '../pages/ScheduleTransit/ScheduleTransit';
 
 const kakaoLoginUrl = getKakaoLoginUrl(import.meta.env.VITE_KAKAO_LOGIN_URL);
 
@@ -56,6 +57,10 @@ export const router = createBrowserRouter([
     element: <RoomInvitation />,
   },
   {
+    path: '/rooms/schedule',
+    element: <ScheduleTransit />,
+  },
+  {
     path: '/rooms/participation-status',
     element: <ParticipationStatus />,
   },
@@ -75,7 +80,7 @@ export const router = createBrowserRouter([
     path: '*',
     element: (
       <main className="page">
-        <h1>페이지지를 찾을 수 없어요.</h1>
+        <h1>페이지를 찾을 수 없어요.</h1>
         <Link to="/rooms/create">약속방 만들기로 이동</Link>
       </main>
     ),
