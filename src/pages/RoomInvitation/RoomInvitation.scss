@@ -1,0 +1,63 @@
+@use '../../styles/setting/variables' as variables;
+
+.room-invitation {
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 20px 28px 24px 27px;
+  }
+
+  &__hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding-top: 12px;
+    color: #1e1e1e;
+    text-align: center;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+
+    h2 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: variables.$font-weight-bold;
+      line-height: 30px;
+    }
+
+    p {
+      margin: 0;
+      color: #666;
+      font-size: 14px;
+      line-height: 21px;
+    }
+  }
+
+  &__letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 28px;
+    background: #f7f7f5;
+    font-size: 28px;
+    line-height: normal;
+  }
+
+  &__login-notice {
+    margin: 0;
+    color: #969696;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 18px;
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  &__footer {
+    margin-top: auto;
+    padding: 12px 28px max(8px, env(safe-area-inset-bottom)) 27px;
+  }
+}

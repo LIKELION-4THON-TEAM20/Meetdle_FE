@@ -1,0 +1,57 @@
+@use '../../styles/setting/variables' as variables;
+
+.room-created {
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    padding: 20px 27px 24px;
+  }
+
+  &__intro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+
+    h2 {
+      margin: 0;
+      color: #03000f;
+      font-size: 20px;
+      font-weight: variables.$font-weight-bold;
+      line-height: 28px;
+    }
+
+    p {
+      margin: 0;
+      color: #969696;
+      font-size: 14px;
+      line-height: 22px;
+      word-break: keep-all;
+    }
+  }
+
+  &__footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 27px max(28px, env(safe-area-inset-bottom));
+    background: variables.$color-white;
+
+    &::before {
+      display: block;
+      height: 1px;
+      background: #d5d4d9;
+      content: '';
+    }
+  }
+
+  &__action {
+    font-weight: 500;
+
+    &--link {
+      background: #c4c4c4;
+    }
+  }
+}

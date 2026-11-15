@@ -1,0 +1,78 @@
+@use '../../../styles/setting/variables' as variables;
+
+.meeting-confirmation-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 20px;
+  border-radius: 16px;
+  background: #f7f5ff;
+  color: #7c5cff;
+  overflow-wrap: anywhere;
+
+  &__date {
+    margin: 0;
+    font-size: 20px;
+    font-weight: variables.$font-weight-bold;
+    line-height: 28px;
+  }
+
+  &__area {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    img {
+      display: block;
+      flex-shrink: 0;
+    }
+    p {
+      min-width: 0;
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 26px;
+    }
+  }
+
+  &__summary {
+    padding-top: 10px;
+    border-top: 1px solid #f1e8ff;
+
+    h4 {
+      margin: 0 0 10px;
+      color: #969696;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 19px;
+    }
+    dl {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 0;
+    }
+  }
+
+  &__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 14px;
+    line-height: 21px;
+
+    dt {
+      min-width: 0;
+      color: #666;
+    }
+    dd {
+      flex-shrink: 0;
+      margin: 0;
+      font-weight: 600;
+      text-align: right;
+    }
+  }
+}

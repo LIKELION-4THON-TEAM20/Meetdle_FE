@@ -1,0 +1,117 @@
+@use '../../../styles/setting/variables' as variables;
+
+.meeting-info-card {
+  width: 100%;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #ededed;
+  border-radius: 16px;
+  background: variables.$color-white;
+
+  &__details {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 0;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    dt {
+      flex-shrink: 0;
+      color: #969696;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 16px;
+    }
+
+    dd {
+      min-width: 0;
+      margin: 0;
+      color: #03000f;
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 24px;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    &--name {
+      padding-bottom: 14px;
+      border-bottom: 1px solid #d5d4d9;
+    }
+  }
+
+  &__participants {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #d5d4d9;
+
+    img {
+      display: block;
+      flex-shrink: 0;
+    }
+
+    p {
+      margin: 0;
+      color: #969696;
+      font-size: 14px;
+      line-height: 22px;
+    }
+  }
+
+  &--participant {
+    padding: 16px;
+    border: 0;
+    background: #f6f6f6;
+
+    .meeting-info-card__title {
+      margin: 0 0 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eae7e4;
+      font-size: 18px;
+      font-weight: 600;
+      line-height: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .meeting-info-card__details {
+      gap: 8px;
+    }
+
+    .meeting-info-card__row {
+      dt {
+        color: #666;
+        font-size: 14px;
+        font-weight: 400;
+        line-height: 21px;
+      }
+      dd {
+        color: #1e1e1e;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 21px;
+      }
+    }
+
+    .meeting-info-card__participation {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+
+      img {
+        display: block;
+        flex-shrink: 0;
+      }
+    }
+  }
+}

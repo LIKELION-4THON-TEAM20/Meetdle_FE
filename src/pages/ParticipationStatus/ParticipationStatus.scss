@@ -1,0 +1,86 @@
+@use '../../styles/setting/variables' as variables;
+
+.participation-status {
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    padding: 20px 27px 24px;
+  }
+
+  &__summary {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+
+    h2 {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0;
+      color: #03000f;
+      font-size: 20px;
+      font-weight: variables.$font-weight-bold;
+      line-height: 28px;
+
+      span {
+        color: #7c5cff;
+        font-size: 24px;
+        font-weight: 800;
+        line-height: 32px;
+      }
+    }
+
+    p {
+      margin: 0;
+      color: #969696;
+      font-size: 14px;
+      line-height: 22px;
+      overflow-wrap: anywhere;
+    }
+
+    .participation-status__minimum {
+      font-size: 12px;
+      line-height: 18px;
+    }
+  }
+
+  &__progress {
+    width: 100%;
+    height: 8px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #eeeef0;
+
+    span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: #7c5cff;
+    }
+  }
+
+  &__footer {
+    padding: 14px 27px max(28px, env(safe-area-inset-bottom));
+    background: variables.$color-white;
+
+    &::before {
+      display: block;
+      height: 1px;
+      margin-bottom: 10px;
+      background: #d5d4d9;
+      content: '';
+    }
+  }
+
+  &__proceed {
+    font-weight: 500;
+
+    &:disabled {
+      background: #d9d9d8;
+    }
+  }
+}
