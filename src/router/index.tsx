@@ -1,8 +1,5 @@
 import { createBrowserRouter, Link } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
-import Login from '../pages/Login/Login';
-import Home from '../pages/Home/Home';
-import { getKakaoLoginUrl } from '../api/auth';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
 import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
 import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatus';
@@ -16,73 +13,70 @@ import PlaceVote from '../pages/PlaceVote/PlaceVote';
 import VoteStatus from '../pages/VoteStatus/VoteStatus';
 import VoteResult from '../pages/VoteResult/VoteResult';
 import MockRoomLayout from '../features/mockRoom/MockRoomLayout';
-import ScheduleTransit from '../pages/ScheduleTransit/ScheduleTransit';
 
-const kakaoLoginUrl = getKakaoLoginUrl(import.meta.env.VITE_KAKAO_LOGIN_URL);
+import FlowLayout, { CreatedRoomLayout, LegacyJoinRedirect } from './FlowLayout';
+import LoginRoute from './LoginRoute';
+import HomeRoute from './HomeRoute';
+import { PATHS } from './paths';
 
 export const router = createBrowserRouter([
   {
-    element: <MockRoomLayout />,
+    element: <FlowLayout />,
     children: [
-      { path: '/rooms/vote/result', element: <VoteResult /> },
-      { path: '/rooms/vote/status', element: <VoteStatus /> },
-      { path: '/rooms/vote', element: <PlaceVote /> },
-      { path: '/rooms/registration/close', element: <RegistrationClose /> },
-      { path: '/rooms/vote/start', element: <VoteStart /> },
-      { path: '/rooms/registration/status', element: <PlaceRegistrationStatus /> },
+      {
+        element: <MockRoomLayout />,
+        children: [
+          { path: PATHS.confirmed, element: <MeetingConfirmed /> },
+          { path: PATHS.info, element: <MeetingInfo /> },
+          { path: PATHS.setup, element: <PlaceRegistrationSetup /> },
+          { path: PATHS.result, element: <VoteResult /> },
+          { path: PATHS.voteStatus, element: <VoteStatus /> },
+          { path: PATHS.vote, element: <PlaceVote /> },
+          { path: PATHS.closeRegistration, element: <RegistrationClose /> },
+          { path: PATHS.startVote, element: <VoteStart /> },
+          { path: PATHS.registration, element: <PlaceRegistrationStatus /> },
+        ],
+      },
+      {
+        path: PATHS.home,
+        element: <HomeRoute />,
+      },
+      {
+        path: PATHS.login,
+        element: <LoginRoute />,
+      },
+      { path: PATHS.legacyJoin, element: <LegacyJoinRedirect /> },
+      {
+        element: <CreatedRoomLayout />,
+        children: [
+          {
+            path: PATHS.create,
+            element: <CreateRoom />,
+          },
+          {
+            path: PATHS.created,
+            element: <RoomCreated />,
+          },
+          {
+            path: PATHS.invitation,
+            element: <RoomInvitation />,
+          },
+          {
+            path: PATHS.participation,
+            element: <ParticipationStatus />,
+          },
+        ],
+      },
+      {
+        path: '*',
+        element: (
+          <main className="page">
+            <h1>페이지를 찾을 수 없어요.</h1>
+            <Link to={PATHS.home}>내 약속 홈으로 이동</Link>
+            <Link to="/rooms/create">약속방 만들기로 이동</Link>
+          </main>
+        ),
+      },
     ],
-  },
-  {
-    path: '/',
-    element: <Home />,
-  },
-  {
-    path: '/login',
-    element: (
-      <Login
-        onKakaoLogin={kakaoLoginUrl ? () => window.location.assign(kakaoLoginUrl) : undefined}
-      />
-    ),
-  },
-  {
-    path: '/rooms/create',
-    element: <CreateRoom />,
-  },
-  {
-    path: '/rooms/create/complete',
-    element: <RoomCreated />,
-  },
-  {
-    path: '/rooms/invite',
-    element: <RoomInvitation />,
-  },
-  {
-    path: '/rooms/schedule',
-    element: <ScheduleTransit />,
-  },
-  {
-    path: '/rooms/participation-status',
-    element: <ParticipationStatus />,
-  },
-  {
-    path: '/rooms/confirmed',
-    element: <MeetingConfirmed />,
-  },
-  {
-    path: '/rooms/info',
-    element: <MeetingInfo />,
-  },
-  {
-    path: '/rooms/registration/setup',
-    element: <PlaceRegistrationSetup />,
-  },
-  {
-    path: '*',
-    element: (
-      <main className="page">
-        <h1>페이지를 찾을 수 없어요.</h1>
-        <Link to="/rooms/create">약속방 만들기로 이동</Link>
-      </main>
-    ),
   },
 ]);

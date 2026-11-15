@@ -46,7 +46,7 @@ export function MissingRequiredModal({
         onClick={() => {
           onClose();
           window.alert(
-            '장소 등록 화면의 경로와 보완 등록 흐름은 아직 확정되지 않았어요. 실제 이동이나 등록 마감은 수행하지 않습니다.',
+            '장소 탐색 화면(SCREEN 09)이 현재 브랜치에 없어요. #11 관련 PR 반영과 보완 등록 연결이 필요하며 실제 이동이나 등록 마감은 수행하지 않습니다.',
           );
         }}
       >
