@@ -6,6 +6,7 @@ import ParticipantList from './components/ParticipantList';
 import IncompleteParticipantsModal from './components/IncompleteParticipantsModal';
 import { getMockParticipants } from './mockData';
 import './ParticipationStatus.scss';
+import { PATHS } from '../../router/paths';
 
 function ParticipationStatus() {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ function ParticipationStatus() {
     if (!canProceed) return;
     setShowIncompleteModal(false);
     window.alert(
-      '개발용 안내: 후보 계산 API와 다음 단계는 아직 연동되지 않았어요. 실제 후보 계산은 수행하지 않습니다.',
+      '후보 선택 화면(SCREEN 05)이 현재 브랜치에 없어요. #13 관련 PR 반영과 후보 계산 API 연결이 필요하며, 실제 후보 계산은 수행하지 않습니다.',
     );
   };
 
@@ -37,7 +38,7 @@ function ParticipationStatus() {
 
   return (
     <div className="page participation-status">
-      <Header title="참여 현황" showBackButton onBack={() => navigate('/rooms/create/complete')} />
+      <Header title="참여 현황" showBackButton onBack={() => navigate(PATHS.home)} />
       <main className="participation-status__content">
         <section
           className="participation-status__summary"

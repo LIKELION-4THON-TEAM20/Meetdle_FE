@@ -5,7 +5,10 @@ import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router';
 import { createServer } from 'vite';
 
-const server = await createServer({ server: { middlewareMode: true, hmr: false, watch: null } });
+const server = await createServer({
+  optimizeDeps: { noDiscovery: true, include: [] },
+  server: { middlewareMode: true, hmr: false, ws: false, watch: null },
+});
 after(() => server.close());
 const { MockRoomContext } = await server.ssrLoadModule('/src/features/mockRoom/context.ts');
 const { createMockRoom, reduceRoom } = await server.ssrLoadModule(
