@@ -70,6 +70,7 @@ npm run lint
 
 ## 페이지 경로
 
+- `/rooms/schedule`: 가능 시간 + 이동 정보 입력 (목데이터, [SCREEN03.md](SCREEN03.md))
 - `/rooms/create`: 약속방 생성 UI (API 미연결)
 - `/`: 내 약속 홈 UI (목데이터, 로그인 없이 독립 확인)
 - `/login`: 카카오 로그인 UI (로그인 시작 URL 설정 시 백엔드 OAuth로 이동)
