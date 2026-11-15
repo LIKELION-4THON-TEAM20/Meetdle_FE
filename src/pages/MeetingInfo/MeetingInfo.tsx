@@ -61,9 +61,7 @@ function MeetingInfo() {
     window.alert('공유 API는 아직 연동되지 않았어요. 실제 공유는 수행되지 않습니다.');
   };
   const handleRegisterPlace = () => {
-    window.alert(
-      '장소 탐색 화면(SCREEN 09)이 현재 브랜치에 없어요. #11 관련 PR 반영과 등록 API 연결이 필요합니다.',
-    );
+    navigate('/rooms/places');
   };
 
   return (
