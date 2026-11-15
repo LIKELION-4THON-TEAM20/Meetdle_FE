@@ -1,0 +1,33 @@
+.vote-deadline-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 27px;
+  h2 {
+    margin: 0;
+    color: #03000f;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 26px;
+  }
+  input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 56px;
+    padding: 16px;
+    border: 1px solid #d5d4d9;
+    border-radius: 12px;
+    background: #fafafa;
+    color: #03000f;
+    font: inherit;
+    font-size: 14px;
+    line-height: 22px;
+  }
+  p {
+    margin: 0;
+    color: #969696;
+    font-size: 12px;
+    line-height: 18px;
+  }
+}

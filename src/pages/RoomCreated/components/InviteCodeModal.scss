@@ -1,0 +1,80 @@
+@use '../../../styles/setting/variables' as variables;
+
+.invite-code-modal {
+  max-width: 348px;
+  padding: 27px;
+  border-radius: 16px;
+  color: #03000f;
+
+  h2 {
+    margin: 0 0 16px;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 26px;
+  }
+
+  &__help {
+    margin: 0 0 18px;
+    color: #666;
+    font-size: 14px;
+    line-height: 22px;
+    word-break: keep-all;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  &__input {
+    width: 100%;
+    min-width: 0;
+    height: 57px;
+    padding: 16px;
+    border: 1.5px solid #7c5cff;
+    border-radius: 12px;
+    background: variables.$color-white;
+    color: #03000f;
+    font-size: 14px;
+    line-height: 22px;
+
+    &:focus {
+      // Use one thicker border as the focus indicator, without a second ring.
+      outline: none;
+      border-width: 3px;
+      padding: 14.5px;
+    }
+  }
+
+  &__error {
+    margin: 0;
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  &__submit {
+    font-weight: 500;
+  }
+
+  &--error {
+    h2 {
+      margin-bottom: 12px;
+    }
+    .invite-code-modal__form {
+      gap: 12px;
+    }
+    .invite-code-modal__input {
+      border-color: #d5d4d9;
+      color: #969696;
+
+      &:focus {
+        border-color: #7c5cff;
+      }
+    }
+    .invite-code-modal__submit:disabled {
+      background: #d9d9d9;
+    }
+  }
+}

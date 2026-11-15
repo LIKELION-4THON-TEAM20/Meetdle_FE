@@ -1,12 +1,14 @@
+import type { ReactNode } from 'react';
 import './Header.scss';
 
 interface HeaderProps {
   title: string;
   showBackButton?: boolean;
   onBack?: () => void;
+  rightAction?: ReactNode;
 }
 
-function Header({ title, showBackButton = false, onBack }: HeaderProps) {
+function Header({ title, showBackButton = false, onBack, rightAction }: HeaderProps) {
   return (
     <header className="common-header">
       {showBackButton && (
@@ -36,6 +38,7 @@ function Header({ title, showBackButton = false, onBack }: HeaderProps) {
         </button>
       )}
       <h1 className="common-header__title">{title}</h1>
+      {rightAction && <div className="common-header__action">{rightAction}</div>}
     </header>
   );
 }

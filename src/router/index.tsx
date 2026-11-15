@@ -1,7 +1,31 @@
 import { createBrowserRouter, Link, Navigate } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
+import RoomCreated from '../pages/RoomCreated/RoomCreated';
+import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
+import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatus';
+import MeetingConfirmed from '../pages/MeetingConfirmed/MeetingConfirmed';
+import MeetingInfo from '../pages/MeetingInfo/MeetingInfo';
+import PlaceRegistrationSetup from '../pages/PlaceRegistrationSetup/PlaceRegistrationSetup';
+import PlaceRegistrationStatus from '../pages/PlaceRegistrationStatus/PlaceRegistrationStatus';
+import RegistrationClose from '../pages/RegistrationClose/RegistrationClose';
+import VoteStart from '../pages/VoteStart/VoteStart';
+import PlaceVote from '../pages/PlaceVote/PlaceVote';
+import VoteStatus from '../pages/VoteStatus/VoteStatus';
+import VoteResult from '../pages/VoteResult/VoteResult';
+import MockRoomLayout from '../features/mockRoom/MockRoomLayout';
 
 export const router = createBrowserRouter([
+  {
+    element: <MockRoomLayout />,
+    children: [
+      { path: '/rooms/vote/result', element: <VoteResult /> },
+      { path: '/rooms/vote/status', element: <VoteStatus /> },
+      { path: '/rooms/vote', element: <PlaceVote /> },
+      { path: '/rooms/registration/close', element: <RegistrationClose /> },
+      { path: '/rooms/vote/start', element: <VoteStart /> },
+      { path: '/rooms/registration/status', element: <PlaceRegistrationStatus /> },
+    ],
+  },
   // 홈 화면 구현 전까지 약속방 생성 화면을 진입점으로 사용한다.
   {
     path: '/',
@@ -10,6 +34,30 @@ export const router = createBrowserRouter([
   {
     path: '/rooms/create',
     element: <CreateRoom />,
+  },
+  {
+    path: '/rooms/create/complete',
+    element: <RoomCreated />,
+  },
+  {
+    path: '/rooms/invite',
+    element: <RoomInvitation />,
+  },
+  {
+    path: '/rooms/participation-status',
+    element: <ParticipationStatus />,
+  },
+  {
+    path: '/rooms/confirmed',
+    element: <MeetingConfirmed />,
+  },
+  {
+    path: '/rooms/info',
+    element: <MeetingInfo />,
+  },
+  {
+    path: '/rooms/registration/setup',
+    element: <PlaceRegistrationSetup />,
   },
   {
     path: '*',
