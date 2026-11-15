@@ -1,0 +1,303 @@
+@use '../../styles/setting/variables' as variables;
+
+.time-region-candidates {
+  color: #03000f;
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-width: 0;
+    padding: 20px 27px 24px;
+  }
+
+  &__intro {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 28px;
+    }
+    p {
+      margin: 0;
+      color: #969696;
+      font-size: 14px;
+      line-height: 22px;
+    }
+  }
+
+  &__group {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+
+    legend {
+      margin-bottom: 10px;
+      padding: 0;
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 26px;
+    }
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
+    padding: 14px 27px calc(28px + env(safe-area-inset-bottom, 0px));
+    background: variables.$color-white;
+
+    &::before {
+      height: 1px;
+      background: #d5d4d9;
+      content: '';
+    }
+    p {
+      margin: 0;
+      color: #969696;
+      font-size: 14px;
+      line-height: 22px;
+    }
+  }
+
+  &__confirm {
+    font-weight: 500;
+    &:disabled {
+      background: #d9d9d8;
+    }
+  }
+
+  h2,
+  p,
+  legend,
+  span {
+    overflow-wrap: anywhere;
+  }
+}
+
+.candidate-card {
+  position: relative;
+  display: block;
+  min-width: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+
+  &__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    clip-path: inset(50%);
+  }
+
+  &__surface {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid #eae7e4;
+    border-radius: 16px;
+    background: #eeeef0;
+    color: #666;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+  }
+  &__stack {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  &__name {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 22px;
+  }
+  &__name--compact {
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 24px;
+  }
+  &__subtitle {
+    color: #666;
+    font-size: 14px;
+    line-height: 21px;
+  }
+  &__description {
+    color: #666;
+    font-size: 13px;
+    line-height: 19px;
+  }
+  &__radio {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: 1.5px solid #c4c4c4;
+    border-radius: 50%;
+  }
+  &__badge {
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: #aba9b2;
+    color: variables.$color-white;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 18px;
+  }
+  &__badge--recommended {
+    background: #7c5cff;
+  }
+  &__all-badge {
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: #7c5cff;
+    color: variables.$color-white;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+  }
+  &__all-count {
+    color: #969696;
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  &__input:checked + &__surface {
+    border: 2px solid #d5d4d9;
+    padding: 15px;
+    background: variables.$color-white;
+    color: variables.$color-black;
+
+    .candidate-card__radio {
+      border: 7px solid #d5d4d9;
+      background: variables.$color-white;
+    }
+  }
+
+  &__input:focus-visible + &__surface {
+    outline: 2px solid #666;
+    outline-offset: 3px;
+  }
+
+  // 전원 가능 속성의 강조는 선택 여부와 무관하게 유지한다.
+  &--all-available &__surface,
+  &--all-available &__input:checked + &__surface {
+    gap: 8px;
+    padding: 16px;
+    border: 2px solid #7c5cff;
+    border-radius: 14px;
+    background: variables.$color-white;
+    color: #03000f;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    &__surface {
+      transition:
+        background-color 200ms ease,
+        border-color 200ms ease,
+        color 200ms ease,
+        transform 180ms ease;
+    }
+    &:active &__surface {
+      transform: scale(0.99);
+    }
+  }
+}
+
+.region-candidate {
+  min-width: 0;
+
+  &__toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #666;
+    font-size: 13px;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid #666;
+      outline-offset: 1px;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      transition: background-color 200ms ease;
+      &:active {
+        background: #fafafa;
+      }
+    }
+  }
+
+  &__details {
+    padding: 16px 0;
+
+    h4 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 26px;
+    }
+    ul {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      min-height: 42px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #fafafa;
+      font-size: 14px;
+      line-height: 22px;
+    }
+  }
+
+  &__travel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    color: #666;
+  }
+  &__transfers {
+    color: #969696;
+    font-size: 12px;
+    line-height: 18px;
+  }
+}

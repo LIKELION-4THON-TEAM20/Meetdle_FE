@@ -71,6 +71,7 @@ npm run lint
 ## 페이지 경로
 
 - `/rooms/create`: 약속방 생성 UI (API 미연결)
+- `/rooms/candidates`: 가능한 일시·중간지역 후보 HOST UI (목데이터, 확정 API 미연결). [SCREEN 05 구현 및 검증](./SCREEN05.md)
 - `/`: 내 약속 홈 UI (목데이터, 로그인 없이 독립 확인)
 - `/login`: 카카오 로그인 UI (로그인 시작 URL 설정 시 백엔드 OAuth로 이동)
 - 그 외 경로: 페이지 없음 안내

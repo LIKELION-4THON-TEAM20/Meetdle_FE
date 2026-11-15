@@ -16,6 +16,7 @@ import PlaceVote from '../pages/PlaceVote/PlaceVote';
 import VoteStatus from '../pages/VoteStatus/VoteStatus';
 import VoteResult from '../pages/VoteResult/VoteResult';
 import MockRoomLayout from '../features/mockRoom/MockRoomLayout';
+import TimeRegionCandidates from '../pages/TimeRegionCandidates/TimeRegionCandidates';
 
 const kakaoLoginUrl = getKakaoLoginUrl(import.meta.env.VITE_KAKAO_LOGIN_URL);
 
@@ -58,6 +59,10 @@ export const router = createBrowserRouter([
   {
     path: '/rooms/participation-status',
     element: <ParticipationStatus />,
+  },
+  {
+    path: '/rooms/candidates',
+    element: <TimeRegionCandidates />,
   },
   {
     path: '/rooms/confirmed',
