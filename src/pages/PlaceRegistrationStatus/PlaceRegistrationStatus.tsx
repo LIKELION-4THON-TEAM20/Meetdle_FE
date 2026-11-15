@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import RegistrationParticipantList from './components/RegistrationParticipantList';
@@ -8,21 +8,31 @@ import { createRegistrationStatusMock } from './mockData';
 import { extendRegistrationDeadline, getRegistrationSummary } from './statusUtils';
 import './PlaceRegistrationStatus.scss';
 import { useMockRoom } from '../../features/mockRoom/context';
+import { isExplorationStatusPreview } from '../PlaceExploration/placeUtils';
+import type { ExplorationStatusPreview } from '../PlaceExploration/types';
 
-function RegistrationStatusScreen({ scenario }: { scenario: string | null }) {
+function RegistrationStatusScreen({
+  scenario,
+  preview,
+}: {
+  scenario: string | null;
+  preview?: ExplorationStatusPreview;
+}) {
   const navigate = useNavigate();
   const { room, send, isolated } = useMockRoom();
-  const host = room.role === 'host';
+  const host = !preview && room.role === 'host';
   const [fixture] = useState(() => createRegistrationStatusMock(Date.now(), scenario));
-  const initial = isolated
-    ? fixture
-    : {
-        participants: room.participants,
-        deadline: room.registrationDeadline,
-        votingEligibility: 'unknown',
-      };
+  const initial = preview
+    ? { ...preview, votingEligibility: 'unknown' }
+    : isolated
+      ? fixture
+      : {
+          participants: room.participants,
+          deadline: room.registrationDeadline,
+          votingEligibility: 'unknown',
+        };
   const [localDeadline, setDeadline] = useState(initial.deadline);
-  const deadline = isolated ? localDeadline : room.registrationDeadline;
+  const deadline = preview || isolated ? localDeadline : room.registrationDeadline;
   const [now, setNow] = useState(() => Date.now());
   const [modal, setModal] = useState<'summary' | 'waiting' | null>(() =>
     ['partial', 'allCompleted', 'expired', 'waiting', 'insufficient'].includes(scenario ?? '')
@@ -81,7 +91,8 @@ function RegistrationStatusScreen({ scenario }: { scenario: string | null }) {
           </h2>
           <p>식당·카페 등록을 완료했어요. 주점·문화시설은 선택이에요.</p>
           <p>개발용 목 데이터예요. 서버에는 저장되지 않아요.</p>
-          {!isolated && room.registrationClosed && (
+          {preview && <p>SCREEN 09 목 현황 · 등록 장소 {preview.registeredPlaceCount}곳</p>}
+          {!preview && !isolated && room.registrationClosed && (
             <p>
               목 장소 등록이 마감됐어요.{' '}
               <Link to={room.phase === 'registration' ? '/rooms/vote/start' : '/rooms/vote/status'}>
@@ -136,8 +147,16 @@ function RegistrationStatusScreen({ scenario }: { scenario: string | null }) {
 
 function PlaceRegistrationStatus() {
   const [params] = useSearchParams();
+  const { state } = useLocation();
+  const preview = isExplorationStatusPreview(state) ? state : undefined;
   const scenario = import.meta.env.DEV ? params.get('scenario') : null;
-  return <RegistrationStatusScreen key={scenario ?? 'default'} scenario={scenario} />;
+  return (
+    <RegistrationStatusScreen
+      key={preview ? `exploration-${preview.registeredPlaceCount}` : (scenario ?? 'default')}
+      scenario={scenario}
+      preview={preview}
+    />
+  );
 }
 
 export default PlaceRegistrationStatus;

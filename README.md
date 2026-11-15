@@ -70,6 +70,7 @@ npm run lint
 
 ## 페이지 경로
 
+- `/rooms/places`: SCREEN 09 장소 탐색·등록 ([설정·검증 안내](SCREEN09.md))
 - `/rooms/create`: 약속방 생성 UI (API 미연결)
 - `/`: 내 약속 홈 UI (목데이터, 로그인 없이 독립 확인)
 - `/login`: 카카오 로그인 UI (로그인 시작 URL 설정 시 백엔드 OAuth로 이동)

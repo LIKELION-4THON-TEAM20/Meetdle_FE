@@ -21,7 +21,7 @@ function MeetingInfo() {
     window.alert('공유 API는 아직 연동되지 않았어요. 실제 공유는 수행되지 않습니다.');
   };
   const handleRegisterPlace = () => {
-    window.alert('장소 등록 기능은 아직 연동되지 않았어요. 실제 장소 등록은 수행되지 않습니다.');
+    navigate('/rooms/places');
   };
 
   return (

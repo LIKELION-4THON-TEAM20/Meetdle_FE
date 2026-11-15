@@ -16,6 +16,7 @@ import PlaceVote from '../pages/PlaceVote/PlaceVote';
 import VoteStatus from '../pages/VoteStatus/VoteStatus';
 import VoteResult from '../pages/VoteResult/VoteResult';
 import MockRoomLayout from '../features/mockRoom/MockRoomLayout';
+import PlaceExploration from '../pages/PlaceExploration/PlaceExploration';
 
 const kakaoLoginUrl = getKakaoLoginUrl(import.meta.env.VITE_KAKAO_LOGIN_URL);
 
@@ -66,6 +67,10 @@ export const router = createBrowserRouter([
   {
     path: '/rooms/info',
     element: <MeetingInfo />,
+  },
+  {
+    path: '/rooms/places',
+    element: <PlaceExploration />,
   },
   {
     path: '/rooms/registration/setup',
