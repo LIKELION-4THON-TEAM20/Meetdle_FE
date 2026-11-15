@@ -20,6 +20,7 @@ function ExplorationScreen({ repository }: { repository: ExplorationRepository }
   const [category, setCategory] = useState<CategoryId>('restaurant');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openedPlaceId, setOpenedPlaceId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [registerError, setRegisterError] = useState('');
   const [notice, setNotice] = useState('');
@@ -99,6 +100,7 @@ function ExplorationScreen({ repository }: { repository: ExplorationRepository }
   }
   const select = (id: string) => {
     setSelectedId(id);
+    setOpenedPlaceId(null);
     setRegisterError('');
     setNotice('');
   };
@@ -187,6 +189,7 @@ function ExplorationScreen({ repository }: { repository: ExplorationRepository }
                   onClick={() => {
                     setCategory(item.id);
                     setSelectedId(null);
+                    setOpenedPlaceId(null);
                     setQuery('');
                     setRegisterError('');
                     setNotice('');
@@ -206,6 +209,7 @@ function ExplorationScreen({ repository }: { repository: ExplorationRepository }
                 onChange={(event) => {
                   setQuery(event.target.value);
                   setSelectedId(null);
+                  setOpenedPlaceId(null);
                 }}
               />
             </label>
@@ -274,22 +278,22 @@ function ExplorationScreen({ repository }: { repository: ExplorationRepository }
                     <li
                       key={place.id}
                       className={
-                        place.id === selectedId ? 'exploration-recommendations__selected' : ''
+                        place.id === (openedPlaceId ?? selectedId)
+                          ? 'exploration-recommendations__selected'
+                          : ''
                       }
                     >
-                      <button
-                        type="button"
-                        aria-label={`${place.name} 후보 선택`}
-                        aria-pressed={place.id === selectedId}
-                        onClick={() => select(place.id)}
+                      <PlaceDetailLink
+                        place={place}
+                        className="exploration-recommendations__link"
+                        onActivate={() => setOpenedPlaceId(place.id)}
                       >
-                        {place.name}
-                        <span>
+                        <span className="exploration-recommendations__name">{place.name}</span>
+                        <span className="exploration-recommendations__meta">
                           {snapshot.categories.find((item) => item.id === place.categoryId)?.label}{' '}
                           · {formatDistance(place.distanceMeters)}
                         </span>
-                      </button>
-                      <PlaceDetailLink place={place} />
+                      </PlaceDetailLink>
                     </li>
                   ))}
                 </ul>
