@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import { useRoomNavigation, useRoomLink } from '../../router/useRoomNavigation';
+import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import PlaceVoteCard from './components/PlaceVoteCard';
@@ -16,7 +18,8 @@ function PlaceVoteScreen({
   scenario: string | null;
   fixedClock: boolean;
 }) {
-  const navigate = useNavigate();
+  const navigate = useRoomNavigation();
+  const roomLink = useRoomLink();
   const { room, send, isolated } = useMockRoom();
   const [fixture] = useState(() => {
     const now = fixedClock ? FIXED_VOTE_NOW : Date.now();
@@ -81,7 +84,7 @@ function PlaceVoteScreen({
       ref={pageRef}
       className={`page place-vote${vote.submitted ? '' : ' place-vote--with-fixed-cta'}`}
     >
-      <Header title={initial.roomName} showBackButton onBack={() => navigate(-1)} />
+      <Header title={initial.roomName} showBackButton onBack={() => navigate(PATHS.voteStatus)} />
       <main className="place-vote__content">
         <section className="place-vote__intro" aria-labelledby="place-vote-title">
           <div className="place-vote__title-row">
@@ -115,7 +118,7 @@ function PlaceVoteScreen({
           {!isolated && room.phase === 'registration' && (
             <p>
               아직 목 투표가 시작되지 않았어요.{' '}
-              <Link to="/rooms/registration/status">등록 현황으로 이동</Link>
+              <Link to={roomLink(PATHS.registration)}>등록 현황으로 이동</Link>
             </p>
           )}
           {automaticOnly && <p>모든 후보가 자동 선정 대상이에요. 응답 없이 제출할 수 있어요.</p>}
@@ -177,10 +180,10 @@ function PlaceVoteScreen({
             <p>제출한 투표는 수정할 수 없어요.</p>
             <a
               className="place-vote__status-link"
-              href="/rooms/vote/status"
+              href={roomLink(PATHS.voteStatus)}
               onClick={(event) => {
                 event.preventDefault();
-                navigate('/rooms/vote/status');
+                navigate(PATHS.voteStatus);
               }}
             >
               투표 현황 보기

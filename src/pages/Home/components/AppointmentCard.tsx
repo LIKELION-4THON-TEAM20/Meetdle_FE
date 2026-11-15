@@ -2,6 +2,7 @@ import users from '../../../assets/icons/home/users.svg';
 import calendar from '../../../assets/icons/home/calendar.svg';
 import chevron from '../../../assets/icons/home/chevron.svg';
 import type { Appointment } from '../appointment.types';
+import { Link } from 'react-router';
 import { formatAppointmentDate, getAppointmentBadge } from '../appointment.utils';
 
 interface AppointmentCardProps {
@@ -11,8 +12,9 @@ interface AppointmentCardProps {
 
 function AppointmentCard({ appointment, today }: AppointmentCardProps) {
   const isCompleted = appointment.status === 'completed';
+  const badge = appointment.badgeLabel ?? getAppointmentBadge(appointment, today);
 
-  return (
+  const card = (
     <article
       className={`appointment-card${isCompleted ? ' appointment-card--completed' : ''}`}
       aria-labelledby={`appointment-${appointment.id}`}
@@ -21,9 +23,9 @@ function AppointmentCard({ appointment, today }: AppointmentCardProps) {
         <div className="appointment-card__title-row">
           <span
             className="appointment-card__badge"
-            aria-label={`${isCompleted ? '완료' : '진행 중'}, ${getAppointmentBadge(appointment, today)}`}
+            aria-label={`${isCompleted ? '완료' : '진행 중'}, ${badge}`}
           >
-            {getAppointmentBadge(appointment, today)}
+            {badge}
           </span>
           <h2 id={`appointment-${appointment.id}`}>{appointment.name}</h2>
         </div>
@@ -68,6 +70,16 @@ function AppointmentCard({ appointment, today }: AppointmentCardProps) {
         <img src={chevron} alt="" draggable={false} />
       </span>
     </article>
+  );
+  return appointment.entryPath ? (
+    <Link
+      to={appointment.entryPath}
+      style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
+    >
+      {card}
+    </Link>
+  ) : (
+    card
   );
 }
 

@@ -3,6 +3,8 @@ import { Outlet, useLocation } from 'react-router';
 import { MockRoomContext } from './context';
 import { createRoomDispatcher } from './dispatcher';
 import { createMockRoom, restoreRoom, STORAGE_KEY, type MockRoom } from './model';
+import { MOCK_ROOM_ID } from '../../router/paths';
+import { RoomRecovery } from '../../router/FlowLayout';
 
 function Provider({
   children,
@@ -68,6 +70,11 @@ function Provider({
 export default function MockRoomLayout() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
+  if (params.has('roomId') && params.get('roomId') !== MOCK_ROOM_ID) {
+    return (
+      <RoomRecovery message="이 약속방의 확정·등록·투표 데이터가 이 브라우저에 없어요. 다른 방의 목 결과를 대신 표시하지 않습니다." />
+    );
+  }
   const scenario = import.meta.env.DEV ? params.get('scenario') : null;
   const clock = import.meta.env.DEV && params.get('clock') === 'fixed';
   const role = import.meta.env.DEV ? params.get('role') : null;

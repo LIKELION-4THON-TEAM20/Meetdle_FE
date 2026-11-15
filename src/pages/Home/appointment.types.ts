@@ -15,4 +15,7 @@ export interface Appointment {
   // 시간대 없는 약속 날짜 (YYYY-MM-DD). 날짜 필터와 D-day 계산에 사용한다.
   date: string;
   participants: Participant[];
+  // 확인 가능한 진행 단계가 있는 개발용 목 약속에만 지정한다.
+  entryPath?: string;
+  badgeLabel?: string;
 }
