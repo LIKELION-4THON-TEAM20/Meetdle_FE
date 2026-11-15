@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import { useRoomNavigation, useRoomLink } from '../../router/useRoomNavigation';
+import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import ResultPlaceCard from './components/ResultPlaceCard';
@@ -21,7 +23,8 @@ function VoteResultScreen({
   scenario: string | null;
   role: ResultRole;
 }) {
-  const navigate = useNavigate();
+  const navigate = useRoomNavigation();
+  const roomLink = useRoomLink();
   const { room, send, isolated } = useMockRoom();
   const role = isolated ? fixtureRole : room.role;
   const [localResult, setResult] = useState(() => createResultMock(scenario));
@@ -43,12 +46,14 @@ function VoteResultScreen({
   const normal = !pending && !noResult && !result.unresolvedTie;
   return (
     <div className="page vote-result">
-      <Header title="최종 결과" showBackButton onBack={() => navigate(-1)} />
+      <Header title="최종 결과" showBackButton onBack={() => navigate(PATHS.voteStatus)} />
       <main className="vote-result__content">
         <p className="vote-result__mock-note">
           개발용 목 결과예요. 서버에서 확정된 결과가 아니에요.
         </p>
-        {!isolated && !room.result && <Link to="/rooms/vote/status">투표 현황으로 이동</Link>}
+        {!isolated && !room.result && (
+          <Link to={roomLink(PATHS.voteStatus)}>투표 현황으로 이동</Link>
+        )}
         {pending ? (
           <ResultPending />
         ) : noResult ? (

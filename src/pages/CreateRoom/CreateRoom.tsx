@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
+import { createRoomPreview, getCreatedRoom } from '../../features/createdRoom/model';
+import { PATHS, roomPath } from '../../router/paths';
 import type { CreateRoomState } from './createRoomState';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
@@ -10,9 +12,11 @@ import './CreateRoom.scss';
 
 function CreateRoom() {
   const navigate = useNavigate();
-  const [roomName, setRoomName] = useState('');
-  const [dateRange, setDateRange] = useState<DateRange | null>(null);
-  const [capacity, setCapacity] = useState(4);
+  const [params] = useSearchParams();
+  const draft = params.has('roomId') ? getCreatedRoom(params.get('roomId'))?.creation : undefined;
+  const [roomName, setRoomName] = useState(draft?.name ?? '');
+  const [dateRange, setDateRange] = useState<DateRange | null>(draft?.dateRange ?? null);
+  const [capacity, setCapacity] = useState(draft?.capacity ?? 4);
   const canCreate =
     roomName.trim().length > 0 &&
     dateRange !== null &&
@@ -21,14 +25,15 @@ function CreateRoom() {
 
   return (
     <div className="page create-room">
-      <Header title="새 약속 잡기" />
+      <Header title="새 약속 잡기" showBackButton onBack={() => navigate(PATHS.home)} />
       <form
         className="create-room__form"
         onSubmit={(event) => {
           event.preventDefault();
           if (!canCreate || !dateRange) return;
           const state: CreateRoomState = { name: roomName.trim(), dateRange, capacity };
-          navigate('/rooms/create/complete', { state });
+          const room = createRoomPreview(state);
+          navigate(roomPath(PATHS.created, '', room.id));
         }}
       >
         <main className="create-room__content">
@@ -72,7 +77,11 @@ function CreateRoom() {
               <CapacityPicker value={capacity} onChange={setCapacity} />
             </fieldset>
           </div>
-          <p className="create-room__notice">방장만 약속 정보를 수정할 수 있어요.</p>
+          <p className="create-room__notice">
+            방장만 약속 정보를 수정할 수 있어요.
+            <br />
+            개발용 목 약속방으로만 생성되며 서버에는 저장되지 않아요.
+          </p>
         </main>
         <footer className="create-room__footer">
           <Button type="submit" disabled={!canCreate}>
