@@ -1,11 +1,23 @@
-import { createBrowserRouter, Link, Navigate } from 'react-router';
+import { createBrowserRouter, Link } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
+import Login from '../pages/Login/Login';
+import Home from '../pages/Home/Home';
+import { getKakaoLoginUrl } from '../api/auth';
+
+const kakaoLoginUrl = getKakaoLoginUrl(import.meta.env.VITE_KAKAO_LOGIN_URL);
 
 export const router = createBrowserRouter([
-  // 홈 화면 구현 전까지 약속방 생성 화면을 진입점으로 사용한다.
   {
     path: '/',
-    element: <Navigate to="/rooms/create" replace />,
+    element: <Home />,
+  },
+  {
+    path: '/login',
+    element: (
+      <Login
+        onKakaoLogin={kakaoLoginUrl ? () => window.location.assign(kakaoLoginUrl) : undefined}
+      />
+    ),
   },
   {
     path: '/rooms/create',
