@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
+import { useRoomNavigation } from '../../router/useRoomNavigation';
+import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import CategoryCandidateSummary from './components/CategoryCandidateSummary';
@@ -14,7 +16,7 @@ import { useMockRoom } from '../../features/mockRoom/context';
 import { candidateCategories } from '../../features/mockRoom/model';
 
 export default function RegistrationClose() {
-  const navigate = useNavigate();
+  const navigate = useRoomNavigation();
   const [params] = useSearchParams();
   const scenario = import.meta.env.DEV ? params.get('scenario') : null;
   const { room, send, isolated } = useMockRoom();
@@ -23,7 +25,7 @@ export default function RegistrationClose() {
   const [missingOpen, setMissingOpen] = useState(false);
   return (
     <div className="page registration-close">
-      <Header title="등록 마감" showBackButton onBack={() => navigate(-1)} />
+      <Header title="등록 마감" showBackButton onBack={() => navigate(PATHS.registration)} />
       <main className="registration-close__content">
         <div className="registration-close__intro">
           <h2>장소 등록을 마감할까요?</h2>

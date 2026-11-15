@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
+import { useRoomNavigation } from '../../router/useRoomNavigation';
+import { PATHS } from '../../router/paths';
+import { useMockRoom } from '../../features/mockRoom/context';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import CategorySelector from './components/CategorySelector';
@@ -11,8 +14,12 @@ import type { DeadlineMode } from './types';
 import './PlaceRegistrationSetup.scss';
 
 function SetupForm({ scenario }: { scenario: string | null }) {
-  const navigate = useNavigate();
-  const [initial] = useState(() => createSetupMock(Date.now(), scenario));
+  const navigate = useRoomNavigation();
+  const { room, isolated } = useMockRoom();
+  const [initial] = useState(() => ({
+    ...createSetupMock(Date.now(), scenario),
+    ...(!isolated ? { meetingStartsAt: room.meetingAt } : {}),
+  }));
   const [now, setNow] = useState(() => Date.now());
   const [selected, setSelected] = useState(initial.selectedCategories);
   const [mode, setMode] = useState<DeadlineMode>(initial.initialMode);
@@ -34,11 +41,14 @@ function SetupForm({ scenario }: { scenario: string | null }) {
     CATEGORIES.filter((category) => category.required).every((category) =>
       selected.includes(category.id),
     ) && selected.length >= REGISTRATION_RULES.minimumPlacesPerPerson;
-  const canStart = validCategories && isValidDeadline(deadline, now, initial.meetingStartsAt);
+  const canStart =
+    room.role === 'host' &&
+    validCategories &&
+    isValidDeadline(deadline, now, initial.meetingStartsAt);
 
   return (
     <div className="page registration-setup">
-      <Header title="등록 설정" showBackButton onBack={() => navigate(-1)} />
+      <Header title="등록 설정" showBackButton onBack={() => navigate(PATHS.confirmed)} />
       <main className="registration-setup__content">
         <div className="registration-setup__intro">
           <h2>어떤 장소를 함께 모아볼까요?</h2>
@@ -77,6 +87,7 @@ function SetupForm({ scenario }: { scenario: string | null }) {
           className="registration-setup__start"
           disabled={!canStart}
           onClick={() => {
+            if (room.role !== 'host') return;
             const submittedAt = Date.now();
             if (
               !validCategories ||
@@ -96,7 +107,9 @@ function SetupForm({ scenario }: { scenario: string | null }) {
 }
 
 function windowAlert() {
-  globalThis.alert('장소 등록 시작 API는 아직 연동되지 않았어요. 실제 등록은 시작되지 않습니다.');
+  globalThis.alert(
+    '장소 탐색 화면(SCREEN 09)이 현재 브랜치에 없고 등록 시작 API도 미연결이에요. 실제 등록을 시작하거나 다른 화면으로 건너뛰지 않습니다.',
+  );
 }
 
 function PlaceRegistrationSetup() {

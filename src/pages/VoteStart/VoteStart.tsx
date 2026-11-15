@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useSearchParams } from 'react-router';
+import { useRoomNavigation, useRoomLink } from '../../router/useRoomNavigation';
+import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import Modal from '../../components/common/Modal/Modal';
@@ -18,7 +20,8 @@ import { useMockRoom } from '../../features/mockRoom/context';
 import { candidateCategories } from '../../features/mockRoom/model';
 
 function VoteStartScreen({ scenario }: { scenario: string | null }) {
-  const navigate = useNavigate();
+  const navigate = useRoomNavigation();
+  const roomLink = useRoomLink();
   const location = useLocation();
   const { room, send, isolated } = useMockRoom();
   const [initial] = useState(() => {
@@ -53,12 +56,12 @@ function VoteStartScreen({ scenario }: { scenario: string | null }) {
   const valid = isValidVoteDeadline(new Date(deadline), new Date(now), new Date(initial.meeting));
   return (
     <div className="page vote-start">
-      <Header title="투표 시작" showBackButton onBack={() => navigate(-1)} />
+      <Header title="투표 시작" showBackButton onBack={() => navigate(PATHS.closeRegistration)} />
       <main className="vote-start__content">
         {!isolated && !room.registrationClosed && (
           <p>
             먼저 목 등록을 마감해주세요.{' '}
-            <Link to="/rooms/registration/close">등록 마감으로 이동</Link>
+            <Link to={roomLink(PATHS.closeRegistration)}>등록 마감으로 이동</Link>
           </p>
         )}
         <section className="vote-start__hero">
@@ -145,7 +148,7 @@ function VoteStartScreen({ scenario }: { scenario: string | null }) {
               return;
             if (summary.missingRequired.length) setModal('missing');
             else if (isolated) setModal('notice');
-            else if (send({ type: 'start', deadline, now: current })) navigate('/rooms/vote');
+            else if (send({ type: 'start', deadline, now: current })) navigate(PATHS.vote);
           }}
         >
           투표 시작하기

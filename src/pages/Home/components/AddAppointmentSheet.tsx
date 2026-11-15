@@ -6,6 +6,7 @@ import JoinByCodeDialog from './JoinByCodeDialog';
 import close from '../../../assets/icons/home/close.svg';
 import chevron from '../../../assets/icons/home/sheet-chevron.svg';
 import joinChevron from '../../../assets/icons/home/sheet-join-chevron.svg';
+import { PATHS } from '../../../router/paths';
 
 interface AddAppointmentSheetProps {
   onClose: () => void;
@@ -46,7 +47,7 @@ function AddAppointmentSheet({ onClose, onSubmitCode }: AddAppointmentSheetProps
           <img src={close} alt="" draggable={false} />
         </button>
       </header>
-      <Link className="add-appointment-sheet__action" to="/rooms/create" onClick={onClose}>
+      <Link className="add-appointment-sheet__action" to={PATHS.create} onClick={onClose}>
         새 약속 만들기
         <img src={chevron} alt="" draggable={false} />
       </Link>

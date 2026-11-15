@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useSearchParams } from 'react-router';
+import { useRoomNavigation, useRoomLink } from '../../router/useRoomNavigation';
+import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import RegistrationParticipantList from './components/RegistrationParticipantList';
@@ -18,7 +20,8 @@ function RegistrationStatusScreen({
   scenario: string | null;
   preview?: ExplorationStatusPreview;
 }) {
-  const navigate = useNavigate();
+  const navigate = useRoomNavigation();
+  const roomLink = useRoomLink();
   const { room, send, isolated } = useMockRoom();
   const host = !preview && room.role === 'host';
   const [fixture] = useState(() => createRegistrationStatusMock(Date.now(), scenario));
@@ -59,7 +62,7 @@ function RegistrationStatusScreen({
       return;
     }
     setModal(null);
-    navigate('/rooms/registration/close');
+    navigate(PATHS.closeRegistration);
   };
 
   const handleExtend = (additionalMinutes: number) => {
@@ -83,7 +86,7 @@ function RegistrationStatusScreen({
 
   return (
     <div className="page place-registration-status">
-      <Header title="등록 현황" showBackButton onBack={() => navigate(-1)} />
+      <Header title="등록 현황" showBackButton onBack={() => navigate(PATHS.info)} />
       <main className="place-registration-status__content">
         <section className="place-registration-status__summary" aria-label="장소 등록 완료 현황">
           <h2>
@@ -95,7 +98,9 @@ function RegistrationStatusScreen({
           {!preview && !isolated && room.registrationClosed && (
             <p>
               목 장소 등록이 마감됐어요.{' '}
-              <Link to={room.phase === 'registration' ? '/rooms/vote/start' : '/rooms/vote/status'}>
+              <Link
+                to={roomLink(room.phase === 'registration' ? PATHS.startVote : PATHS.voteStatus)}
+              >
                 다음 단계 확인
               </Link>
             </p>

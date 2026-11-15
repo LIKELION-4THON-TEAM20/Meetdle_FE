@@ -1,4 +1,7 @@
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import { useRoomNavigation, useRoomLink } from '../../router/useRoomNavigation';
+import { PATHS } from '../../router/paths';
+import { useMockRoom } from '../../features/mockRoom/context';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import shareIcon from '../../assets/icons/meeting-info/share.svg';
@@ -6,9 +9,40 @@ import { MOCK_MEETING_INFO } from './mockData';
 import './MeetingInfo.scss';
 
 function MeetingInfo() {
-  const navigate = useNavigate();
+  const navigate = useRoomNavigation();
+  const roomLink = useRoomLink();
+  const { room } = useMockRoom();
   const [searchParams] = useSearchParams();
-  const meeting = MOCK_MEETING_INFO;
+  const meeting = {
+    ...MOCK_MEETING_INFO,
+    dateTime: new Intl.DateTimeFormat('ko-KR', {
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Seoul',
+    }).format(room.meetingAt),
+    weekday: new Intl.DateTimeFormat('ko-KR', { weekday: 'long', timeZone: 'Asia/Seoul' }).format(
+      room.meetingAt,
+    ),
+    area: room.area,
+    participantCount: room.participants.length,
+    hostName:
+      room.participants.find(({ id }) => id === 'sangmin')?.name ?? MOCK_MEETING_INFO.hostName,
+    registrationStatus:
+      !room.registrationClosed && room.phase === 'registration'
+        ? 'registrationOpen'
+        : 'beforeRegistration',
+    registrationCategories: room.categories.map(({ name }) => name),
+    registrationDeadline: new Intl.DateTimeFormat('ko-KR', {
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Seoul',
+    }).format(room.registrationDeadline),
+  };
   const requestedStatus = searchParams.get('status');
   const registrationStatus =
     import.meta.env.DEV &&
@@ -16,7 +50,13 @@ function MeetingInfo() {
       ? requestedStatus
       : meeting.registrationStatus;
   const isRegistrationOpen = registrationStatus === 'registrationOpen';
-  const handleBack = () => navigate(-1);
+  const registrationClosed =
+    room.registrationClosed &&
+    !(
+      import.meta.env.DEV &&
+      (requestedStatus === 'beforeRegistration' || requestedStatus === 'registrationOpen')
+    );
+  const handleBack = () => navigate(PATHS.home);
   const handleShare = () => {
     window.alert('공유 API는 아직 연동되지 않았어요. 실제 공유는 수행되지 않습니다.');
   };
@@ -42,6 +82,7 @@ function MeetingInfo() {
         }
       />
       <main className="meeting-info__content">
+        <p>개발용 목 약속 정보예요. 서버 상태가 아니에요.</p>
         <section className="meeting-info__confirmed" aria-labelledby="meeting-info-date">
           <span className="meeting-info__badge">{meeting.statusLabel}</span>
           <h2 id="meeting-info-date">{meeting.dateTime}</h2>
@@ -61,7 +102,22 @@ function MeetingInfo() {
             <dd>{meeting.participantCount}명</dd>
           </div>
         </dl>
-        {isRegistrationOpen ? (
+        {registrationClosed ? (
+          <section className="meeting-info__empty">
+            <p>장소 등록이 마감됐어요.</p>
+            <Link
+              to={roomLink(
+                room.result
+                  ? PATHS.result
+                  : room.phase === 'registration'
+                    ? PATHS.registration
+                    : PATHS.voteStatus,
+              )}
+            >
+              현재 진행 상황 확인하기
+            </Link>
+          </section>
+        ) : isRegistrationOpen ? (
           <section
             className="meeting-info__registration"
             aria-labelledby="meeting-info-registration-title"
