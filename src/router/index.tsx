@@ -1,5 +1,8 @@
-import { createBrowserRouter, Link, Navigate } from 'react-router';
+import { createBrowserRouter, Link } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
+import Login from '../pages/Login/Login';
+import Home from '../pages/Home/Home';
+import { getKakaoLoginUrl } from '../api/auth';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
 import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
 import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatus';
@@ -14,6 +17,8 @@ import VoteStatus from '../pages/VoteStatus/VoteStatus';
 import VoteResult from '../pages/VoteResult/VoteResult';
 import MockRoomLayout from '../features/mockRoom/MockRoomLayout';
 
+const kakaoLoginUrl = getKakaoLoginUrl(import.meta.env.VITE_KAKAO_LOGIN_URL);
+
 export const router = createBrowserRouter([
   {
     element: <MockRoomLayout />,
@@ -26,10 +31,17 @@ export const router = createBrowserRouter([
       { path: '/rooms/registration/status', element: <PlaceRegistrationStatus /> },
     ],
   },
-  // 홈 화면 구현 전까지 약속방 생성 화면을 진입점으로 사용한다.
   {
     path: '/',
-    element: <Navigate to="/rooms/create" replace />,
+    element: <Home />,
+  },
+  {
+    path: '/login',
+    element: (
+      <Login
+        onKakaoLogin={kakaoLoginUrl ? () => window.location.assign(kakaoLoginUrl) : undefined}
+      />
+    ),
   },
   {
     path: '/rooms/create',
@@ -63,7 +75,7 @@ export const router = createBrowserRouter([
     path: '*',
     element: (
       <main className="page">
-        <h1>페이지를 찾을 수 없어요.</h1>
+        <h1>페이지지를 찾을 수 없어요.</h1>
         <Link to="/rooms/create">약속방 만들기로 이동</Link>
       </main>
     ),

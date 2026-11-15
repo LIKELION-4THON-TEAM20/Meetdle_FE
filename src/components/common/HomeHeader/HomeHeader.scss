@@ -1,0 +1,55 @@
+@use '../../../styles/setting/variables' as variables;
+
+.home-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 71px;
+  padding: calc(12px + env(safe-area-inset-top)) 20px 12px;
+  background: variables.$color-white;
+  box-shadow: 0 8px 4px rgb(0 0 0 / 5%);
+
+  &__logo {
+    position: relative;
+    width: 103px;
+    height: 47px;
+    user-select: none;
+    img {
+      display: block;
+    }
+  }
+  &__pin {
+    position: absolute;
+    top: 23px;
+    left: 44px;
+  }
+  &__pin-hole {
+    position: absolute;
+    top: 26.06px;
+    left: 47.06px;
+  }
+  &__profile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-right: -4px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    &[aria-disabled='true'] {
+      cursor: default;
+    }
+    &:focus-visible {
+      outline: 2px solid #7c5cff;
+      outline-offset: 2px;
+    }
+    img {
+      display: block;
+    }
+  }
+}
