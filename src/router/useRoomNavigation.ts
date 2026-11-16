@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, type NavigateOptions } from 'react-router';
-import { roomPath } from './paths';
+import { getRoomBackPath, roomPath } from './paths';
 
 export function useRoomNavigation() {
   const navigate = useNavigate();
@@ -10,4 +10,10 @@ export function useRoomNavigation() {
 export function useRoomLink() {
   const { search } = useLocation();
   return (path: string) => roomPath(path, search);
+}
+
+export function useRoomBack(fallback: string) {
+  const { search } = useLocation();
+  const navigate = useRoomNavigation();
+  return () => navigate(getRoomBackPath(fallback, search));
 }

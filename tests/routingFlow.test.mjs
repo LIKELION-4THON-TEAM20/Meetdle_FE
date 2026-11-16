@@ -7,7 +7,8 @@ const server = await createServer({
   server: { middlewareMode: true, hmr: false, ws: false, watch: null },
 });
 after(() => server.close());
-const { PATHS, roomPath, safeReturnTo } = await server.ssrLoadModule('/src/router/paths.ts');
+const { PATHS, roomPath, safeReturnTo, getRoomBackPath } =
+  await server.ssrLoadModule('/src/router/paths.ts');
 const { getMockRoomEntryPath } = await server.ssrLoadModule('/src/router/roomEntryPath.ts');
 const { createMockRoom, reduceRoom } = await server.ssrLoadModule(
   '/src/features/mockRoom/model.ts',
@@ -24,6 +25,19 @@ Object.defineProperty(globalThis, 'sessionStorage', {
 });
 after(() => {
   delete globalThis.sessionStorage;
+});
+
+test('홈에서 연 약속은 홈으로 돌아가며 다음 단계에 홈 진입 표식을 전파하지 않는다', () => {
+  for (const fallback of [PATHS.create, PATHS.closeRegistration, PATHS.info, PATHS.voteStatus]) {
+    assert.equal(getRoomBackPath(fallback, '?from=home&roomId=mock-room-10-14'), PATHS.home);
+    assert.equal(getRoomBackPath(fallback, '?roomId=mock-room-10-14'), fallback);
+  }
+  const next = roomPath(PATHS.closeRegistration, '?from=home&roomId=mock-room-10-14&role=host');
+  assert.equal(new URL(next, 'https://meetdle.invalid').searchParams.has('from'), false);
+  assert.equal(
+    getRoomBackPath(PATHS.registration, new URL(next, 'https://meetdle.invalid').search),
+    PATHS.registration,
+  );
 });
 
 test('이동은 방 ID·역할만 유지하고 일회성 reset·시나리오는 전파하지 않는다', () => {

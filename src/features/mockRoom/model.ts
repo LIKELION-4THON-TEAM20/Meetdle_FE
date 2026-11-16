@@ -14,6 +14,7 @@ import type { CandidateCategory } from '../../pages/VoteStart/mockData';
 
 export const STORAGE_KEY = 'meetdle:development-mock-room:v1';
 export const HOUR = 3600000;
+export const MOCK_MEETING_LEAD_TIME = 7 * 24 * HOUR;
 export type CategoryId = 'restaurant' | 'cafe' | 'pub' | 'culture';
 export function categoryId(id: string): CategoryId | undefined {
   return (
@@ -78,8 +79,8 @@ export function createMockRoom(now: number): MockRoom {
     version: 1,
     id: 'mock-room-10-14',
     name: '11월 동기 모임 (목 데이터)',
-    // 등록·투표 UI를 여유 있게 확인할 수 있도록 새 목 방은 이틀 뒤 약속으로 시작한다.
-    meetingAt: now + 48 * HOUR,
+    // 등록·투표 UI를 여유 있게 확인할 수 있도록 새 목 방은 일주일 뒤로 시작한다.
+    meetingAt: now + MOCK_MEETING_LEAD_TIME,
     area: '왕십리역 근처',
     registrationDeadline: now + 2 * HOUR,
     registrationClosed: false,

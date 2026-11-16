@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
-import { useRoomNavigation, useRoomLink } from '../../router/useRoomNavigation';
+import { useRoomNavigation, useRoomLink, useRoomBack } from '../../router/useRoomNavigation';
 import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
@@ -21,6 +21,7 @@ function RegistrationStatusScreen({
   preview?: ExplorationStatusPreview;
 }) {
   const navigate = useRoomNavigation();
+  const goBack = useRoomBack(PATHS.info);
   const roomLink = useRoomLink();
   const { room, send, isolated } = useMockRoom();
   const host = !preview && room.role === 'host';
@@ -86,7 +87,7 @@ function RegistrationStatusScreen({
 
   return (
     <div className="page place-registration-status">
-      <Header title="등록 현황" showBackButton onBack={() => navigate(PATHS.info)} />
+      <Header title="등록 현황" showBackButton onBack={goBack} />
       <main className="place-registration-status__content">
         <section className="place-registration-status__summary" aria-label="장소 등록 완료 현황">
           <h2>

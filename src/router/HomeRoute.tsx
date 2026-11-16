@@ -26,7 +26,7 @@ export default function HomeRoute() {
         date: created.creation.dateRange.start,
         participants: [{ id: 'mock-host', name: '방장 (목)', imageUrl: null }],
         badgeLabel: '미확정 (목)',
-        entryPath: roomPath(PATHS.created, '', created.id),
+        entryPath: roomPath(`${PATHS.created}?from=home`, '', created.id),
       })),
       {
         id: room.id,
@@ -40,7 +40,7 @@ export default function HomeRoute() {
         }).format(room.meetingAt),
         participants: room.participants.map(({ id, name }) => ({ id, name, imageUrl: null })),
         badgeLabel: '개발용 목',
-        entryPath: roomPath(stagePath, '', room.id),
+        entryPath: roomPath(`${stagePath}?from=home`, '', room.id),
       },
       ...MOCK_APPOINTMENTS,
     ];

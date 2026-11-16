@@ -2,7 +2,7 @@ import { Link, useSearchParams } from 'react-router';
 import { formatCandidateDates } from '../CreateRoom/createRoomState';
 import { getCreatedRoom } from '../../features/createdRoom/model';
 import { PATHS, roomPath } from '../../router/paths';
-import { useRoomNavigation } from '../../router/useRoomNavigation';
+import { useRoomBack } from '../../router/useRoomNavigation';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import MeetingInfoCard from './components/MeetingInfoCard';
@@ -10,7 +10,7 @@ import InviteCodeCopy from './components/InviteCodeCopy';
 import './RoomCreated.scss';
 
 function RoomCreated() {
-  const navigate = useRoomNavigation();
+  const goBack = useRoomBack(PATHS.create);
   const [params] = useSearchParams();
   const room = getCreatedRoom(params.get('roomId'))!;
   const { inviteCode, creation } = room;
@@ -40,7 +40,7 @@ function RoomCreated() {
       <Header
         title="약속방 생성 완료"
         showBackButton
-        onBack={() => navigate(PATHS.create)}
+        onBack={goBack}
         rightAction={<Link to={PATHS.home}>홈</Link>}
       />
       <main className="room-created__content">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { useRoomNavigation, useRoomLink } from '../../router/useRoomNavigation';
+import { useRoomLink, useRoomBack } from '../../router/useRoomNavigation';
 import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
@@ -23,7 +23,7 @@ function VoteResultScreen({
   scenario: string | null;
   role: ResultRole;
 }) {
-  const navigate = useRoomNavigation();
+  const goBack = useRoomBack(PATHS.voteStatus);
   const roomLink = useRoomLink();
   const { room, send, isolated } = useMockRoom();
   const role = isolated ? fixtureRole : room.role;
@@ -46,7 +46,7 @@ function VoteResultScreen({
   const normal = !pending && !noResult && !result.unresolvedTie;
   return (
     <div className="page vote-result">
-      <Header title="최종 결과" showBackButton onBack={() => navigate(PATHS.voteStatus)} />
+      <Header title="최종 결과" showBackButton onBack={goBack} />
       <main className="vote-result__content">
         <p className="vote-result__mock-note">
           개발용 목 결과예요. 서버에서 확정된 결과가 아니에요.

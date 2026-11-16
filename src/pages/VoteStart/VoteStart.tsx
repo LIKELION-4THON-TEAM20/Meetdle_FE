@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
-import { useRoomNavigation, useRoomLink } from '../../router/useRoomNavigation';
+import { useRoomNavigation, useRoomLink, useRoomBack } from '../../router/useRoomNavigation';
 import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
@@ -21,6 +21,7 @@ import { candidateCategories } from '../../features/mockRoom/model';
 
 function VoteStartScreen({ scenario }: { scenario: string | null }) {
   const navigate = useRoomNavigation();
+  const goBack = useRoomBack(PATHS.closeRegistration);
   const roomLink = useRoomLink();
   const location = useLocation();
   const { room, send, isolated } = useMockRoom();
@@ -56,7 +57,7 @@ function VoteStartScreen({ scenario }: { scenario: string | null }) {
   const valid = isValidVoteDeadline(new Date(deadline), new Date(now), new Date(initial.meeting));
   return (
     <div className="page vote-start">
-      <Header title="투표 시작" showBackButton onBack={() => navigate(PATHS.closeRegistration)} />
+      <Header title="투표 시작" showBackButton onBack={goBack} />
       <main className="vote-start__content">
         {!isolated && !room.registrationClosed && (
           <p>

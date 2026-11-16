@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { useRoomNavigation, useRoomLink } from '../../router/useRoomNavigation';
+import { useRoomNavigation, useRoomLink, useRoomBack } from '../../router/useRoomNavigation';
 import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
@@ -19,6 +19,7 @@ function PlaceVoteScreen({
   fixedClock: boolean;
 }) {
   const navigate = useRoomNavigation();
+  const goBack = useRoomBack(PATHS.voteStatus);
   const roomLink = useRoomLink();
   const { room, send, isolated } = useMockRoom();
   const [fixture] = useState(() => {
@@ -84,7 +85,7 @@ function PlaceVoteScreen({
       ref={pageRef}
       className={`page place-vote${vote.submitted ? '' : ' place-vote--with-fixed-cta'}`}
     >
-      <Header title={initial.roomName} showBackButton onBack={() => navigate(PATHS.voteStatus)} />
+      <Header title={initial.roomName} showBackButton onBack={goBack} />
       <main className="place-vote__content">
         <section className="place-vote__intro" aria-labelledby="place-vote-title">
           <div className="place-vote__title-row">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { useRoomNavigation, useRoomLink } from '../../router/useRoomNavigation';
+import { useRoomNavigation, useRoomLink, useRoomBack } from '../../router/useRoomNavigation';
 import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
@@ -22,6 +22,7 @@ function VoteStatusScreen({
   fixedClock: boolean;
 }) {
   const navigate = useRoomNavigation();
+  const goBack = useRoomBack(PATHS.info);
   const roomLink = useRoomLink();
   const { room, send, isolated } = useMockRoom();
   const [fixture] = useState(() => {
@@ -60,7 +61,7 @@ function VoteStatusScreen({
     !isolated && (room.phase === 'voting' || room.phase === 'counting' || room.phase === 'result');
   return (
     <div className="page vote-status">
-      <Header title="투표 현황" showBackButton onBack={() => navigate(PATHS.info)} />
+      <Header title="투표 현황" showBackButton onBack={goBack} />
       <main className="vote-status__content">
         <p>개발용 목 투표 현황이에요. 서버 상태가 아니에요.</p>
         {!isolated && room.phase === 'registration' && (
