@@ -4,6 +4,9 @@
 
 ## 구현 및 기존 화면 연결
 
+- 통합 브랜치: 등록 설정의 ‘장소 등록 시작하기’에서 `/rooms/places?roomId=exploration-preview`로 독립 목 미리보기를 연다. 등록 시작 API 호출·성공 처리나 SCREEN 10–14 상태 변경은 하지 않으며, 설정한 카테고리·마감은 아직 전달하지 않는다. 이 한계는 이동 전후 화면에도 표시한다.
+- 원래 등록 설정 주소를 `returnTo`로 보존하므로 새로고침 후에도 헤더로 해당 설정에 돌아갈 수 있다. 외부 복귀 주소는 허용하지 않으며, 다른 방 ID로 이 독립 목 장소를 조회하면 복구 안내를 표시한다.
+
 - `src/pages/PlaceExploration/`: 화면, 지도 패널, 선택 장소 카드, 추천 목록, 임시 타입·목 저장소.
 - `src/lib/kakaoMaps/`: SDK 단일 로더, Circle·Marker·Clusterer 제어와 해제, 카카오맵 링크/fallback.
 - 공통 Header·Button·`.page`, SCREEN 08 카테고리 타입/목 설정을 재사용한다. 공통 컴포넌트 자체는 수정하지 않는다.

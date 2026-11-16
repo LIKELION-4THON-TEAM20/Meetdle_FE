@@ -19,6 +19,7 @@ import FlowLayout, { CreatedRoomLayout, LegacyJoinRedirect } from './FlowLayout'
 import LoginRoute from './LoginRoute';
 import HomeRoute from './HomeRoute';
 import { PATHS } from './paths';
+import PlaceExplorationRoute from './PlaceExplorationRoute';
 
 export const router = createBrowserRouter([
   {
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
         element: <LoginRoute />,
       },
       { path: PATHS.legacyJoin, element: <LegacyJoinRedirect /> },
+      { path: PATHS.places, element: <PlaceExplorationRoute /> },
       {
         element: <CreatedRoomLayout />,
         children: [

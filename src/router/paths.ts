@@ -10,6 +10,7 @@ export const PATHS = {
   confirmed: '/rooms/confirmed',
   info: '/rooms/info',
   setup: '/rooms/registration/setup',
+  places: '/rooms/places',
   registration: '/rooms/registration/status',
   closeRegistration: '/rooms/registration/close',
   startVote: '/rooms/vote/start',

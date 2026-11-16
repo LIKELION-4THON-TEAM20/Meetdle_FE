@@ -12,7 +12,13 @@ import { formatDistance, formatRemaining, registrationBlock, statusPreview } fro
 import type { CategoryId, ExplorationRepository, ExplorationSnapshot } from './types';
 import './PlaceExploration.scss';
 
-function ExplorationScreen({ repository }: { repository: ExplorationRepository }) {
+function ExplorationScreen({
+  repository,
+  onBack,
+}: {
+  repository: ExplorationRepository;
+  onBack: () => void;
+}) {
   const navigate = useNavigate();
   const [snapshot, setSnapshot] = useState<ExplorationSnapshot | null>(null);
   const [loadError, setLoadError] = useState('');
@@ -109,8 +115,11 @@ function ExplorationScreen({ repository }: { repository: ExplorationRepository }
 
   return (
     <div className="page place-exploration">
-      <Header title="장소 등록" showBackButton onBack={() => navigate(-1)} />
+      <Header title="장소 등록" showBackButton onBack={onBack} />
       <main className="place-exploration__content">
+        <p className="place-exploration__mock">
+          독립 목데이터 미리보기예요. 등록 설정의 선택값·방 데이터와는 아직 연결되지 않았어요.
+        </p>
         {!snapshot ? (
           <div className="place-exploration__state" role="status">
             {loadError ? (
@@ -333,7 +342,14 @@ function ExplorationScreen({ repository }: { repository: ExplorationRepository }
   );
 }
 
-function PlaceExploration({ repository }: { repository?: ExplorationRepository }) {
+function PlaceExploration({
+  repository,
+  onBack,
+}: {
+  repository?: ExplorationRepository;
+  onBack?: () => void;
+}) {
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const scenario = import.meta.env.DEV ? params.get('scenario') : null;
   const fixtureRepository = useMemo(
@@ -342,7 +358,11 @@ function PlaceExploration({ repository }: { repository?: ExplorationRepository }
     [scenario],
   );
   return (
-    <ExplorationScreen key={scenario ?? 'default'} repository={repository ?? fixtureRepository} />
+    <ExplorationScreen
+      key={scenario ?? 'default'}
+      repository={repository ?? fixtureRepository}
+      onBack={onBack ?? (() => navigate('/rooms/registration/setup'))}
+    />
   );
 }
 
