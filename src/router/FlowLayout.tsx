@@ -36,8 +36,12 @@ export function CreatedRoomLayout() {
     );
   }
   // 참여 현황의 독립 fixture를 새로 만든 방의 실제 참여 결과로 노출하지 않는다.
-  if (pathname === PATHS.participation && id && id !== 'mock-created-preview') {
-    return <RoomRecovery message="이 목 약속방의 참여 현황 조회는 아직 연결되지 않았어요." />;
+  if (
+    (pathname === PATHS.participation || pathname === PATHS.candidates) &&
+    id &&
+    id !== 'mock-created-preview'
+  ) {
+    return <RoomRecovery message="이 목 약속방의 참여 현황·후보 조회는 아직 연결되지 않았어요." />;
   }
   return <Outlet />;
 }

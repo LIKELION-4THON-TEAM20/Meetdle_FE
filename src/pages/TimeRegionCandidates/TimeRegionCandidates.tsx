@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useRoomNavigation } from '../../router/useRoomNavigation';
+import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import TimeCandidateCard from './components/TimeCandidateCard';
@@ -13,12 +14,14 @@ interface TimeRegionCandidatesViewProps {
   data: CandidateData;
   onBack: () => void;
   onConfirm?: (request: CandidateConfirmationRequest) => void;
+  previewNotice?: string;
 }
 
 export function TimeRegionCandidatesView({
   data,
   onBack,
   onConfirm,
+  previewNotice,
 }: TimeRegionCandidatesViewProps) {
   const groupId = useId();
   const [storedSelection, setSelection] = useState<CandidateSelection>({
@@ -51,6 +54,7 @@ export function TimeRegionCandidatesView({
         <section className="time-region-candidates__intro" aria-labelledby={`${groupId}-title`}>
           <h2 id={`${groupId}-title`}>가능한 일시 + 중간지역 후보</h2>
           <p>참여자들의 입력을 모아 비교 가능한 후보를 만들었어요</p>
+          {previewNotice && <p role="status">{previewNotice}</p>}
         </section>
         <fieldset className="time-region-candidates__group">
           <legend>가능한 일시</legend>
@@ -108,11 +112,12 @@ export function TimeRegionCandidatesView({
 }
 
 function TimeRegionCandidates() {
-  const navigate = useNavigate();
+  const navigate = useRoomNavigation();
   return (
     <TimeRegionCandidatesView
       data={getTimeRegionCandidates()}
-      onBack={() => navigate('/rooms/participation-status')}
+      onBack={() => navigate(PATHS.participation)}
+      previewNotice="개발용 목 후보 예시예요. 현재 참여자의 입력으로 계산한 결과가 아니며, 후보 계산·확정 API는 아직 연결되지 않았어요."
     />
   );
 }

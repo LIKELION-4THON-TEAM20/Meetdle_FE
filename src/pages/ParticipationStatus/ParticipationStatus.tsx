@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
+import { useRoomNavigation } from '../../router/useRoomNavigation';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import ParticipantList from './components/ParticipantList';
@@ -9,7 +10,7 @@ import './ParticipationStatus.scss';
 import { PATHS } from '../../router/paths';
 
 function ParticipationStatus() {
-  const navigate = useNavigate();
+  const navigate = useRoomNavigation();
   const [searchParams] = useSearchParams();
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
 
@@ -25,9 +26,7 @@ function ParticipationStatus() {
   const proceedWithCompletedParticipants = () => {
     if (!canProceed) return;
     setShowIncompleteModal(false);
-    window.alert(
-      '후보 선택 화면(SCREEN 05)이 현재 브랜치에 없어요. #13 관련 PR 반영과 후보 계산 API 연결이 필요하며, 실제 후보 계산은 수행하지 않습니다.',
-    );
+    navigate(PATHS.candidates);
   };
 
   const handleProceed = () => {

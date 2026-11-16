@@ -3,6 +3,7 @@ import CreateRoom from '../pages/CreateRoom/CreateRoom';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
 import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
 import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatus';
+import TimeRegionCandidates from '../pages/TimeRegionCandidates/TimeRegionCandidates';
 import MeetingConfirmed from '../pages/MeetingConfirmed/MeetingConfirmed';
 import MeetingInfo from '../pages/MeetingInfo/MeetingInfo';
 import PlaceRegistrationSetup from '../pages/PlaceRegistrationSetup/PlaceRegistrationSetup';
@@ -64,6 +65,10 @@ export const router = createBrowserRouter([
           {
             path: PATHS.participation,
             element: <ParticipationStatus />,
+          },
+          {
+            path: PATHS.candidates,
+            element: <TimeRegionCandidates />,
           },
         ],
       },

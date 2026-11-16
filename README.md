@@ -80,6 +80,7 @@ npm run lint
 - `/rooms/create/complete`, `/rooms/invite`: 생성 완료·초대 확인 (방별 개발용 목데이터)
 - `/rooms/schedule`: 가능 시간 + 이동 정보 입력 (목데이터, [SCREEN03.md](SCREEN03.md))
 - `/rooms/participation-status`: 참여 현황 독립 목 화면
+- `/rooms/candidates`: 참여 현황에서 연결되는 후보 선택 목 예시 (실제 후보 계산·확정 API 미연결)
 - `/rooms/confirmed`, `/rooms/info`, `/rooms/registration/setup`: 동일 목 방의 확정·정보·등록 설정
 - `/rooms/places`: SCREEN 09 장소 탐색·등록 ([설정·검증 안내](SCREEN09.md))
 - `/rooms/registration/status`, `/rooms/registration/close`, `/rooms/vote/start`, `/rooms/vote`, `/rooms/vote/status`, `/rooms/vote/result`: 등록·투표 목 흐름
