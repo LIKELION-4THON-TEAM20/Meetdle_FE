@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
+import { useRoomNavigation } from '../../router/useRoomNavigation';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import ParticipantList from './components/ParticipantList';
 import IncompleteParticipantsModal from './components/IncompleteParticipantsModal';
 import { getMockParticipants } from './mockData';
 import './ParticipationStatus.scss';
+import { PATHS } from '../../router/paths';
 
 function ParticipationStatus() {
-  const navigate = useNavigate();
+  const navigate = useRoomNavigation();
   const [searchParams] = useSearchParams();
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
 
@@ -24,9 +26,7 @@ function ParticipationStatus() {
   const proceedWithCompletedParticipants = () => {
     if (!canProceed) return;
     setShowIncompleteModal(false);
-    window.alert(
-      '개발용 안내: 후보 계산 API와 다음 단계는 아직 연동되지 않았어요. 실제 후보 계산은 수행하지 않습니다.',
-    );
+    navigate(PATHS.candidates);
   };
 
   const handleProceed = () => {
@@ -37,7 +37,7 @@ function ParticipationStatus() {
 
   return (
     <div className="page participation-status">
-      <Header title="참여 현황" showBackButton onBack={() => navigate('/rooms/create/complete')} />
+      <Header title="참여 현황" showBackButton onBack={() => navigate(PATHS.home)} />
       <main className="participation-status__content">
         <section
           className="participation-status__summary"

@@ -4,7 +4,7 @@ const participants: Participant[] = [
   { id: 'sangmin', name: '상민', status: 'completed' },
   { id: 'jieun', name: '지은', status: 'completed' },
   { id: 'haneul', name: '하늘', status: 'inProgress' },
-  { id: 'yujin', name: '유진', status: 'completed' },
+  { id: 'yujin', name: '유진', status: 'inProgress' },
 ];
 
 export const MOCK_PARTICIPATION_SCENARIOS = {

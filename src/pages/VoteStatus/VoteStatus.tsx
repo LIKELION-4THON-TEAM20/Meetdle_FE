@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import { useRoomNavigation, useRoomLink, useRoomBack } from '../../router/useRoomNavigation';
+import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import { formatVoteRemaining } from '../PlaceVote/voteUtils';
@@ -19,7 +21,9 @@ function VoteStatusScreen({
   scenario: string | null;
   fixedClock: boolean;
 }) {
-  const navigate = useNavigate();
+  const navigate = useRoomNavigation();
+  const goBack = useRoomBack(PATHS.info);
+  const roomLink = useRoomLink();
   const { room, send, isolated } = useMockRoom();
   const [fixture] = useState(() => {
     const now = fixedClock ? FIXED_STATUS_NOW : Date.now();
@@ -57,13 +61,13 @@ function VoteStatusScreen({
     !isolated && (room.phase === 'voting' || room.phase === 'counting' || room.phase === 'result');
   return (
     <div className="page vote-status">
-      <Header title="투표 현황" showBackButton onBack={() => navigate(-1)} />
+      <Header title="투표 현황" showBackButton onBack={goBack} />
       <main className="vote-status__content">
         <p>개발용 목 투표 현황이에요. 서버 상태가 아니에요.</p>
         {!isolated && room.phase === 'registration' && (
           <p>
             아직 투표를 시작하지 않았어요.{' '}
-            <Link to="/rooms/registration/status">등록 현황으로 이동</Link>
+            <Link to={roomLink(PATHS.registration)}>등록 현황으로 이동</Link>
           </p>
         )}
         {!isolated && room.phase === 'registration' ? null : summary.phase === 'ongoing' ? (
@@ -114,7 +118,7 @@ function VoteStatusScreen({
                   room.result ||
                   (canCount(room, Date.now()) && send({ type: 'count', now: Date.now() }))
                 )
-                  navigate('/rooms/vote/result');
+                  navigate(PATHS.result);
               }}
             >
               개발용 목 결과 확인

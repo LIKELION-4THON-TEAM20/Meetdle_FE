@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useSearchParams } from 'react-router';
+import { useRoomNavigation } from '../../router/useRoomNavigation';
+import { PATHS } from '../../router/paths';
+import { useMockRoom } from '../../features/mockRoom/context';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import CategorySelector from './components/CategorySelector';
@@ -11,8 +14,13 @@ import type { DeadlineMode } from './types';
 import './PlaceRegistrationSetup.scss';
 
 function SetupForm({ scenario }: { scenario: string | null }) {
-  const navigate = useNavigate();
-  const [initial] = useState(() => createSetupMock(Date.now(), scenario));
+  const navigate = useRoomNavigation();
+  const location = useLocation();
+  const { room, isolated } = useMockRoom();
+  const [initial] = useState(() => ({
+    ...createSetupMock(Date.now(), scenario),
+    ...(!isolated ? { meetingStartsAt: room.meetingAt } : {}),
+  }));
   const [now, setNow] = useState(() => Date.now());
   const [selected, setSelected] = useState(initial.selectedCategories);
   const [mode, setMode] = useState<DeadlineMode>(initial.initialMode);
@@ -34,15 +42,22 @@ function SetupForm({ scenario }: { scenario: string | null }) {
     CATEGORIES.filter((category) => category.required).every((category) =>
       selected.includes(category.id),
     ) && selected.length >= REGISTRATION_RULES.minimumPlacesPerPerson;
-  const canStart = validCategories && isValidDeadline(deadline, now, initial.meetingStartsAt);
+  const canStart =
+    room.role === 'host' &&
+    validCategories &&
+    isValidDeadline(deadline, now, initial.meetingStartsAt);
 
   return (
     <div className="page registration-setup">
-      <Header title="등록 설정" showBackButton onBack={() => navigate(-1)} />
+      <Header title="등록 설정" showBackButton onBack={() => navigate(PATHS.confirmed)} />
       <main className="registration-setup__content">
         <div className="registration-setup__intro">
           <h2>어떤 장소를 함께 모아볼까요?</h2>
           <p>한 사람당 최소 1곳을 등록해요. 카테고리마다 최대 1곳씩 등록할 수 있어요.</p>
+          <p>
+            등록 시작 API는 미연결이에요. 버튼을 누르면 독립 목데이터의 장소 탐색 미리보기가 열리며,
+            여기서 선택한 설정은 아직 전달되지 않아요.
+          </p>
         </div>
         <div className="registration-setup__categories">
           <CategorySelector
@@ -77,6 +92,7 @@ function SetupForm({ scenario }: { scenario: string | null }) {
           className="registration-setup__start"
           disabled={!canStart}
           onClick={() => {
+            if (room.role !== 'host') return;
             const submittedAt = Date.now();
             if (
               !validCategories ||
@@ -85,7 +101,11 @@ function SetupForm({ scenario }: { scenario: string | null }) {
               setNow(submittedAt);
               return;
             }
-            windowAlert();
+            const preview = new URLSearchParams({
+              roomId: 'exploration-preview',
+              returnTo: `${location.pathname}${location.search}`,
+            });
+            navigate(`${PATHS.places}?${preview}`);
           }}
         >
           장소 등록 시작하기
@@ -93,10 +113,6 @@ function SetupForm({ scenario }: { scenario: string | null }) {
       </footer>
     </div>
   );
-}
-
-function windowAlert() {
-  globalThis.alert('장소 등록 시작 API는 아직 연동되지 않았어요. 실제 등록은 시작되지 않습니다.');
 }
 
 function PlaceRegistrationSetup() {

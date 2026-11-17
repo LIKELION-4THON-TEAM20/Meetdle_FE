@@ -19,7 +19,7 @@ export function createSetupMock(now: number, scenario: string | null) {
         ? 5
         : scenario === 'under3'
           ? 2
-          : 48;
+          : 7 * 24;
   return {
     meetingStartsAt: now + hoursUntilMeeting * HOUR,
     initialDeadline: now + 3 * HOUR,
