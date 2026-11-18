@@ -210,6 +210,10 @@
       cursor: default;
     }
   }
+  &__field--saved {
+    margin: 0;
+    cursor: default;
+  }
   &__presets {
     display: flex;
     flex-wrap: wrap;
@@ -243,7 +247,8 @@
 
 .setup-deadline-modal {
   max-width: 348px;
-  padding: 24px;
+  padding: 27px;
+  border-radius: 16px;
   h2 {
     margin: 0 0 16px;
     font-size: 18px;
@@ -271,4 +276,8 @@
       outline-offset: 2px;
     }
   }
+}
+
+.common-modal:has(> .setup-deadline-modal)::backdrop {
+  background: rgb(217 217 217 / 75%);
 }

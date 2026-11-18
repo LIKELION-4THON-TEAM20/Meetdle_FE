@@ -3,10 +3,11 @@ import type { CategoryId } from '../types';
 
 interface CategorySelectorProps {
   selected: CategoryId[];
+  disabled?: boolean;
   onToggle: (id: CategoryId) => void;
 }
 
-function CategorySelector({ selected, onToggle }: CategorySelectorProps) {
+function CategorySelector({ selected, disabled, onToggle }: CategorySelectorProps) {
   const requiredCount = CATEGORIES.filter(
     (category) => category.required && selected.includes(category.id),
   ).length;
@@ -28,6 +29,7 @@ function CategorySelector({ selected, onToggle }: CategorySelectorProps) {
                 type="button"
                 className="setup-chip"
                 aria-pressed={selected.includes(category.id)}
+                disabled={disabled}
                 key={category.id}
                 onClick={() => onToggle(category.id)}
               >

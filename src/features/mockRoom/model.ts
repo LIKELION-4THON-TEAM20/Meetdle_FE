@@ -11,6 +11,8 @@ import { saveVisitOrder } from '../../pages/VoteResult/resultUtils';
 import { isValidVoteDeadline } from '../../pages/VoteStart/voteUtils';
 import { extendRegistrationDeadline } from '../../pages/PlaceRegistrationStatus/statusUtils';
 import type { CandidateCategory } from '../../pages/VoteStart/mockData';
+import { isValidDeadline } from '../../pages/PlaceRegistrationSetup/deadlineUtils';
+import { CATEGORIES, REGISTRATION_RULES } from '../../pages/PlaceRegistrationSetup/mockData';
 
 export const STORAGE_KEY = 'meetdle:development-mock-room:v1';
 export const HOUR = 3600000;
@@ -56,6 +58,7 @@ export interface MockRoom {
   area: string;
   confirmation?: ConfirmedSelection;
   registrationStarted?: boolean;
+  registrationCategoryIds?: CategoryId[];
   registrationDeadline: number;
   registrationClosed: boolean;
   voteDeadline: number;
@@ -197,6 +200,7 @@ export function aggregate(room: MockRoom, now: number): MockRoom {
 }
 
 export type Action =
+  | { type: 'startRegistration'; categoryIds: CategoryId[]; deadline: number; now: number }
   | { type: 'deadline'; deadline: number; now: number }
   | { type: 'tick'; now: number }
   | { type: 'extend'; minutes: number; now: number }
@@ -209,9 +213,32 @@ export type Action =
   | { type: 'order'; order: string[] }
   | { type: 'revoteNotice' };
 
+export function validRegistrationCategories(ids: readonly CategoryId[]): boolean {
+  return (
+    ids.length >= REGISTRATION_RULES.minimumPlacesPerPerson &&
+    new Set(ids).size === ids.length &&
+    ids.every((id) => CATEGORIES.some((category) => category.id === id)) &&
+    CATEGORIES.every((category) => !category.required || ids.includes(category.id))
+  );
+}
+
 export function reduceRoom(room: MockRoom, action: Action): MockRoom {
   const host = room.role === 'host';
   switch (action.type) {
+    case 'startRegistration':
+      return host &&
+        room.phase === 'registration' &&
+        !room.registrationClosed &&
+        !room.registrationStarted &&
+        validRegistrationCategories(action.categoryIds) &&
+        isValidDeadline(action.deadline, action.now, room.meetingAt)
+        ? {
+            ...room,
+            registrationStarted: true,
+            registrationCategoryIds: [...action.categoryIds],
+            registrationDeadline: action.deadline,
+          }
+        : room;
     case 'deadline':
       return host &&
         room.phase === 'registration' &&
@@ -368,6 +395,13 @@ export function isMockRoom(value: unknown, id = 'mock-room-10-14'): value is Moc
     )
       return false;
     if (room.registrationStarted !== undefined && typeof room.registrationStarted !== 'boolean')
+      return false;
+    if (
+      room.registrationCategoryIds !== undefined &&
+      (room.registrationStarted !== true ||
+        !Array.isArray(room.registrationCategoryIds) ||
+        !validRegistrationCategories(room.registrationCategoryIds))
+    )
       return false;
     const confirmation = room.confirmation;
     if (

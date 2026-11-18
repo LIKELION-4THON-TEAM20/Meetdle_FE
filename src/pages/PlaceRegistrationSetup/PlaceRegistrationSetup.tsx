@@ -8,21 +8,25 @@ import Button from '../../components/common/Button/Button';
 import CategorySelector from './components/CategorySelector';
 import RegistrationRulesCard from './components/RegistrationRulesCard';
 import DeadlineSelector from './components/DeadlineSelector';
-import { CATEGORIES, createSetupMock, REGISTRATION_RULES } from './mockData';
-import { getDeadlineWindow, HOUR, isValidDeadline } from './deadlineUtils';
+import { validRegistrationCategories } from '../../features/mockRoom/model';
+import { createSetupMock } from './mockData';
+import { formatDeadline, getDeadlineWindow, HOUR, isValidDeadline } from './deadlineUtils';
 import type { DeadlineMode } from './types';
 import './PlaceRegistrationSetup.scss';
 
 function SetupForm({ scenario }: { scenario: string | null }) {
   const navigate = useRoomNavigation();
   const location = useLocation();
-  const { room, isolated } = useMockRoom();
+  const { room, send, isolated } = useMockRoom();
+  const started = room.registrationStarted === true;
   const [initial] = useState(() => ({
     ...createSetupMock(Date.now(), scenario),
     ...(!isolated ? { meetingStartsAt: room.meetingAt } : {}),
   }));
   const [now, setNow] = useState(() => Date.now());
-  const [selected, setSelected] = useState(initial.selectedCategories);
+  const [selected, setSelected] = useState(
+    room.registrationCategoryIds ?? initial.selectedCategories,
+  );
   const [mode, setMode] = useState<DeadlineMode>(initial.initialMode);
   const [customDeadline, setCustomDeadline] = useState(initial.initialDeadline);
   useEffect(() => {
@@ -38,12 +42,12 @@ function SetupForm({ scenario }: { scenario: string | null }) {
     mode === 'oneHour' ? time + HOUR : mode === 'threeHours' ? time + 3 * HOUR : customDeadline;
   const deadline = deadlineAt(now);
   const window = getDeadlineWindow(now, initial.meetingStartsAt);
-  const validCategories =
-    CATEGORIES.filter((category) => category.required).every((category) =>
-      selected.includes(category.id),
-    ) && selected.length >= REGISTRATION_RULES.minimumPlacesPerPerson;
+  const validCategories = validRegistrationCategories(selected);
   const canStart =
     room.role === 'host' &&
+    room.phase === 'registration' &&
+    !room.registrationClosed &&
+    !started &&
     validCategories &&
     isValidDeadline(deadline, now, initial.meetingStartsAt);
 
@@ -54,14 +58,11 @@ function SetupForm({ scenario }: { scenario: string | null }) {
         <div className="registration-setup__intro">
           <h2>어떤 장소를 함께 모아볼까요?</h2>
           <p>한 사람당 최소 1곳을 등록해요. 카테고리마다 최대 1곳씩 등록할 수 있어요.</p>
-          <p>
-            등록 시작 API는 미연결이에요. 버튼을 누르면 독립 목데이터의 장소 탐색 미리보기가 열리며,
-            여기서 선택한 설정은 아직 전달되지 않아요.
-          </p>
         </div>
         <div className="registration-setup__categories">
           <CategorySelector
             selected={selected}
+            disabled={started}
             onToggle={(id) =>
               setSelected((current) =>
                 current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
@@ -70,7 +71,14 @@ function SetupForm({ scenario }: { scenario: string | null }) {
           />
           <RegistrationRulesCard selected={selected} />
         </div>
-        {window.canOpen ? (
+        {started ? (
+          <section className="setup-deadline" aria-label="저장된 장소 등록 마감">
+            <h3>장소 등록 마감</h3>
+            <p className="setup-deadline__field setup-deadline__field--saved">
+              {formatDeadline(room.registrationDeadline, now)}
+            </p>
+          </section>
+        ) : window.canOpen ? (
           <DeadlineSelector
             now={now}
             meetingStartsAt={initial.meetingStartsAt}
@@ -86,25 +94,41 @@ function SetupForm({ scenario }: { scenario: string | null }) {
             약속까지 남은 시간이 짧아 장소 등록을 진행하기 어려워요.
           </p>
         )}
+        {!started && !isValidDeadline(deadline, now, initial.meetingStartsAt) && (
+          <Button onClick={() => navigate(PATHS.create)}>약속 다시 만들러 가기</Button>
+        )}
       </main>
       <footer className="registration-setup__footer">
         <Button
           className="registration-setup__start"
           disabled={!canStart}
           onClick={() => {
-            if (room.role !== 'host') return;
+            if (!canStart) return;
             const submittedAt = Date.now();
+            const submittedDeadline = deadlineAt(submittedAt);
             if (
               !validCategories ||
-              !isValidDeadline(deadlineAt(submittedAt), submittedAt, initial.meetingStartsAt)
+              !isValidDeadline(submittedDeadline, submittedAt, initial.meetingStartsAt)
             ) {
               setNow(submittedAt);
               return;
             }
             const preview = new URLSearchParams({
-              roomId: 'exploration-preview',
+              roomId: isolated ? 'exploration-preview' : room.id,
               returnTo: `${location.pathname}${location.search}`,
             });
+            if (!isolated) {
+              if (
+                !send({
+                  type: 'startRegistration',
+                  categoryIds: selected,
+                  deadline: submittedDeadline,
+                  now: submittedAt,
+                })
+              )
+                return;
+              preview.set('from', 'confirmation');
+            }
             navigate(`${PATHS.places}?${preview}`);
           }}
         >

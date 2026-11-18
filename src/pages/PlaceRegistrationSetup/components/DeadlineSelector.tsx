@@ -122,7 +122,7 @@ function DeadlineSelector({
             }
           }}
         >
-          <label htmlFor={`${id}-input`}>마감 일시</label>
+          <label htmlFor={`${id}-input`}>마감 일시를 선택해주세요</label>
           <input
             id={`${id}-input`}
             type="datetime-local"
@@ -139,7 +139,7 @@ function DeadlineSelector({
             {formatDeadline(minimum, now)} ~ {formatDeadline(maximum, now)}
           </p>
           <Button type="submit" disabled={!validDraft}>
-            확인
+            등록 마감시간 설정하기
           </Button>
         </form>
       </Modal>

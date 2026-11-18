@@ -13,7 +13,7 @@ const { createCandidateConfirmation, getMeetingConfirmation, getConfirmationRegi
 const { MOCK_CANDIDATE_DATA: data } = await server.ssrLoadModule(
   '/src/pages/TimeRegionCandidates/mockData.ts',
 );
-const { createMockRoom, restoreRoom, saveRoom } = await server.ssrLoadModule(
+const { createMockRoom, reduceRoom, restoreRoom, saveRoom } = await server.ssrLoadModule(
   '/src/features/mockRoom/model.ts',
 );
 const previewId = 'mock-created-preview';
@@ -45,6 +45,32 @@ test('selected time and region drive both cards and survive room-scoped restorat
   assert.equal(meeting.maximumTravelMinutes, 38);
   assert.equal(meeting.averageTransfers, 0.7);
   assert.equal(restoreRoom(storage, now).id, 'mock-room-10-14');
+});
+
+test('registration starts once with valid host settings and restores for the same room', () => {
+  const room = createMockRoom(now, previewId);
+  const action = {
+    type: 'startRegistration',
+    categoryIds: ['restaurant', 'cafe', 'culture'],
+    deadline: now + 60 * 60 * 1000,
+    now,
+  };
+  assert.equal(reduceRoom(room, { ...action, deadline: action.deadline - 1 }), room);
+  assert.equal(reduceRoom(room, { ...action, categoryIds: ['restaurant', 'pub'] }), room);
+  const participant = { ...room, role: 'participant' };
+  assert.equal(reduceRoom(participant, action), participant);
+  const started = reduceRoom(room, action);
+  assert.equal(reduceRoom(started, action), started);
+  const entries = new Map();
+  const storage = {
+    getItem: (key) => entries.get(key),
+    setItem: (key, value) => entries.set(key, value),
+  };
+  saveRoom(storage, started);
+  const restored = restoreRoom(storage, now, previewId);
+  assert.deepEqual(restored.registrationCategoryIds, action.categoryIds);
+  assert.equal(restored.registrationDeadline, action.deadline);
+  assert.equal(getConfirmationRegistrationStatus(restored, null), 'registrationOpen');
 });
 
 test('registration state comes from the room and supports the existing preview overrides', () => {
