@@ -112,7 +112,7 @@
     padding: 16px;
     border: 1px solid #eae7e4;
     border-radius: 16px;
-    background: #eeeef0;
+    background: #fafafa;
     color: #666;
   }
 
@@ -185,13 +185,13 @@
   }
 
   &__input:checked + &__surface {
-    border: 2px solid #d5d4d9;
-    padding: 15px;
+    border: 2px solid #7c5cff;
+    padding: 16px;
     background: variables.$color-white;
     color: variables.$color-black;
 
     .candidate-card__radio {
-      border: 7px solid #d5d4d9;
+      border: 7px solid #b9a8ff;
       background: variables.$color-white;
     }
   }
@@ -199,17 +199,6 @@
   &__input:focus-visible + &__surface {
     outline: 2px solid #666;
     outline-offset: 3px;
-  }
-
-  // 전원 가능 속성의 강조는 선택 여부와 무관하게 유지한다.
-  &--all-available &__surface,
-  &--all-available &__input:checked + &__surface {
-    gap: 8px;
-    padding: 16px;
-    border: 2px solid #7c5cff;
-    border-radius: 14px;
-    background: variables.$color-white;
-    color: #03000f;
   }
 
   @media (prefers-reduced-motion: no-preference) {
