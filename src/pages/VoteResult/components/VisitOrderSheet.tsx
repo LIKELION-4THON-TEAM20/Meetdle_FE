@@ -16,6 +16,7 @@ export default function VisitOrderSheet({ categories, order, role, onClose, onSa
   const [draft, setDraft] = useState(() => [...order]);
   const [dragging, setDragging] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
+  const list = useRef<HTMLOListElement>(null);
   const rows = useRef(new Map<string, HTMLLIElement>());
   const drag = useRef<{ id: string; pointerId: number; original: string[] } | null>(null);
   const host = role === 'host';
@@ -34,21 +35,47 @@ export default function VisitOrderSheet({ categories, order, role, onClose, onSa
     >
       <div className="visit-order-sheet__header">
         <h2 id="visit-order-title">{host ? '방문 순서 변경' : '방문 순서 확인'}</h2>
-        <button
-          type="button"
-          className="vote-result__text-button"
-          onClick={onClose}
-          aria-label="방문 순서 닫기"
-        >
-          닫기
-        </button>
       </div>
       <p id="visit-order-description">
         {host
           ? '드래그해서 방문 순서를 바꿀 수 있어요'
           : '방장이 정한 방문 순서예요. 순서 변경은 방장만 할 수 있어요.'}
       </p>
-      <ol className="visit-order-sheet__list">
+      <ol
+        className="visit-order-sheet__list"
+        ref={list}
+        onPointerMove={(event) => {
+          if (!drag.current || drag.current.pointerId !== event.pointerId) return;
+          const positions = draft.map((rowId, rowIndex) => {
+            const rect = rows.current.get(rowId)?.getBoundingClientRect();
+            return {
+              index: rowIndex,
+              distance: rect ? Math.abs(event.clientY - (rect.top + rect.height / 2)) : Infinity,
+            };
+          });
+          const nearest = positions.reduce((best, position) =>
+            position.distance < best.distance ? position : best,
+          );
+          if (nearest.index !== draft.indexOf(drag.current.id))
+            move(drag.current.id, nearest.index);
+        }}
+        onPointerUp={(event) => {
+          if (drag.current?.pointerId !== event.pointerId) return;
+          drag.current = null;
+          setDragging(null);
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+        onPointerCancel={() => {
+          if (drag.current) setDraft(drag.current.original);
+          drag.current = null;
+          setDragging(null);
+        }}
+        onLostPointerCapture={() => {
+          if (drag.current) setDraft(drag.current.original);
+          drag.current = null;
+          setDragging(null);
+        }}
+      >
         {draft.map((id, index) => {
           const category = categories.find((item) => item.id === id);
           if (!category) return null;
@@ -79,43 +106,9 @@ export default function VisitOrderSheet({ categories, order, role, onClose, onSa
                     }}
                     onPointerDown={(event) => {
                       if (!host || event.button !== 0 || !event.isPrimary) return;
-                      event.currentTarget.setPointerCapture(event.pointerId);
+                      list.current?.setPointerCapture(event.pointerId);
                       drag.current = { id, pointerId: event.pointerId, original: [...draft] };
                       setDragging(id);
-                    }}
-                    onPointerMove={(event) => {
-                      if (!drag.current || drag.current.pointerId !== event.pointerId || !host)
-                        return;
-                      const positions = draft.map((rowId, rowIndex) => {
-                        const rect = rows.current.get(rowId)?.getBoundingClientRect();
-                        return {
-                          index: rowIndex,
-                          distance: rect
-                            ? Math.abs(event.clientY - (rect.top + rect.height / 2))
-                            : Infinity,
-                        };
-                      });
-                      const nearest = positions.reduce((best, position) =>
-                        position.distance < best.distance ? position : best,
-                      );
-                      if (nearest.index !== draft.indexOf(drag.current.id))
-                        move(drag.current.id, nearest.index);
-                    }}
-                    onPointerUp={(event) => {
-                      if (drag.current?.pointerId !== event.pointerId) return;
-                      drag.current = null;
-                      setDragging(null);
-                      event.currentTarget.releasePointerCapture(event.pointerId);
-                    }}
-                    onPointerCancel={() => {
-                      if (drag.current) setDraft(drag.current.original);
-                      drag.current = null;
-                      setDragging(null);
-                    }}
-                    onLostPointerCapture={() => {
-                      if (drag.current) setDraft(drag.current.original);
-                      drag.current = null;
-                      setDragging(null);
                     }}
                   >
                     ≡

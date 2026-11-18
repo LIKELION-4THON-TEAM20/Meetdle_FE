@@ -184,6 +184,9 @@ test('multiple ties stay unresolved, participant cannot choose or save order', (
   assert.equal(reduceRoom(room, { type: 'count', now }), room);
   room = reduceRoom(reduceRoom(room, { type: 'closeVote', now }), { type: 'count', now });
   assert.equal(room.ties.length, 3);
+  const finalize = { type: 'finalizeResult' };
+  assert.equal(reduceRoom(room, finalize), room);
+  const firstTie = room.ties[0];
   while (room.ties.length) {
     const tie = room.ties[0];
     const action = { type: 'tie', categoryId: tie.id, placeId: tie.places[1].id };
@@ -196,10 +199,44 @@ test('multiple ties stay unresolved, participant cannot choose or save order', (
   room = reduceRoom(room, { type: 'order', order: reversed });
   assert.deepEqual(room.result.order, reversed);
   const participant = { ...room, role: 'participant' };
+  assert.equal(reduceRoom(participant, finalize), participant);
   assert.equal(
     reduceRoom(participant, { type: 'order', order: [...reversed].reverse() }),
     participant,
   );
+  const reselect = {
+    type: 'tie',
+    categoryId: firstTie.id,
+    placeId: firstTie.places[0].id,
+  };
+  room = reduceRoom(room, reselect);
+  assert.equal(room.result.categories[0].place.id, reselect.placeId);
+  assert.deepEqual(room.result.order, reversed);
+  const invalidOrder = {
+    ...room,
+    result: { ...room.result, order: reversed.map(() => reversed[0]) },
+  };
+  assert.equal(reduceRoom(invalidOrder, finalize), invalidOrder);
+  const withoutRequired = {
+    ...room,
+    result: {
+      ...room.result,
+      categories: room.result.categories.filter(({ id }) => id !== 'restaurant'),
+      order: reversed.filter((id) => id !== 'restaurant'),
+    },
+  };
+  assert.equal(reduceRoom(withoutRequired, finalize), withoutRequired);
+  const confirmed = reduceRoom(room, finalize);
+  assert.equal(confirmed.result.finalized, true);
+  assert.deepEqual(confirmed.result.order, reversed);
+  assert.equal(isMockRoom(confirmed), true);
+  assert.equal(
+    restoreRoom({ getItem: () => JSON.stringify(confirmed) }, now).result.finalized,
+    true,
+  );
+  assert.equal(reduceRoom(confirmed, finalize), confirmed);
+  assert.equal(reduceRoom(confirmed, { type: 'order', order: [...reversed].reverse() }), confirmed);
+  assert.equal(reduceRoom(confirmed, { ...reselect, placeId: firstTie.places[1].id }), confirmed);
 });
 
 test('selection failure never invents a winner; malformed storage resets safely', () => {

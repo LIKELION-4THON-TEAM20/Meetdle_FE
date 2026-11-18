@@ -7,7 +7,7 @@ import type {
 import { voteCategories } from '../../pages/PlaceVote/mockData';
 import { getVoteProgress, updateVote, type VoteAction } from '../../pages/PlaceVote/voteUtils';
 import type { ResultPlace, ResultRole, ResultState } from '../../pages/VoteResult/types';
-import { saveVisitOrder } from '../../pages/VoteResult/resultUtils';
+import { isValidVisitOrder, saveVisitOrder } from '../../pages/VoteResult/resultUtils';
 import { isValidVoteDeadline } from '../../pages/VoteStart/voteUtils';
 import {
   extendRegistrationDeadline,
@@ -166,6 +166,42 @@ export function canCount(room: MockRoom, now: number) {
   );
 }
 
+export function resultCandidates(room: MockRoom) {
+  const ballots = completedVoters(room);
+  return room.categories.map((category) => ({
+    ...category,
+    places: category.places.map((place): ResultPlace => {
+      const votes = { like: 0, neutral: 0, dislike: 0 };
+      if (category.places.length > 1)
+        ballots.forEach(({ vote }) => {
+          votes[vote.responses[place.id]] += 1;
+        });
+      return { ...place, votes, tieVotes: votes.like };
+    }),
+  }));
+}
+
+export function resultTieOptions(room: MockRoom) {
+  return room.result?.unresolvedTie || room.result?.categories.length
+    ? aggregate(room, room.voteDeadline).ties
+    : [];
+}
+
+export function canFinalizeResult(room: MockRoom) {
+  const result = room.result;
+  return Boolean(
+    room.phase === 'result' &&
+    result?.categories.length &&
+    !result.unresolvedTie &&
+    room.ties.length === 0 &&
+    new Set(result.categories.map(({ place }) => place.id)).size === result.categories.length &&
+    candidateCategories(room).every(
+      (category) => !category.required || result.categories.some(({ id }) => id === category.id),
+    ) &&
+    isValidVisitOrder(result, result.order),
+  );
+}
+
 // Development simulation only, not a product/backend ranking contract.
 // Rank by like - dislike; exclude a strict majority of dislikes. Keep every tie unresolved.
 export function aggregate(room: MockRoom, now: number): MockRoom {
@@ -179,17 +215,9 @@ export function aggregate(room: MockRoom, now: number): MockRoom {
   const ballots = completedVoters(room);
   const categories: ResultState['categories'] = [];
   const ties: MockRoom['ties'] = [];
-  for (const category of room.categories) {
+  for (const category of resultCandidates(room)) {
     if (!category.places.length) continue;
-    const places: ResultPlace[] = category.places.map((place) => {
-      const votes = { like: 0, neutral: 0, dislike: 0 };
-      if (category.places.length > 1)
-        ballots.forEach(({ vote }) => {
-          votes[vote.responses[place.id]] += 1;
-        });
-      return { ...place, votes, tieVotes: votes.like };
-    });
-    const eligible = places.filter((place) => place.votes.dislike <= ballots.length / 2);
+    const eligible = category.places.filter((place) => place.votes.dislike <= ballots.length / 2);
     if (!eligible.length)
       return {
         ...room,
@@ -228,6 +256,7 @@ export type Action =
   | { type: 'count'; now: number }
   | { type: 'tie'; categoryId: string; placeId: string }
   | { type: 'order'; order: string[] }
+  | { type: 'finalizeResult' }
   | { type: 'revoteNotice' };
 
 export function validRegistrationCategories(ids: readonly CategoryId[]): boolean {
@@ -378,9 +407,10 @@ export function reduceRoom(room: MockRoom, action: Action): MockRoom {
     case 'count':
       return host && room.phase === 'counting' ? aggregate(room, action.now) : room;
     case 'tie': {
-      const tie = room.ties.find(({ id }) => id === action.categoryId);
+      if (!host || !room.result || room.result.finalized) return room;
+      const tie = resultTieOptions(room).find(({ id }) => id === action.categoryId);
       const place = tie?.places.find(({ id }) => id === action.placeId);
-      if (!host || !room.result || !place) return room;
+      if (!place) return room;
       const ties = room.ties.filter(({ id }) => id !== action.categoryId);
       return {
         ...room,
@@ -394,9 +424,14 @@ export function reduceRoom(room: MockRoom, action: Action): MockRoom {
         },
       };
     }
-    case 'order':
-      return host && room.result && !room.result.unresolvedTie
-        ? { ...room, result: saveVisitOrder(room.result, action.order, room.role) }
+    case 'order': {
+      if (!host || !room.result || room.result.finalized || room.result.unresolvedTie) return room;
+      const result = saveVisitOrder(room.result, action.order, room.role);
+      return result === room.result ? room : { ...room, result };
+    }
+    case 'finalizeResult':
+      return host && room.result && !room.result.finalized && canFinalizeResult(room)
+        ? { ...room, result: { ...room.result, finalized: true } }
         : room;
     case 'revoteNotice':
       return host &&
@@ -535,6 +570,7 @@ export function isMockRoom(value: unknown, id = 'mock-room-10-14'): value is Moc
         !Array.isArray(room.result.categories) ||
         !Array.isArray(room.result.order) ||
         typeof room.result.unresolvedTie !== 'boolean' ||
+        (room.result.finalized !== undefined && typeof room.result.finalized !== 'boolean') ||
         ![0, 1].includes(room.result.revotesUsed)
       )
         return false;
@@ -553,14 +589,7 @@ export function isMockRoom(value: unknown, id = 'mock-room-10-14'): value is Moc
         )
           return false;
       }
-      if (
-        room.result.order.length !== room.result.categories.length ||
-        new Set(room.result.order).size !== room.result.order.length ||
-        room.result.order.some(
-          (id) => !room.result!.categories.some((category) => category.id === id),
-        )
-      )
-        return false;
+      if (!isValidVisitOrder(room.result, room.result.order)) return false;
       const computed = aggregate({ ...room, result: null }, room.voteDeadline);
       if (!computed.result || computed.result.categories.length !== room.result.categories.length)
         return false;
@@ -578,6 +607,7 @@ export function isMockRoom(value: unknown, id = 'mock-room-10-14'): value is Moc
           return false;
       }
       if (room.result.unresolvedTie !== room.ties.length > 0) return false;
+      if (room.result.finalized && !canFinalizeResult(room)) return false;
       if (
         room.ties.some(
           (tie) =>

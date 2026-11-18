@@ -16,6 +16,7 @@ export interface ResultCategory {
   place: ResultPlace;
 }
 export interface ResultState {
+  finalized?: boolean;
   categories: ResultCategory[];
   order: string[];
   unresolvedTie: boolean;

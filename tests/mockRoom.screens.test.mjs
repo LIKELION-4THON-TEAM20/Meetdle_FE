@@ -62,7 +62,7 @@ test('host/participant management controls and direct-entry recovery render', ()
   assert.match(render('PlaceVote', room), /아직 목 투표가 시작되지 않았어요/);
   assert.match(button(render('PlaceVote', room), '투표 제출'), /disabled/);
   assert.match(render('VoteResult', room), /투표 현황으로 이동/);
-  assert.doesNotMatch(render('VoteResult', room), /방문 순서 확인하기/);
+  assert.doesNotMatch(render('VoteResult', room), /방문 순서 변경하기/);
 });
 
 test('submission renders status link and live completion count; counting is explicit', () => {
@@ -85,7 +85,14 @@ test('submission renders status link and live completion count; counting is expl
   room = reduceRoom(room, { type: 'closeVote', now });
   assert.match(render('VoteStatus', room), /개발용 목 결과 확인/);
   room = reduceRoom(room, { type: 'count', now });
-  assert.match(render('VoteResult', room), /방문 순서 확인하기/);
+  assert.match(render('VoteResult', room), /방문 순서 변경하기/);
+  const waiting = { ...room, role: 'participant', currentUserId: 'haneul' };
+  assert.match(render('VoteResult', waiting), /방장이 결과를 확정하는 중이에요/);
+  assert.doesNotMatch(render('VoteResult', waiting), /result-place-card|결과 확정하기/);
+  room = reduceRoom(room, { type: 'finalizeResult' });
+  const confirmed = { ...room, role: 'participant', currentUserId: 'haneul' };
+  assert.match(render('VoteResult', confirmed), /만남 일정이 확정됐어요/);
+  assert.doesNotMatch(render('VoteResult', confirmed), /방문 순서 변경하기|결과 확정하기/);
 });
 
 test('isolated development scenarios render without using the connected room data', () => {
