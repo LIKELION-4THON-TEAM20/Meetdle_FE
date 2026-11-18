@@ -43,6 +43,24 @@ function button(html, text) {
 }
 const now = Date.now();
 
+test('registration and voting status offer the ballot only to an active unsubmitted participant', () => {
+  let room = reduceRoom(createMockRoom(now), { type: 'closeRegistration' });
+  room = reduceRoom(room, { type: 'start', now, deadline: now + 3600000 });
+  const participant = { ...room, role: 'participant', currentUserId: 'haneul' };
+  const registration = render('PlaceRegistrationStatus', participant, {
+    url: '/rooms/registration/status?roomId=mock-room-10-14&role=participant',
+  });
+  assert.match(registration, /href="\/rooms\/vote\?roomId=mock-room-10-14&amp;role=participant"/);
+  assert.match(render('VoteStatus', participant), /장소 투표하기/);
+  const submitted = { ...participant, currentUserId: 'jieun' };
+  assert.match(render('PlaceRegistrationStatus', submitted), /href="\/rooms\/vote\/status"/);
+  assert.doesNotMatch(render('VoteStatus', submitted), /장소 투표하기/);
+  assert.doesNotMatch(
+    render('VoteStatus', { ...participant, voteDeadline: now - 1 }),
+    /장소 투표하기/,
+  );
+});
+
 test('host/participant management controls and direct-entry recovery render', () => {
   const room = createMockRoom(now);
   const participant = { ...room, role: 'participant', currentUserId: 'haneul' };

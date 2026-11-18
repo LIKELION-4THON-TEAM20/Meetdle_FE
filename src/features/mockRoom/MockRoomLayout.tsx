@@ -24,17 +24,17 @@ function Provider({
 }) {
   const { pathname, search } = useLocation();
   const hostOnlyRegistration = pathname === PATHS.closeRegistration || pathname === PATHS.startVote;
+  const [initial] = useState<MockRoom>(() => {
+    try {
+      if (!isolated && !reset && isMockRoom(fallbackRoom, roomId)) return fallbackRoom;
+      return isolated || reset
+        ? createMockRoom(Date.now(), roomId)
+        : restoreRoom(window.sessionStorage, Date.now(), roomId);
+    } catch {
+      return createMockRoom(Date.now(), roomId);
+    }
+  });
   const [room, setRoom] = useState<MockRoom>(() => {
-    const initial = (() => {
-      try {
-        if (!isolated && !reset && isMockRoom(fallbackRoom, roomId)) return fallbackRoom;
-        return isolated || reset
-          ? createMockRoom(Date.now(), roomId)
-          : restoreRoom(window.sessionStorage, Date.now(), roomId);
-      } catch {
-        return createMockRoom(Date.now(), roomId);
-      }
-    })();
     return role === 'host' || role === 'participant'
       ? { ...initial, role, currentUserId: role === 'host' ? 'sangmin' : 'haneul' }
       : initial;
@@ -44,7 +44,11 @@ function Provider({
       setRoom(next);
       if (!isolated) {
         try {
-          saveRoom(window.sessionStorage, next);
+          saveRoom(window.sessionStorage, {
+            ...next,
+            role: initial.role,
+            currentUserId: initial.currentUserId,
+          });
         } catch {
           /* In-memory fallback. */
         }
@@ -54,12 +58,12 @@ function Provider({
   useEffect(() => {
     if (!isolated) {
       try {
-        saveRoom(window.sessionStorage, room);
+        saveRoom(window.sessionStorage, initial);
       } catch {
         /* In-memory fallback. */
       }
     }
-  }, [isolated, room]);
+  }, [isolated, initial]);
   return (
     <MockRoomContext.Provider value={{ room, send, isolated }}>
       {(pathname === PATHS.setup || hostOnlyRegistration) && room.role === 'participant' ? (

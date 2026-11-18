@@ -25,6 +25,49 @@ const {
   STORAGE_KEY,
 } = model;
 const now = new Date('2026-11-13T09:00:00Z').getTime();
+
+test('room-specific required categories persist and guard registration close', () => {
+  const initial = { ...createMockRoom(now), registrationStarted: false };
+  const action = {
+    type: 'startRegistration',
+    categoryIds: ['restaurant', 'cafe', 'pub', 'culture'],
+    requiredCategoryIds: ['pub'],
+    deadline: now + 3600000,
+    now,
+  };
+  assert.equal(reduceRoom(initial, { ...action, requiredCategoryIds: ['culture'] }), initial);
+  assert.equal(reduceRoom(initial, { ...action, categoryIds: ['restaurant', 'cafe'] }), initial);
+  const started = reduceRoom(initial, action);
+  assert(isMockRoom(started));
+  const restored = restoreRoom({ getItem: () => JSON.stringify(started) }, now);
+  assert.deepEqual(
+    candidateCategories(restored)
+      .filter(({ required }) => required)
+      .map(({ id }) => id),
+    ['pub'],
+  );
+  const without = (id) => ({
+    ...restored,
+    categories: restored.categories.map((category) =>
+      category.id === id ? { ...category, places: [] } : category,
+    ),
+  });
+  const blocked = without('pub');
+  assert.equal(reduceRoom(blocked, { type: 'closeRegistration' }), blocked);
+  assert.equal(
+    reduceRoom(without('restaurant'), { type: 'closeRegistration' }).registrationClosed,
+    true,
+  );
+});
+
+test('ballot entry is limited to the voting window and current unsubmitted member', () => {
+  const room = start();
+  const participant = { ...room, role: 'participant', currentUserId: 'haneul' };
+  assert.equal(model.canOpenBallot(participant, now), true);
+  assert.equal(model.canOpenBallot(participant, room.voteDeadline), false);
+  assert.equal(model.canOpenBallot({ ...participant, currentUserId: 'jieun' }, now), false);
+  assert.equal(model.canOpenBallot({ ...participant, phase: 'counting' }, now), false);
+});
 function start(room = createMockRoom(now)) {
   room = reduceRoom(room, { type: 'closeRegistration' });
   return reduceRoom(room, { type: 'start', deadline: now + 3600000, now });

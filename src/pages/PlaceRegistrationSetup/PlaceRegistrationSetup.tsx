@@ -5,11 +5,13 @@ import { PATHS } from '../../router/paths';
 import { useMockRoom } from '../../features/mockRoom/context';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
+import Modal from '../../components/common/Modal/Modal';
 import CategorySelector from './components/CategorySelector';
 import RegistrationRulesCard from './components/RegistrationRulesCard';
 import DeadlineSelector from './components/DeadlineSelector';
 import { validRegistrationCategories } from '../../features/mockRoom/model';
-import { createSetupMock } from './mockData';
+import { CATEGORIES, createSetupMock } from './mockData';
+import { getMeetingConfirmation } from '../MeetingConfirmed/confirmationData';
 import { formatDeadline, getDeadlineWindow, HOUR, isValidDeadline } from './deadlineUtils';
 import type { DeadlineMode } from './types';
 import './PlaceRegistrationSetup.scss';
@@ -27,6 +29,11 @@ function SetupForm({ scenario }: { scenario: string | null }) {
   const [selected, setSelected] = useState(
     room.registrationCategoryIds ?? initial.selectedCategories,
   );
+  const [requiredIds, setRequiredIds] = useState(
+    room.requiredRegistrationCategoryIds ??
+      CATEGORIES.filter(({ required }) => required).map(({ id }) => id),
+  );
+  const [categoryBlocked, setCategoryBlocked] = useState(false);
   const [mode, setMode] = useState<DeadlineMode>(initial.initialMode);
   const [customDeadline, setCustomDeadline] = useState(initial.initialDeadline);
   useEffect(() => {
@@ -42,7 +49,7 @@ function SetupForm({ scenario }: { scenario: string | null }) {
     mode === 'oneHour' ? time + HOUR : mode === 'threeHours' ? time + 3 * HOUR : customDeadline;
   const deadline = deadlineAt(now);
   const window = getDeadlineWindow(now, initial.meetingStartsAt);
-  const validCategories = validRegistrationCategories(selected);
+  const validCategories = validRegistrationCategories(selected, requiredIds);
   const canStart =
     room.role === 'host' &&
     room.phase === 'registration' &&
@@ -58,18 +65,31 @@ function SetupForm({ scenario }: { scenario: string | null }) {
         <div className="registration-setup__intro">
           <h2>어떤 장소를 함께 모아볼까요?</h2>
           <p>한 사람당 최소 1곳을 등록해요. 카테고리마다 최대 1곳씩 등록할 수 있어요.</p>
+          <p>확정된 약속 일시 · {getMeetingConfirmation(room).dateTime}</p>
         </div>
         <div className="registration-setup__categories">
           <CategorySelector
             selected={selected}
+            requiredIds={requiredIds}
             disabled={started}
+            onMove={(id, required) => {
+              if (id === 'culture' && required) {
+                setCategoryBlocked(true);
+                return;
+              }
+              setRequiredIds((current) =>
+                required ? [...current, id] : current.filter((value) => value !== id),
+              );
+              if (required)
+                setSelected((current) => (current.includes(id) ? current : [...current, id]));
+            }}
             onToggle={(id) =>
               setSelected((current) =>
                 current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
               )
             }
           />
-          <RegistrationRulesCard selected={selected} />
+          <RegistrationRulesCard selected={selected} requiredIds={requiredIds} />
         </div>
         {started ? (
           <section className="setup-deadline" aria-label="저장된 장소 등록 마감">
@@ -122,6 +142,7 @@ function SetupForm({ scenario }: { scenario: string | null }) {
                 !send({
                   type: 'startRegistration',
                   categoryIds: selected,
+                  requiredCategoryIds: requiredIds,
                   deadline: submittedDeadline,
                   now: submittedAt,
                 })
@@ -135,6 +156,16 @@ function SetupForm({ scenario }: { scenario: string | null }) {
           장소 등록 시작하기
         </Button>
       </footer>
+      <Modal
+        open={categoryBlocked}
+        onClose={() => setCategoryBlocked(false)}
+        className="registration-setup__category-modal"
+        aria-labelledby="registration-category-blocked"
+      >
+        <h2 id="registration-category-blocked">분류를 변경할 수 없어요</h2>
+        <p>문화시설은 선택 카테고리에만 둘 수 있어요.</p>
+        <Button onClick={() => setCategoryBlocked(false)}>확인</Button>
+      </Modal>
     </div>
   );
 }

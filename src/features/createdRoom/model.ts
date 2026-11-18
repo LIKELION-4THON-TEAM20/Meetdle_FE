@@ -7,6 +7,21 @@ export interface CreatedRoomPreview {
   id: string;
   inviteCode: string;
   creation: CreateRoomState;
+  joinedParticipants?: JoinedParticipant[];
+}
+
+interface JoinedParticipant {
+  id: string;
+  name: string;
+  profileImageUrl?: string;
+}
+
+export function getJoinedParticipants(room: CreatedRoomPreview): JoinedParticipant[] {
+  return room.joinedParticipants ?? [{ id: 'host', name: '방장' }];
+}
+
+export function hasFullRecruitment(room: CreatedRoomPreview) {
+  return getJoinedParticipants(room).length === room.creation.capacity;
 }
 const memory = new Map<string, CreatedRoomPreview>();
 const PREVIEW: CreatedRoomPreview = {
@@ -35,7 +50,21 @@ function isPreview(value: unknown): value is CreatedRoomPreview {
     /^mock-created-[\w-]+$/.test(item.id) &&
     typeof item.inviteCode === 'string' &&
     /^[A-Z0-9]{6}$/.test(item.inviteCode) &&
-    isCreateRoomState(item.creation)
+    isCreateRoomState(item.creation) &&
+    (item.joinedParticipants === undefined ||
+      (Array.isArray(item.joinedParticipants) &&
+        item.joinedParticipants.length > 0 &&
+        item.joinedParticipants.length <= item.creation.capacity &&
+        new Set(item.joinedParticipants.map((participant) => participant?.id)).size ===
+          item.joinedParticipants.length &&
+        item.joinedParticipants.every(
+          (participant) =>
+            participant &&
+            typeof participant.id === 'string' &&
+            typeof participant.name === 'string' &&
+            (participant.profileImageUrl === undefined ||
+              typeof participant.profileImageUrl === 'string'),
+        )))
   );
 }
 

@@ -11,7 +11,11 @@ import VoteDeadlineModal from '../VoteStart/components/VoteDeadlineModal';
 import { createRegistrationStatusMock } from './mockData';
 import { getRegistrationSummary } from './statusUtils';
 import { useMockRoom } from '../../features/mockRoom/context';
-import { candidateCategories, registrationParticipants } from '../../features/mockRoom/model';
+import {
+  canOpenBallot,
+  candidateCategories,
+  registrationParticipants,
+} from '../../features/mockRoom/model';
 import { isExplorationStatusPreview } from '../PlaceExploration/placeUtils';
 import type { ExplorationStatusPreview } from '../PlaceExploration/types';
 import { createCandidateMock, summarizeCandidates } from '../VoteStart/mockData';
@@ -74,6 +78,12 @@ function RegistrationStatusScreen({
     room.registrationStarted !== false &&
     room.phase === 'registration';
   const categories = candidateCategories(room);
+  const nextPath =
+    room.phase === 'registration'
+      ? PATHS.startVote
+      : !host && canOpenBallot(room, now)
+        ? PATHS.vote
+        : PATHS.voteStatus;
   const required = categories
     .filter(({ required }) => required)
     .map(({ name }) => name)
@@ -82,9 +92,12 @@ function RegistrationStatusScreen({
     .filter(({ required }) => !required)
     .map(({ name }) => name)
     .join('·');
-  const guidance = [required && `${required}는 필수예요.`, optional && `${optional}은 선택이에요.`]
+  const guidance = [
+    required && `필수 카테고리 ${required}`,
+    optional && `선택 카테고리 ${optional}`,
+  ]
     .filter(Boolean)
-    .join(' ');
+    .join(' · ');
   const phaseKey = `${summary.phase}:${deadline}`;
   const showStatus =
     canManage && !extend && !share && summary.phase !== 'ongoing' && dismissed !== phaseKey;
@@ -138,11 +151,7 @@ function RegistrationStatusScreen({
             <p>
               장소 등록이 마감됐어요.{' '}
               {room.phase !== 'registration' || host ? (
-                <Link
-                  to={roomLink(room.phase === 'registration' ? PATHS.startVote : PATHS.voteStatus)}
-                >
-                  다음 단계 확인
-                </Link>
+                <Link to={roomLink(nextPath)}>다음 단계 확인</Link>
               ) : null}
             </p>
           )}

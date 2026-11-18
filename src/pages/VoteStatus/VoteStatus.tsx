@@ -14,7 +14,7 @@ import { createVoteStatusMock, FIXED_STATUS_NOW } from './mockData';
 import { getVoteStatusSummary } from './statusUtils';
 import './VoteStatus.scss';
 import { useMockRoom } from '../../features/mockRoom/context';
-import { completedVoters } from '../../features/mockRoom/model';
+import { canOpenBallot, completedVoters } from '../../features/mockRoom/model';
 
 const REMINDER = '아직 투표하지 않았다면 장소 후보를 골라주세요!';
 
@@ -120,6 +120,9 @@ function VoteStatusScreen({
       </main>
       {hasStarted && (active || room.phase === 'counting' || room.phase === 'result') && (
         <footer className="vote-status__footer">
+          {!host && !isolated && canOpenBallot(room, now) && (
+            <Button onClick={() => navigate(PATHS.vote)}>장소 투표하기</Button>
+          )}
           {ongoing && (
             <Button
               onClick={() => {

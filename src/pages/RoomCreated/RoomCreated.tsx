@@ -1,8 +1,8 @@
 import { Link, useSearchParams } from 'react-router';
 import { formatCandidateDates } from '../CreateRoom/createRoomState';
-import { getCreatedRoom } from '../../features/createdRoom/model';
+import { getCreatedRoom, getJoinedParticipants } from '../../features/createdRoom/model';
 import { PATHS, roomPath } from '../../router/paths';
-import { useRoomBack } from '../../router/useRoomNavigation';
+import { useRoomBack, useRoomNavigation } from '../../router/useRoomNavigation';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import MeetingInfoCard from './components/MeetingInfoCard';
@@ -11,6 +11,7 @@ import './RoomCreated.scss';
 
 function RoomCreated() {
   const goBack = useRoomBack(PATHS.create);
+  const navigate = useRoomNavigation();
   const [params] = useSearchParams();
   const room = getCreatedRoom(params.get('roomId'))!;
   const { inviteCode, creation } = room;
@@ -18,7 +19,7 @@ function RoomCreated() {
     name: creation.name.trim(),
     candidateDates: formatCandidateDates(creation.dateRange),
     capacity: creation.capacity,
-    participantCount: 1,
+    participantCount: getJoinedParticipants(room).length,
   };
 
   const shareInviteOnKakao = () => {
@@ -59,6 +60,11 @@ function RoomCreated() {
         <InviteCodeCopy code={inviteCode} onShare={shareInviteOnKakao} />
       </main>
       <footer className="room-created__footer">
+        {params.get('role') !== 'participant' && (
+          <Button onClick={() => navigate(roomPath(PATHS.recruitment, '?role=host', room.id))}>
+            참여 현황 보기
+          </Button>
+        )}
         <Button className="room-created__action" onClick={shareInviteOnKakao}>
           카카오톡으로 초대하기
         </Button>

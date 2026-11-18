@@ -4,6 +4,7 @@ import {
   CREATED_ROOM_PREVIEW_ID,
   findCreatedRoomByCode,
   getCreatedRoom,
+  hasFullRecruitment,
 } from '../features/createdRoom/model';
 import { PATHS, roomPath } from './paths';
 
@@ -41,7 +42,7 @@ export function CreatedRoomLayout() {
   }
   // 참여 현황의 독립 fixture를 새로 만든 방의 실제 참여 결과로 노출하지 않는다.
   if (
-    (pathname === PATHS.schedule ||
+    ((pathname === PATHS.schedule && !hasFullRecruitment(room)) ||
       pathname === PATHS.participation ||
       pathname === PATHS.candidates) &&
     room.id !== CREATED_ROOM_PREVIEW_ID

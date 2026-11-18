@@ -275,3 +275,34 @@
 .common-modal:has(> .setup-deadline-modal)::backdrop {
   background: rgb(217 217 217 / 75%);
 }
+.setup-categories {
+  &__group {
+    min-height: 32px;
+  }
+
+  .setup-chip:enabled {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .setup-chip:active {
+    cursor: grabbing;
+  }
+}
+
+.registration-setup__category-modal {
+  max-width: 328px;
+  padding: 24px;
+
+  h2 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  p {
+    margin: 12px 0 20px;
+    color: #666;
+    font-size: 14px;
+  }
+}
