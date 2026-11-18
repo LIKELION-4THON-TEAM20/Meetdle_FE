@@ -1,0 +1,12 @@
+.auth-status {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 27px;
+  color: #666;
+  font-size: 14px;
+  line-height: 22px;
+  p {
+    margin: 0;
+  }
+}

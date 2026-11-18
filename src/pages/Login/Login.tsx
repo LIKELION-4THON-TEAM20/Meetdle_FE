@@ -9,9 +9,12 @@ import './Login.scss';
 interface LoginProps {
   onKakaoLogin?: () => void;
   helpUrl?: string;
+  message?: string;
+  busy?: boolean;
+  onRetry?: () => void;
 }
 
-function Login({ onKakaoLogin, helpUrl }: LoginProps) {
+function Login({ onKakaoLogin, helpUrl, message, busy = false, onRetry }: LoginProps) {
   return (
     <main className="page login-page">
       <div className="login-page__brand">
@@ -25,14 +28,25 @@ function Login({ onKakaoLogin, helpUrl }: LoginProps) {
         <img className="login-page__circles-bottom" src={circlesBottom} alt="" draggable={false} />
       </div>
       <div className="login-page__actions">
+        {message && (
+          <p className="login-page__message" role="alert">
+            {message}
+          </p>
+        )}
+        {onRetry && (
+          <button type="button" onClick={onRetry}>
+            연결 다시 확인
+          </button>
+        )}
         <button
           className="login-page__kakao"
           type="button"
-          aria-disabled={!onKakaoLogin}
+          disabled={!onKakaoLogin || busy}
+          aria-busy={busy}
           onClick={onKakaoLogin}
         >
           <img src={kakao} alt="" draggable={false} />
-          카카오로 로그인하기
+          {busy ? '카카오로 이동 중…' : '카카오로 로그인하기'}
         </button>
         {helpUrl ? (
           <a className="login-page__help" href={helpUrl}>

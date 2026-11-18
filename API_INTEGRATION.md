@@ -1,6 +1,6 @@
 # Meetdle API 연동 계획
 
-첫 단계는 공통 API 모듈과 계약 정의까지다. 현재 화면과 라우터는 기존 목 모드로 동작한다. 화면 번호는 Figma 1118 기준이며 1115 API 명세의 SC 번호와 별개다.
+공통 API 모듈과 계약 정의를 바탕으로 #25 로그인·홈·초대 화면을 서버 API에 연결했다. 다른 단계별 화면은 기존 목 모드로 동작한다. #25의 상세 구현·검증·남은 설정은 [AUTH_HOME_API.md](./AUTH_HOME_API.md)를 참고한다. 화면 번호는 Figma 1118 기준이며 1115 API 명세의 SC 번호와 별개다.
 
 ## 계약 근거
 
@@ -11,7 +11,7 @@
 
 ## 프로젝트에서 달라지는 부분
 
-- 기존 React·TypeScript·Vite·SCSS 구성과 설치 의존성을 사용한다. 예전 `src/api/auth.ts`의 로그인 URL 검증은 기존 화면에서 계속 사용한다.
+- 기존 React·TypeScript·Vite·SCSS 구성과 설치 의존성을 사용한다. 예전 `src/api/auth.ts`의 로그인 URL 검증 함수는 호환성을 위해 남겼으며, #25 로그인 화면은 공통 API Origin의 `startKakaoLogin`을 사용한다.
 - `src/api/client.ts`는 공통 fetch, 세션 조회/무효화, CSRF, 오류, 요청 핸들을 제공한다. `auth.ts`는 세션·로그아웃과 카카오 최상위 브라우저 이동, `rooms.ts`는 방·초대·검색·단계별 요청 함수를 제공한다. `types.ts`는 wire DTO, `mappers.ts`는 UI 카테고리·역할·선택값 변환이다.
 - 기존 `FlowLayout`의 로컬 방 복구, `useRoomNavigation`의 방 ID·목 역할 전달, `createdRoom` 및 `mockRoom` 저장소·시나리오는 계속 목 흐름을 처리한다. Header·Modal·Button·Toast와 기존 화면 UI에 손대지 않았다.
 

@@ -21,6 +21,15 @@ interface HomeProps {
   onProfileClick?: () => void;
   onLogout?: () => void;
   onJoinByCode?: JoinByCodeHandler;
+  filter?: AppointmentFilter;
+  onFilterChange?: (filter: AppointmentFilter) => void;
+  loading?: boolean;
+  error?: string;
+  notice?: string;
+  onRetry?: () => void;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  allowDelete?: boolean;
 }
 
 function Home({
@@ -28,8 +37,22 @@ function Home({
   onProfileClick,
   onLogout,
   onJoinByCode,
+  filter: controlledFilter,
+  onFilterChange,
+  loading = false,
+  error,
+  notice,
+  onRetry,
+  hasMore = false,
+  onLoadMore,
+  allowDelete = true,
 }: HomeProps) {
-  const [filter, setFilter] = useState<AppointmentFilter>('all');
+  const [localFilter, setLocalFilter] = useState<AppointmentFilter>('all');
+  const filter = controlledFilter ?? localFilter;
+  const setFilter = (value: AppointmentFilter) => {
+    if (onFilterChange) onFilterChange(value);
+    else setLocalFilter(value);
+  };
   const [today, setToday] = useState(getTodayKey);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [deleteModeId, setDeleteModeId] = useState<string | null>(null);
@@ -38,7 +61,7 @@ function Home({
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const visibleAppointments = filterAppointments(
     appointments.filter((item) => !deletedIds.includes(item.id)),
-    filter,
+    controlledFilter === undefined ? filter : 'all',
     today,
   );
 
@@ -104,6 +127,18 @@ function Home({
           <div className="home-page__results" role="status" aria-live="polite">
             {visibleAppointments.length}개의 약속
           </div>
+          {notice && <p role="status">{notice}</p>}
+          {error && (
+            <div role="alert">
+              <p>{error}</p>
+              {onRetry && (
+                <button type="button" onClick={onRetry} disabled={loading}>
+                  다시 시도
+                </button>
+              )}
+            </div>
+          )}
+          {loading && <p role="status">약속 목록을 불러오는 중이에요.</p>}
           {visibleAppointments.length ? (
             visibleAppointments.map((appointment) => (
               <AppointmentCard
@@ -113,11 +148,16 @@ function Home({
                 deleteMode={deleteModeId === appointment.id}
                 onRevealDelete={() => setDeleteModeId(appointment.id)}
                 onHideDelete={() => setDeleteModeId(null)}
-                onDelete={() => setDeleteTarget(appointment)}
+                onDelete={allowDelete ? () => setDeleteTarget(appointment) : undefined}
               />
             ))
-          ) : (
+          ) : !loading && !error ? (
             <p className="home-page__empty">표시할 약속이 없어요.</p>
+          ) : null}
+          {hasMore && (
+            <button type="button" onClick={onLoadMore} disabled={loading}>
+              {loading ? '불러오는 중…' : '약속 더 보기'}
+            </button>
           )}
         </section>
       </main>

@@ -1,7 +1,8 @@
 import { createBrowserRouter, Link } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
-import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
+import InvitationRoute from './InvitationRoute';
+import ServerRoomRoute from './ServerRoomRoute';
 import { ScheduleTransitRoute } from '../pages/ScheduleTransit/ScheduleTransit';
 import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatus';
 import RoomRecruitment from '../pages/ParticipationStatus/RoomRecruitment';
@@ -49,6 +50,9 @@ export const router = createBrowserRouter([
         path: PATHS.login,
         element: <LoginRoute />,
       },
+      { path: PATHS.invitation, element: <InvitationRoute /> },
+      { path: '/invitations/:token', element: <InvitationRoute /> },
+      { path: '/rooms/:roomId', element: <ServerRoomRoute /> },
       { path: PATHS.legacyJoin, element: <LegacyJoinRedirect /> },
       { path: PATHS.places, element: <PlaceExplorationRoute /> },
       {
@@ -62,10 +66,7 @@ export const router = createBrowserRouter([
             path: PATHS.created,
             element: <RoomCreated />,
           },
-          {
-            path: PATHS.invitation,
-            element: <RoomInvitation />,
-          },
+
           {
             path: PATHS.schedule,
             element: <ScheduleTransitRoute />,
