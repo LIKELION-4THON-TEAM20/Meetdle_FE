@@ -6,6 +6,7 @@ import {
   getCreatedRoom,
   hasFullRecruitment,
 } from '../features/createdRoom/model';
+import { isServerRoomId } from '../api/rooms';
 import { PATHS, roomPath } from './paths';
 
 export default function FlowLayout() {
@@ -33,6 +34,12 @@ export function CreatedRoomLayout() {
   const { search, pathname } = useLocation();
   const params = new URLSearchParams(search);
   const id = params.get('roomId');
+  if (
+    id &&
+    isServerRoomId(id) &&
+    (pathname === PATHS.participation || pathname === PATHS.candidates)
+  )
+    return <Outlet />;
   const code = params.get('code');
   const room = id ? getCreatedRoom(id) : code ? findCreatedRoomByCode(code) : getCreatedRoom(null);
   if ((params.has('roomId') && !id) || !room || (code !== null && code !== room.inviteCode)) {

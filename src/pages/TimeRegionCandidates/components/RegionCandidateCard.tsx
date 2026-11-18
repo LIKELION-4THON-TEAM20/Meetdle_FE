@@ -37,7 +37,7 @@ function RegionCandidateCard({
             <span className="candidate-card__stack">
               <span className="candidate-card__name">{candidate.stationName}</span>
               <span className="candidate-card__subtitle">
-                지하철 {candidate.subwayLines.join('·')}호선
+                지하철 {candidate.lineLabel ?? `${candidate.subwayLines.join('·')}호선`}
               </span>
             </span>
             <span className="candidate-card__radio" aria-hidden="true" />

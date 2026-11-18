@@ -75,3 +75,9 @@
 | 카카오 로그인 시작                        | 302, 목적지 호스트 `kauth.kakao.com`. 로그인 완료·세션 발급·로그아웃·콜백 복귀 URL은 미검증.                                                |
 
 백엔드에 `http://localhost:5173` Origin 허용, credentialed GET·POST·PUT·OPTIONS와 요청 헤더 허용, 로그인·초대 복귀 허용 URL을 확인한다. localhost와 API는 교차 사이트이므로 세션 쿠키의 SameSite/Secure 및 브라우저의 타사 쿠키 설정으로 실제 전송이 되는지도 확인해야 한다. 이 단계의 서버 검증은 GET과 OPTIONS로 수행했다.
+
+## #27 구현 경계 (2026-11-19)
+
+참여 현황 CTA가 A11을 소유하고 후보 화면은 A08 조회만 수행한다. A12 후 서버 meeting을 A08로 확인해 서버용 확정 화면에 전달한다. `features/planning/`에 요청 작업·표시 어댑터·UUID 전용 라우트를 추가했으며 기존 공통 클라이언트/DTO, #25·#26 미병합 작업, #28 화면은 변경하지 않았다. 목 미리보기는 기존 경로로 유지한다. 매핑·재시도·검증 및 후속 등록 화면 연결 경계는 [SCREEN05.md](./SCREEN05.md)를 따른다.
+
+Notion 개별 A11/A12 페이지는 이번 작업에서 연결된 계정으로 조회할 수 있었다. 배포 Swagger와 필드는 일치하며, required/nullable와 일부 오류 정의 누락은 기존 계약을 따른다. 실서버에는 GET·OPTIONS만 보냈다. localhost는 A03 및 A11/A12 사전 요청에서 403을 반환해 실제 인증 세션과 POST/PUT 성공 검증은 남아 있다.

@@ -1,12 +1,15 @@
+import {
+  ParticipationRoute,
+  CandidatesRoute,
+  ConfirmedRoute,
+  ConfirmedLayout,
+} from '../features/planning/PlanningRoutes';
 import { createBrowserRouter, Link } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
 import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
 import { ScheduleTransitRoute } from '../pages/ScheduleTransit/ScheduleTransit';
-import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatus';
 import RoomRecruitment from '../pages/ParticipationStatus/RoomRecruitment';
-import TimeRegionCandidates from '../pages/TimeRegionCandidates/TimeRegionCandidates';
-import MeetingConfirmed from '../pages/MeetingConfirmed/MeetingConfirmed';
 import MeetingInfo from '../pages/MeetingInfo/MeetingInfo';
 import PlaceRegistrationSetup from '../pages/PlaceRegistrationSetup/PlaceRegistrationSetup';
 import PlaceRegistrationStatus from '../pages/PlaceRegistrationStatus/PlaceRegistrationStatus';
@@ -15,7 +18,6 @@ import VoteStart from '../pages/VoteStart/VoteStart';
 import PlaceVote from '../pages/PlaceVote/PlaceVote';
 import VoteStatus from '../pages/VoteStatus/VoteStatus';
 import VoteResult from '../pages/VoteResult/VoteResult';
-import MockRoomLayout from '../features/mockRoom/MockRoomLayout';
 
 import FlowLayout, { CreatedRoomLayout, LegacyJoinRedirect } from './FlowLayout';
 import LoginRoute from './LoginRoute';
@@ -28,9 +30,9 @@ export const router = createBrowserRouter([
     element: <FlowLayout />,
     children: [
       {
-        element: <MockRoomLayout />,
+        element: <ConfirmedLayout />,
         children: [
-          { path: PATHS.confirmed, element: <MeetingConfirmed /> },
+          { path: PATHS.confirmed, element: <ConfirmedRoute /> },
           { path: PATHS.info, element: <MeetingInfo /> },
           { path: PATHS.setup, element: <PlaceRegistrationSetup /> },
           { path: PATHS.result, element: <VoteResult /> },
@@ -76,11 +78,11 @@ export const router = createBrowserRouter([
           },
           {
             path: PATHS.participation,
-            element: <ParticipationStatus />,
+            element: <ParticipationRoute />,
           },
           {
             path: PATHS.candidates,
-            element: <TimeRegionCandidates />,
+            element: <CandidatesRoute />,
           },
         ],
       },
