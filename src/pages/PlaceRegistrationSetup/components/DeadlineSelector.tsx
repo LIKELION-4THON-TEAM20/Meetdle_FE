@@ -62,8 +62,7 @@ function DeadlineSelector({
         aria-label={`등록 마감 직접 설정: ${formatDeadline(deadline, now)}`}
         aria-haspopup="dialog"
       >
-        <span>{formatDeadline(deadline, now)}</span>
-        <span aria-hidden="true">▾</span>
+        {formatDeadline(deadline, now)}
       </button>
       <div className="setup-deadline__presets">
         {(
