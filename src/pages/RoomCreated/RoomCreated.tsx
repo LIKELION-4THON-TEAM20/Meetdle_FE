@@ -2,7 +2,7 @@ import { Link, useSearchParams } from 'react-router';
 import { formatCandidateDates } from '../CreateRoom/createRoomState';
 import { getCreatedRoom, getJoinedParticipants } from '../../features/createdRoom/model';
 import { PATHS, roomPath } from '../../router/paths';
-import { useRoomBack, useRoomNavigation } from '../../router/useRoomNavigation';
+import { useRoomBack } from '../../router/useRoomNavigation';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import MeetingInfoCard from './components/MeetingInfoCard';
@@ -11,7 +11,6 @@ import './RoomCreated.scss';
 
 function RoomCreated() {
   const goBack = useRoomBack(PATHS.create);
-  const navigate = useRoomNavigation();
   const [params] = useSearchParams();
   const room = getCreatedRoom(params.get('roomId'))!;
   const { inviteCode, creation } = room;
@@ -44,27 +43,16 @@ function RoomCreated() {
 
   return (
     <div className="page room-created">
-      <Header
-        title="약속방 생성 완료"
-        showBackButton
-        onBack={goBack}
-        rightAction={<Link to={PATHS.home}>홈</Link>}
-      />
+      <Header title="약속방 생성 완료" showBackButton onBack={goBack} />
       <main className="room-created__content">
         <div className="room-created__intro">
           <h2>약속 방이 생성되었어요!</h2>
           <p>친구들을 초대하고 함께 일정을 맞춰보세요</p>
-          <p>개발용 목 약속방이에요. 서버에는 저장되지 않았어요.</p>
         </div>
         <MeetingInfoCard meeting={meeting} />
         <InviteCodeCopy code={inviteCode} onShare={shareInviteOnKakao} />
       </main>
       <footer className="room-created__footer">
-        {params.get('role') !== 'participant' && (
-          <Button onClick={() => navigate(roomPath(PATHS.recruitment, '?role=host', room.id))}>
-            참여 현황 보기
-          </Button>
-        )}
         <Button className="room-created__action" onClick={shareInviteOnKakao}>
           카카오톡으로 초대하기
         </Button>
@@ -75,6 +63,9 @@ function RoomCreated() {
         >
           링크 복사하기
         </Button>
+        <Link className="room-created__home-link" to={PATHS.home}>
+          홈으로 돌아가기<span aria-hidden="true">↗</span>
+        </Link>
       </footer>
     </div>
   );
