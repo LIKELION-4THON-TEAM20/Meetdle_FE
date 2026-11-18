@@ -33,7 +33,7 @@
     p {
       margin-top: 2px;
       color: #666;
-      font-size: 13px;
+      font-size: 16px;
       line-height: 19px;
     }
   }
@@ -138,10 +138,23 @@
     font-size: 14px;
   }
   &__footer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     padding: 12px 27px max(8px, env(safe-area-inset-bottom));
+  }
+  .place-exploration__complete[data-ready='false'] {
+    background: #757575;
+    color: variables.$color-white;
+  }
+  .place-exploration__status {
+    border: 1.5px solid #d5d4d9;
+    background: variables.$color-white;
+    color: #7c5cff;
   }
 }
 .exploration-summary {
+  min-height: 76px;
   padding: 12px 15px;
   border: 1px solid #eeeef0;
   border-radius: 12px;
@@ -173,6 +186,7 @@
     color: #969696;
     font-size: 12px;
     line-height: 16px;
+    text-align: center;
     overflow-wrap: anywhere;
   }
   li.exploration-summary__registered {
@@ -209,20 +223,29 @@
   }
   &__radius {
     position: absolute;
-    top: 14px;
-    left: 12px;
+    top: 39px;
+    left: 50%;
     z-index: 2;
-    padding: 4px 6px;
-    border-radius: 6px;
-    background: rgb(255 255 255 / 90%);
+    translate: -50% 0;
+    white-space: nowrap;
     color: #7c5cff;
     font-size: 12px;
     font-weight: variables.$font-weight-bold;
     pointer-events: none;
   }
+  &__outside {
+    position: absolute;
+    top: 20px;
+    left: 12px;
+    z-index: 2;
+    color: #aba9b2;
+    font-size: 11px;
+    font-weight: 600;
+    pointer-events: none;
+  }
   .exploration-map__reset {
     position: absolute;
-    top: 46px;
+    top: 12px;
     right: 12px;
     z-index: 2;
     width: auto;
@@ -339,58 +362,6 @@
     }
   }
 }
-.exploration-recommendations {
-  h3 {
-    font-size: 16px;
-    font-weight: 600;
-  }
-  ul {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 10px 0 0;
-    padding: 0;
-    list-style: none;
-  }
-  li {
-    overflow: hidden;
-    border: 1px solid #eeeef0;
-    border-radius: 12px;
-  }
-  &__selected {
-    border-color: #7c5cff !important;
-    background: #f7f4ff;
-    .exploration-recommendations__name {
-      color: #7c5cff;
-    }
-  }
-  &__link {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 14px;
-    color: inherit;
-    text-decoration: none;
-    &[aria-disabled='true'] {
-      cursor: default;
-    }
-  }
-  &__name {
-    font-size: 15px;
-    font-weight: 600;
-  }
-  &__meta {
-    color: #969696;
-    font-size: 12px;
-    font-weight: 400;
-  }
-  > p {
-    margin-top: 12px;
-    color: #969696;
-    font-size: 12px;
-    line-height: 18px;
-  }
-}
 @media (max-width: 359px) {
   .place-exploration__categories {
     gap: 4px;
@@ -418,4 +389,175 @@
   gap: 12px;
   color: inherit;
   text-decoration: none;
+}
+
+.exploration-notice-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 328px;
+  padding: 24px;
+  border-radius: 20px;
+
+  h2 {
+    margin: 0;
+    color: #03000f;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 26px;
+  }
+
+  p {
+    margin: 0;
+    color: #969696;
+    font-size: 14px;
+    line-height: 22px;
+    overflow-wrap: anywhere;
+  }
+
+  .common-button {
+    min-height: 43px;
+    padding: 9.5px 20px;
+    font-size: 14px;
+    line-height: 24px;
+  }
+}
+
+.exploration-place-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 17px 7px;
+  border: 1px solid #ededed;
+  border-radius: 16px;
+
+  > h3 {
+    color: #969696;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+  }
+
+  &__empty {
+    padding: 8px;
+    color: #969696;
+    font-size: 12px;
+    line-height: 18px;
+  }
+}
+
+.exploration-place-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  min-height: 84px;
+  padding: 9px 13px;
+  border: 0.75px solid #d5d4d9;
+  border-radius: 16px;
+  background: variables.$color-white;
+
+  &--selected {
+    border-color: #7c5cff;
+  }
+
+  &__thumb {
+    display: block;
+    border-radius: 8px;
+    background: #f0f0f0;
+    object-fit: cover;
+  }
+
+  // API 이미지만 프레임에 맞춘다. Figma SVG는 원본 64px 크기를 유지한다.
+  &__thumb:not([src$='.svg']) {
+    width: 64px;
+    height: 64px;
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+
+    h3 {
+      overflow: hidden;
+      color: #03000f;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 19px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  &__distance {
+    color: #d5d4d9;
+    font-size: 10px;
+    line-height: 12px;
+  }
+
+  &__address {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow-wrap: anywhere;
+    color: #969696;
+    font-size: 10px;
+    line-height: 12px;
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 62px;
+
+    &:has(> :only-child) {
+      justify-content: flex-end;
+    }
+  }
+
+  .exploration-place-card__register {
+    width: auto;
+    min-height: 24px;
+    padding: 4px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 16px;
+    white-space: nowrap;
+
+    &:disabled {
+      background: #d5d4d9;
+      color: variables.$color-white;
+    }
+  }
+
+  &__detail {
+    color: #666;
+    font-size: 8px;
+    font-weight: 600;
+    line-height: 12px;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &[aria-disabled='true'] {
+      color: #969696;
+    }
+  }
+
+  &__reason {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
 }

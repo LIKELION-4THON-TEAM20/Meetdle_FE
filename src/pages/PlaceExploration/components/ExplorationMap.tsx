@@ -87,9 +87,10 @@ function ExplorationMap({
       <div className="exploration-map__canvas" ref={nodeRef} aria-label="카카오 지도" />
       {status === 'ready' ? (
         <>
+          <span className="exploration-map__outside">반경 밖 · 등록 불가</span>
           <span className="exploration-map__radius">반경 {formatDistance(radius)} · 등록 가능</span>
           <Button className="exploration-map__reset" onClick={() => controllerRef.current?.fit()}>
-            원래 범위로 돌아가기
+            ⟲ 처음 위치로
           </Button>
         </>
       ) : (

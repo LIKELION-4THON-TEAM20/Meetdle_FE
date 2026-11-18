@@ -1,5 +1,5 @@
 import { createExplorationMock } from './mockData';
-import { registrationBlock } from './placeUtils';
+import { missingRequiredCategories, registrationBlock } from './placeUtils';
 import type { ExplorationRepository, ExplorationSnapshot } from './types';
 
 function delay(signal: AbortSignal) {
@@ -84,17 +84,26 @@ export function createMockExplorationRepository(
         ],
         registeredPlaceCount: current.registeredPlaceCount + (wasAlreadyCandidate ? 0 : 1),
       };
-      // 이 fixture에서 나머지 세 명은 완료 상태이며 현재 사용자는 식당+카페를 채우면 완료다.
-      // 서비스의 최소 등록 수를 새로 결정하는 규칙이 아니다.
-      const mine = current.registrations.filter((entry) => entry.userId === current.currentUserId);
-      const completed = current.categories
-        .filter((category) => category.required)
-        .every((category) => mine.some((entry) => entry.categoryId === category.id));
+      // 장소 등록과 사용자의 등록 완료 확인은 별도 단계다.
       current.participants = current.participants.map((entry) =>
-        entry.id === current.currentUserId
-          ? { ...entry, status: completed ? 'completed' : 'inProgress' }
-          : entry,
+        entry.id === current.currentUserId ? { ...entry, status: 'inProgress' } : entry,
       );
+      return structuredClone(current);
+    },
+    async complete(roomId, signal) {
+      await delay(signal);
+      signal.throwIfAborted();
+      if (roomId !== current.roomId) throw new Error('약속방 정보를 확인해주세요.');
+      if (!current.registrationOpen || Date.now() >= current.deadline)
+        throw new Error('장소 등록이 마감됐어요.');
+      if (missingRequiredCategories(current).length)
+        throw new Error('필수 카테고리의 장소를 선택해주세요.');
+      current = {
+        ...current,
+        participants: current.participants.map((entry) =>
+          entry.id === current.currentUserId ? { ...entry, status: 'completed' } : entry,
+        ),
+      };
       return structuredClone(current);
     },
   };
