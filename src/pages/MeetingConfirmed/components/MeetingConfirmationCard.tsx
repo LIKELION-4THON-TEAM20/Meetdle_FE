@@ -13,9 +13,13 @@ export interface MeetingConfirmation {
 
 interface MeetingConfirmationCardProps {
   meeting: MeetingConfirmation;
+  showTravelSummary?: boolean;
 }
 
-function MeetingConfirmationCard({ meeting }: MeetingConfirmationCardProps) {
+function MeetingConfirmationCard({
+  meeting,
+  showTravelSummary = true,
+}: MeetingConfirmationCardProps) {
   const summary = [
     { label: '평균 이동시간', value: `${meeting.averageTravelMinutes}분` },
     { label: '최대 이동시간', value: `${meeting.maximumTravelMinutes}분` },
@@ -30,17 +34,19 @@ function MeetingConfirmationCard({ meeting }: MeetingConfirmationCardProps) {
         <img src={pinIcon} width={18} height={18} alt="" />
         <p>{meeting.area}</p>
       </div>
-      <div className="meeting-confirmation-card__summary">
-        <h4>이동시간 요약</h4>
-        <dl>
-          {summary.map(({ label, value }) => (
-            <div className="meeting-confirmation-card__row" key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+      {showTravelSummary && (
+        <div className="meeting-confirmation-card__summary">
+          <h4>이동시간 요약</h4>
+          <dl>
+            {summary.map(({ label, value }) => (
+              <div className="meeting-confirmation-card__row" key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
     </section>
   );
 }

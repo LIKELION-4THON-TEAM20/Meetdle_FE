@@ -1,6 +1,7 @@
 export interface VoteParticipant {
   id: string;
   name: string;
+  profileImageUrl?: string;
   completed: boolean;
 }
 

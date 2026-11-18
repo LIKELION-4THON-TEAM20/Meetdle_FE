@@ -1,10 +1,14 @@
-import { CATEGORIES, REGISTRATION_RULES } from '../mockData';
+import { REGISTRATION_RULES } from '../mockData';
 import type { CategoryId } from '../types';
 
-function RegistrationRulesCard({ selected }: { selected: CategoryId[] }) {
-  const requiredCount = CATEGORIES.filter(
-    (category) => category.required && selected.includes(category.id),
-  ).length;
+function RegistrationRulesCard({
+  selected,
+  requiredIds,
+}: {
+  selected: CategoryId[];
+  requiredIds: CategoryId[];
+}) {
+  const requiredCount = requiredIds.filter((id) => selected.includes(id)).length;
   return (
     <dl className="setup-rules" aria-label="등록 규칙 요약">
       <div>

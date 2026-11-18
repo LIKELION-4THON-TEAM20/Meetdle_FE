@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
+import { rolldown } from 'rolldown';
 
 async function loadModule(path) {
   const source = await readFile(new URL(path, import.meta.url), 'utf8');
@@ -10,8 +11,8 @@ async function loadModule(path) {
   return import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 }
 
-const { createResultMock, tieCandidates } = await loadModule('../src/pages/VoteResult/mockData.ts');
-const { getVotePercentages, moveVisitOrder, saveVisitOrder, selectTiePlace, incrementMockRevote } =
+const { createResultMock } = await loadModule('../src/pages/VoteResult/mockData.ts');
+const { getVotePercentages, moveVisitOrder, saveVisitOrder, incrementMockRevote } =
   await loadModule('../src/pages/VoteResult/resultUtils.ts');
 for (const votes of [
   { like: 3, neutral: 1, dislike: 0 },
@@ -63,19 +64,57 @@ assert.equal(moveVisitOrder(initial.order, 'unknown', 0), initial.order);
 assert.equal(moveVisitOrder(initial.order, 'cafe', -1), initial.order);
 assert.equal(moveVisitOrder(initial.order, 'cafe', 3), initial.order);
 
-const tie = createResultMock('tie');
-assert.equal(selectTiePlace(tie, 'cafe', 'cafe-e', tieCandidates, 'participant'), tie);
-assert.equal(selectTiePlace(tie, 'cafe', 'unknown', tieCandidates, 'host'), tie);
-const selected = selectTiePlace(tie, 'cafe', 'cafe-e', tieCandidates, 'host');
-assert.equal(selected.unresolvedTie, false);
-assert.equal(selected.categories.find((category) => category.id === 'cafe').place.name, 'E 카페');
-assert.deepEqual(selected.order, tie.order);
-assert.equal(selectTiePlace(selected, 'cafe', 'cafe-c', tieCandidates, 'host'), selected);
-assert.equal(
-  getVotePercentages(selected.categories.find((category) => category.id === 'cafe').place.votes)
-    .neutral,
-  50,
+const bundle = await rolldown({ input: 'src/features/mockRoom/model.ts', platform: 'node' });
+const { output } = await bundle.generate({ format: 'esm' });
+await bundle.close();
+const { createMockRoom, reduceRoom, isMockRoom } = await import(
+  `data:text/javascript;base64,${Buffer.from(output[0].code).toString('base64')}`
 );
+const now = Date.now();
+let room = createMockRoom(now);
+room = reduceRoom(room, { type: 'closeRegistration' });
+room = reduceRoom(room, { type: 'start', deadline: now + 3600000, now });
+const responses = Object.fromEntries(
+  room.categories
+    .filter(({ places }) => places.length > 1)
+    .flatMap(({ places }) => places.map(({ id }) => [id, 'like'])),
+);
+room = {
+  ...room,
+  participants: room.participants.map((participant) => ({
+    ...participant,
+    vote: { submitted: true, responses },
+  })),
+};
+room = reduceRoom(reduceRoom(room, { type: 'closeVote', now }), { type: 'count', now });
+assert(room.ties.length > 1);
+const finalize = { type: 'finalizeResult' };
+assert.equal(reduceRoom(room, finalize), room);
+const [firstTie] = room.ties;
+const select = (tie, placeId) => ({ type: 'tie', categoryId: tie.id, placeId });
+const participant = { ...room, role: 'participant', currentUserId: 'haneul' };
+assert.equal(reduceRoom(participant, select(firstTie, firstTie.places[1].id)), participant);
+assert.equal(reduceRoom(room, select(firstTie, 'unknown')), room);
+for (const tie of room.ties) room = reduceRoom(room, select(tie, tie.places[1].id));
+assert.equal(room.result.unresolvedTie, false);
+assert.equal(
+  room.result.categories.find(({ id }) => id === firstTie.id).place.id,
+  firstTie.places[1].id,
+);
+const reversed = [...room.result.order].reverse();
+room = reduceRoom(room, { type: 'order', order: reversed });
+room = reduceRoom(room, select(firstTie, firstTie.places[0].id));
+assert.equal(
+  room.result.categories.find(({ id }) => id === firstTie.id).place.id,
+  firstTie.places[0].id,
+);
+assert.deepEqual(room.result.order, reversed);
+const finalized = reduceRoom(room, finalize);
+assert.equal(finalized.result.finalized, true);
+assert(isMockRoom(JSON.parse(JSON.stringify(finalized))));
+assert.equal(reduceRoom(finalized, select(firstTie, firstTie.places[1].id)), finalized);
+assert.equal(reduceRoom(finalized, { type: 'order', order: initial.order }), finalized);
+assert.equal(reduceRoom(finalized, finalize), finalized);
 const revoted = incrementMockRevote(createResultMock('noResult'));
 assert.equal(revoted.revotesUsed, 1);
 assert.equal(incrementMockRevote(revoted), revoted);

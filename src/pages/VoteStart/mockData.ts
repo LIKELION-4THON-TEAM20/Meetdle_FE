@@ -30,10 +30,10 @@ export function createCandidateMock(
 }
 
 export function summarizeCandidates(categories: CandidateCategory[]) {
-  const rows = categories.map((category) => ({
-    ...category,
-    count: category.candidates.filter((candidate) => candidate.valid).length,
-  }));
+  const rows = categories.map((category) => {
+    const count = category.candidates.filter((candidate) => candidate.valid).length;
+    return { ...category, count, autoSelected: count === 1 };
+  });
   return {
     rows,
     total: rows.reduce((sum, row) => sum + row.count, 0),

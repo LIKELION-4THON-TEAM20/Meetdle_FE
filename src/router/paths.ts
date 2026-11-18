@@ -5,6 +5,8 @@ export const PATHS = {
   created: '/rooms/create/complete',
   invitation: '/rooms/invite',
   legacyJoin: '/rooms/join',
+  schedule: '/rooms/schedule-transit',
+  recruitment: '/rooms/recruitment',
   participation: '/rooms/participation-status',
   candidates: '/rooms/candidates',
   confirmed: '/rooms/confirmed',

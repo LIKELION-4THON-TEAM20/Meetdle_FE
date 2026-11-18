@@ -7,14 +7,26 @@ import type {
 import { voteCategories } from '../../pages/PlaceVote/mockData';
 import { getVoteProgress, updateVote, type VoteAction } from '../../pages/PlaceVote/voteUtils';
 import type { ResultPlace, ResultRole, ResultState } from '../../pages/VoteResult/types';
-import { saveVisitOrder } from '../../pages/VoteResult/resultUtils';
+import { isValidVisitOrder, saveVisitOrder } from '../../pages/VoteResult/resultUtils';
 import { isValidVoteDeadline } from '../../pages/VoteStart/voteUtils';
-import { extendRegistrationDeadline } from '../../pages/PlaceRegistrationStatus/statusUtils';
+import {
+  extendRegistrationDeadline,
+  isValidRegistrationExtension,
+} from '../../pages/PlaceRegistrationStatus/statusUtils';
 import type { CandidateCategory } from '../../pages/VoteStart/mockData';
+import { isValidDeadline } from '../../pages/PlaceRegistrationSetup/deadlineUtils';
+import { CATEGORIES, REGISTRATION_RULES } from '../../pages/PlaceRegistrationSetup/mockData';
 
 export const STORAGE_KEY = 'meetdle:development-mock-room:v1';
 export const HOUR = 3600000;
 export const MOCK_MEETING_LEAD_TIME = 7 * 24 * HOUR;
+export interface ConfirmedSelection {
+  endsAt: number;
+  availableCount: number;
+  averageTravelMinutes: number;
+  maximumTravelMinutes: number;
+  averageTransfers: number;
+}
 export type CategoryId = 'restaurant' | 'cafe' | 'pub' | 'culture';
 export function categoryId(id: string): CategoryId | undefined {
   return (
@@ -38,6 +50,8 @@ export interface MockCategory extends VoteCategory {
 export interface MockParticipant {
   id: string;
   name: string;
+  profileImageUrl?: string;
+  registrationStatus?: MockParticipant['status'];
   status: 'completed' | 'inProgress' | 'notStarted';
   vote: VoteState;
 }
@@ -47,6 +61,10 @@ export interface MockRoom {
   name: string;
   meetingAt: number;
   area: string;
+  confirmation?: ConfirmedSelection;
+  registrationStarted?: boolean;
+  registrationCategoryIds?: CategoryId[];
+  requiredRegistrationCategoryIds?: CategoryId[];
   registrationDeadline: number;
   registrationClosed: boolean;
   voteDeadline: number;
@@ -60,7 +78,7 @@ export interface MockRoom {
   ties: { id: CategoryId; name: string; places: ResultPlace[] }[];
 }
 
-export function createMockRoom(now: number): MockRoom {
+export function createMockRoom(now: number, id = 'mock-room-10-14'): MockRoom {
   const categories: MockCategory[] = voteCategories.map((category) => ({
     ...category,
     id: categoryId(category.id)!,
@@ -77,7 +95,7 @@ export function createMockRoom(now: number): MockRoom {
     });
   return {
     version: 1,
-    id: 'mock-room-10-14',
+    id,
     name: '11월 동기 모임 (목 데이터)',
     // 등록·투표 UI를 여유 있게 확인할 수 있도록 새 목 방은 일주일 뒤로 시작한다.
     meetingAt: now + MOCK_MEETING_LEAD_TIME,
@@ -93,6 +111,7 @@ export function createMockRoom(now: number): MockRoom {
       id: ['sangmin', 'jieun', 'haneul', 'yujin'][index],
       name,
       status: index === 2 ? 'inProgress' : 'completed',
+      registrationStatus: index < 2 ? 'completed' : index === 2 ? 'inProgress' : 'notStarted',
       vote: {
         submitted: index === 1 || index === 3,
         responses: index === 1 || index === 3 ? { ...sampleResponses } : {},
@@ -105,22 +124,36 @@ export function createMockRoom(now: number): MockRoom {
 }
 
 export function candidateCategories(room: MockRoom): CandidateCategory[] {
-  return room.categories.map((category) => ({
-    id: category.id,
-    name: category.name,
-    required: category.required,
-    candidates: category.places.map((place) => ({ id: place.id, valid: true })),
-    autoSelected: category.places.length === 1,
-  }));
+  return room.categories
+    .filter(({ id }) => !room.registrationCategoryIds || room.registrationCategoryIds.includes(id))
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      required: room.requiredRegistrationCategoryIds?.includes(category.id) ?? category.required,
+      candidates: category.places.map((place) => ({ id: place.id, valid: true })),
+      autoSelected: category.places.length === 1,
+    }));
 }
 export function currentVote(room: MockRoom) {
   return room.participants.find((participant) => participant.id === room.currentUserId)!.vote;
 }
+
+export function canOpenBallot(room: MockRoom, now: number) {
+  return room.phase === 'voting' && now < room.voteDeadline && !currentVote(room).submitted;
+}
 export function validCandidates(room: MockRoom) {
+  const categories = candidateCategories(room);
   return (
-    room.categories.some((category) => category.places.length > 0) &&
-    room.categories.every((category) => !category.required || category.places.length > 0)
+    categories.some((category) => category.candidates.length > 0) &&
+    categories.every((category) => !category.required || category.candidates.length > 0)
   );
+}
+
+export function registrationParticipants(room: MockRoom) {
+  return room.participants.map((participant) => ({
+    ...participant,
+    status: participant.registrationStatus ?? participant.status,
+  }));
 }
 export function completedVoters(room: MockRoom) {
   return room.participants.filter(
@@ -138,6 +171,42 @@ export function canCount(room: MockRoom, now: number) {
   );
 }
 
+export function resultCandidates(room: MockRoom) {
+  const ballots = completedVoters(room);
+  return room.categories.map((category) => ({
+    ...category,
+    places: category.places.map((place): ResultPlace => {
+      const votes = { like: 0, neutral: 0, dislike: 0 };
+      if (category.places.length > 1)
+        ballots.forEach(({ vote }) => {
+          votes[vote.responses[place.id]] += 1;
+        });
+      return { ...place, votes, tieVotes: votes.like };
+    }),
+  }));
+}
+
+export function resultTieOptions(room: MockRoom) {
+  return room.result?.unresolvedTie || room.result?.categories.length
+    ? aggregate(room, room.voteDeadline).ties
+    : [];
+}
+
+export function canFinalizeResult(room: MockRoom) {
+  const result = room.result;
+  return Boolean(
+    room.phase === 'result' &&
+    result?.categories.length &&
+    !result.unresolvedTie &&
+    room.ties.length === 0 &&
+    new Set(result.categories.map(({ place }) => place.id)).size === result.categories.length &&
+    candidateCategories(room).every(
+      (category) => !category.required || result.categories.some(({ id }) => id === category.id),
+    ) &&
+    isValidVisitOrder(result, result.order),
+  );
+}
+
 // Development simulation only, not a product/backend ranking contract.
 // Rank by like - dislike; exclude a strict majority of dislikes. Keep every tie unresolved.
 export function aggregate(room: MockRoom, now: number): MockRoom {
@@ -151,17 +220,9 @@ export function aggregate(room: MockRoom, now: number): MockRoom {
   const ballots = completedVoters(room);
   const categories: ResultState['categories'] = [];
   const ties: MockRoom['ties'] = [];
-  for (const category of room.categories) {
+  for (const category of resultCandidates(room)) {
     if (!category.places.length) continue;
-    const places: ResultPlace[] = category.places.map((place) => {
-      const votes = { like: 0, neutral: 0, dislike: 0 };
-      if (category.places.length > 1)
-        ballots.forEach(({ vote }) => {
-          votes[vote.responses[place.id]] += 1;
-        });
-      return { ...place, votes, tieVotes: votes.like };
-    });
-    const eligible = places.filter((place) => place.votes.dislike <= ballots.length / 2);
+    const eligible = category.places.filter((place) => place.votes.dislike <= ballots.length / 2);
     if (!eligible.length)
       return {
         ...room,
@@ -188,9 +249,17 @@ export function aggregate(room: MockRoom, now: number): MockRoom {
 }
 
 export type Action =
+  | {
+      type: 'startRegistration';
+      categoryIds: CategoryId[];
+      requiredCategoryIds?: CategoryId[];
+      deadline: number;
+      now: number;
+    }
   | { type: 'deadline'; deadline: number; now: number }
-  | { type: 'tick'; now: number }
+  | { type: 'extendVote'; deadline: number; now: number }
   | { type: 'extend'; minutes: number; now: number }
+  | { type: 'extendRegistration'; deadline: number; now: number }
   | { type: 'closeRegistration' }
   | { type: 'start'; deadline: number; now: number }
   | { type: 'vote'; action: VoteAction }
@@ -198,11 +267,44 @@ export type Action =
   | { type: 'count'; now: number }
   | { type: 'tie'; categoryId: string; placeId: string }
   | { type: 'order'; order: string[] }
+  | { type: 'finalizeResult' }
   | { type: 'revoteNotice' };
+
+export function validRegistrationCategories(
+  ids: readonly CategoryId[],
+  requiredIds: readonly CategoryId[] = CATEGORIES.filter(({ required }) => required).map(
+    ({ id }) => id,
+  ),
+): boolean {
+  return (
+    ids.length >= REGISTRATION_RULES.minimumPlacesPerPerson &&
+    new Set(ids).size === ids.length &&
+    ids.every((id) => CATEGORIES.some((category) => category.id === id)) &&
+    new Set(requiredIds).size === requiredIds.length &&
+    requiredIds.every((id) => id !== 'culture' && ids.includes(id))
+  );
+}
 
 export function reduceRoom(room: MockRoom, action: Action): MockRoom {
   const host = room.role === 'host';
   switch (action.type) {
+    case 'startRegistration':
+      return host &&
+        room.phase === 'registration' &&
+        !room.registrationClosed &&
+        !room.registrationStarted &&
+        validRegistrationCategories(action.categoryIds, action.requiredCategoryIds) &&
+        isValidDeadline(action.deadline, action.now, room.meetingAt)
+        ? {
+            ...room,
+            registrationStarted: true,
+            registrationCategoryIds: [...action.categoryIds],
+            ...(action.requiredCategoryIds && {
+              requiredRegistrationCategoryIds: [...action.requiredCategoryIds],
+            }),
+            registrationDeadline: action.deadline,
+          }
+        : room;
     case 'deadline':
       return host &&
         room.phase === 'registration' &&
@@ -214,13 +316,18 @@ export function reduceRoom(room: MockRoom, action: Action): MockRoom {
         )
         ? { ...room, voteDeadline: action.deadline }
         : room;
-    case 'tick': {
-      if (room.phase !== 'voting') return room;
-      const count = completedVoters(room).length;
-      return count === room.participants.length || action.now >= room.voteDeadline
-        ? { ...room, phase: count > room.participants.length / 2 ? 'counting' : 'insufficient' }
+    case 'extendVote':
+      return host &&
+        room.phase === 'voting' &&
+        action.now >= room.voteDeadline &&
+        action.deadline > room.voteDeadline &&
+        isValidVoteDeadline(
+          new Date(action.deadline),
+          new Date(action.now),
+          new Date(room.meetingAt),
+        )
+        ? { ...room, voteDeadline: action.deadline }
         : room;
-    }
     case 'extend': {
       const deadline = extendRegistrationDeadline(
         room.registrationDeadline,
@@ -231,10 +338,49 @@ export function reduceRoom(room: MockRoom, action: Action): MockRoom {
         ? { ...room, registrationDeadline: deadline }
         : room;
     }
-    case 'closeRegistration':
-      return host && room.phase === 'registration' && validCandidates(room)
-        ? { ...room, registrationClosed: true }
+    case 'extendRegistration':
+      return host &&
+        room.phase === 'registration' &&
+        !room.registrationClosed &&
+        room.registrationStarted !== false &&
+        isValidRegistrationExtension(
+          action.deadline,
+          room.registrationDeadline,
+          action.now,
+          room.meetingAt,
+        )
+        ? { ...room, registrationDeadline: action.deadline }
         : room;
+    case 'closeRegistration': {
+      if (
+        !host ||
+        room.phase !== 'registration' ||
+        room.registrationClosed ||
+        room.registrationStarted === false ||
+        !validCandidates(room)
+      )
+        return room;
+      const categories = room.categories.filter(
+        ({ id }) => !room.registrationCategoryIds || room.registrationCategoryIds.includes(id),
+      );
+      if (categories.length === room.categories.length)
+        return { ...room, registrationClosed: true };
+      const allowedIds = new Set(categories.flatMap(({ places }) => places.map(({ id }) => id)));
+      return {
+        ...room,
+        categories,
+        registrationClosed: true,
+        participants: room.participants.map((participant) => ({
+          ...participant,
+          vote: {
+            ...participant.vote,
+            responses: Object.fromEntries(
+              Object.entries(participant.vote.responses).filter(([id]) => allowedIds.has(id)),
+            ),
+          },
+        })),
+      };
+    }
     case 'start':
       return host &&
         room.phase === 'registration' &&
@@ -269,22 +415,22 @@ export function reduceRoom(room: MockRoom, action: Action): MockRoom {
           };
     }
     case 'closeVote':
-      return host && room.phase === 'voting' && action.now < room.voteDeadline
+      return host &&
+        room.phase === 'voting' &&
+        completedVoters(room).length > room.participants.length / 2
         ? {
             ...room,
-            closedEarly: true,
-            phase:
-              completedVoters(room).length > room.participants.length / 2
-                ? 'counting'
-                : 'insufficient',
+            closedEarly: action.now < room.voteDeadline,
+            phase: 'counting',
           }
         : room;
     case 'count':
-      return room.result ? room : aggregate(room, action.now);
+      return host && room.phase === 'counting' ? aggregate(room, action.now) : room;
     case 'tie': {
-      const tie = room.ties.find(({ id }) => id === action.categoryId);
+      if (!host || !room.result || room.result.finalized) return room;
+      const tie = resultTieOptions(room).find(({ id }) => id === action.categoryId);
       const place = tie?.places.find(({ id }) => id === action.placeId);
-      if (!host || !room.result || !place) return room;
+      if (!place) return room;
       const ties = room.ties.filter(({ id }) => id !== action.categoryId);
       return {
         ...room,
@@ -298,9 +444,14 @@ export function reduceRoom(room: MockRoom, action: Action): MockRoom {
         },
       };
     }
-    case 'order':
-      return host && room.result && !room.result.unresolvedTie
-        ? { ...room, result: saveVisitOrder(room.result, action.order, room.role) }
+    case 'order': {
+      if (!host || !room.result || room.result.finalized || room.result.unresolvedTie) return room;
+      const result = saveVisitOrder(room.result, action.order, room.role);
+      return result === room.result ? room : { ...room, result };
+    }
+    case 'finalizeResult':
+      return host && room.result && !room.result.finalized && canFinalizeResult(room)
+        ? { ...room, result: { ...room.result, finalized: true } }
         : room;
     case 'revoteNotice':
       return host &&
@@ -337,13 +488,13 @@ function isResultPlace(place: ResultPlace): boolean {
 }
 
 // Validate the complete persisted shape and vote references before trusting session data.
-export function isMockRoom(value: unknown): value is MockRoom {
+export function isMockRoom(value: unknown, id = 'mock-room-10-14'): value is MockRoom {
   if (!value || typeof value !== 'object') return false;
   const room = value as MockRoom;
   try {
     if (
       room.version !== 1 ||
-      room.id !== 'mock-room-10-14' ||
+      room.id !== id ||
       typeof room.name !== 'string' ||
       typeof room.area !== 'string' ||
       ![room.meetingAt, room.registrationDeadline, room.voteDeadline].every(Number.isFinite) ||
@@ -352,10 +503,46 @@ export function isMockRoom(value: unknown): value is MockRoom {
       typeof room.registrationClosed !== 'boolean' ||
       typeof room.closedEarly !== 'boolean' ||
       !Array.isArray(room.categories) ||
-      room.categories.length !== 4 ||
+      room.categories.length !==
+        (room.registrationClosed && Array.isArray(room.registrationCategoryIds)
+          ? room.registrationCategoryIds.length
+          : 4) ||
       !Array.isArray(room.participants) ||
       room.participants.length !== 4 ||
       !Array.isArray(room.ties)
+    )
+      return false;
+    if (room.registrationStarted !== undefined && typeof room.registrationStarted !== 'boolean')
+      return false;
+    if (
+      room.registrationCategoryIds !== undefined &&
+      (room.registrationStarted !== true ||
+        !Array.isArray(room.registrationCategoryIds) ||
+        !validRegistrationCategories(
+          room.registrationCategoryIds,
+          room.requiredRegistrationCategoryIds,
+        ))
+    )
+      return false;
+    if (
+      room.requiredRegistrationCategoryIds !== undefined &&
+      (!Array.isArray(room.requiredRegistrationCategoryIds) || !room.registrationCategoryIds)
+    )
+      return false;
+    const confirmation = room.confirmation;
+    if (
+      confirmation !== undefined &&
+      (!confirmation ||
+        !Number.isFinite(confirmation.endsAt) ||
+        confirmation.endsAt <= room.meetingAt ||
+        !Number.isInteger(confirmation.availableCount) ||
+        confirmation.availableCount < 0 ||
+        confirmation.availableCount > room.participants.length ||
+        ![
+          confirmation.averageTravelMinutes,
+          confirmation.maximumTravelMinutes,
+          confirmation.averageTransfers,
+        ].every((value) => Number.isFinite(value) && value >= 0))
     )
       return false;
     const ids = new Set<string>();
@@ -364,6 +551,9 @@ export function isMockRoom(value: unknown): value is MockRoom {
         !categoryId(category.id) ||
         categoryId(category.id) !== category.id ||
         ids.has(category.id) ||
+        (room.registrationClosed &&
+          room.registrationCategoryIds &&
+          !room.registrationCategoryIds.includes(category.id)) ||
         typeof category.name !== 'string' ||
         category.required !== ['restaurant', 'cafe'].includes(category.id) ||
         !Array.isArray(category.places)
@@ -381,6 +571,10 @@ export function isMockRoom(value: unknown): value is MockRoom {
         !['sangmin', 'jieun', 'haneul', 'yujin'].includes(participant.id) ||
         people.has(participant.id) ||
         typeof participant.name !== 'string' ||
+        (participant.profileImageUrl !== undefined &&
+          typeof participant.profileImageUrl !== 'string') ||
+        (participant.registrationStatus !== undefined &&
+          !['completed', 'inProgress', 'notStarted'].includes(participant.registrationStatus)) ||
         !['completed', 'inProgress', 'notStarted'].includes(participant.status) ||
         typeof participant.vote.submitted !== 'boolean' ||
         !participant.vote.responses ||
@@ -404,6 +598,7 @@ export function isMockRoom(value: unknown): value is MockRoom {
         !Array.isArray(room.result.categories) ||
         !Array.isArray(room.result.order) ||
         typeof room.result.unresolvedTie !== 'boolean' ||
+        (room.result.finalized !== undefined && typeof room.result.finalized !== 'boolean') ||
         ![0, 1].includes(room.result.revotesUsed)
       )
         return false;
@@ -422,14 +617,7 @@ export function isMockRoom(value: unknown): value is MockRoom {
         )
           return false;
       }
-      if (
-        room.result.order.length !== room.result.categories.length ||
-        new Set(room.result.order).size !== room.result.order.length ||
-        room.result.order.some(
-          (id) => !room.result!.categories.some((category) => category.id === id),
-        )
-      )
-        return false;
+      if (!isValidVisitOrder(room.result, room.result.order)) return false;
       const computed = aggregate({ ...room, result: null }, room.voteDeadline);
       if (!computed.result || computed.result.categories.length !== room.result.categories.length)
         return false;
@@ -447,6 +635,7 @@ export function isMockRoom(value: unknown): value is MockRoom {
           return false;
       }
       if (room.result.unresolvedTie !== room.ties.length > 0) return false;
+      if (room.result.finalized && !canFinalizeResult(room)) return false;
       if (
         room.ties.some(
           (tie) =>
@@ -472,12 +661,24 @@ export function isMockRoom(value: unknown): value is MockRoom {
   }
 }
 
-export function restoreRoom(storage: Pick<Storage, 'getItem'>, now: number): MockRoom {
+function storageKey(id: string) {
+  return id === 'mock-room-10-14' ? STORAGE_KEY : `${STORAGE_KEY}:${id}`;
+}
+
+export function saveRoom(storage: Pick<Storage, 'setItem'>, room: MockRoom) {
+  storage.setItem(storageKey(room.id), JSON.stringify(room));
+}
+
+export function restoreRoom(
+  storage: Pick<Storage, 'getItem'>,
+  now: number,
+  id = 'mock-room-10-14',
+): MockRoom {
   try {
-    const parsed: unknown = JSON.parse(storage.getItem(STORAGE_KEY) ?? 'null');
-    if (isMockRoom(parsed)) return parsed;
+    const parsed: unknown = JSON.parse(storage.getItem(storageKey(id)) ?? 'null');
+    if (isMockRoom(parsed, id)) return parsed;
   } catch {
     /* Storage can be unavailable. */
   }
-  return createMockRoom(now);
+  return createMockRoom(now, id);
 }

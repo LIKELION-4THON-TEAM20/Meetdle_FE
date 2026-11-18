@@ -15,9 +15,11 @@ import './PlaceExploration.scss';
 function ExplorationScreen({
   repository,
   onBack,
+  onViewStatus,
 }: {
   repository: ExplorationRepository;
   onBack: () => void;
+  onViewStatus?: () => void;
 }) {
   const navigate = useNavigate();
   const [snapshot, setSnapshot] = useState<ExplorationSnapshot | null>(null);
@@ -329,7 +331,9 @@ function ExplorationScreen({
           variant="secondary"
           disabled={!snapshot}
           onClick={() => {
-            if (snapshot)
+            if (!snapshot) return;
+            if (onViewStatus) onViewStatus();
+            else
               navigate('/rooms/registration/status?scenario=exploration', {
                 state: statusPreview(snapshot),
               });
@@ -345,9 +349,11 @@ function ExplorationScreen({
 function PlaceExploration({
   repository,
   onBack,
+  onViewStatus,
 }: {
   repository?: ExplorationRepository;
   onBack?: () => void;
+  onViewStatus?: () => void;
 }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -361,6 +367,7 @@ function PlaceExploration({
     <ExplorationScreen
       key={scenario ?? 'default'}
       repository={repository ?? fixtureRepository}
+      onViewStatus={onViewStatus}
       onBack={onBack ?? (() => navigate('/rooms/registration/setup'))}
     />
   );

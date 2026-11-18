@@ -1,6 +1,5 @@
 import type { ResultPlace, ResultState } from './types';
 
-export const meetingSummary = '11월 15일 (일) 18:00 · 건대입구역 인근';
 export const tieCandidates: ResultPlace[] = [
   {
     id: 'cafe-c',
@@ -51,6 +50,7 @@ export function createResultMock(scenario: string | null): ResultState {
       category.place.votes = { like: 0, neutral: 0, dislike: 0 };
     });
   return {
+    finalized: scenario === 'finalized',
     categories,
     order: categories.map((category) => category.id),
     unresolvedTie: scenario === 'tie',

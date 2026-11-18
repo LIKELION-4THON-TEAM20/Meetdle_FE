@@ -17,7 +17,8 @@ import {
 } from './components/CandidateNotices';
 import './VoteStart.scss';
 import { useMockRoom } from '../../features/mockRoom/context';
-import { candidateCategories } from '../../features/mockRoom/model';
+import { candidateCategories, registrationParticipants } from '../../features/mockRoom/model';
+import { createRegistrationStatusMock } from '../PlaceRegistrationStatus/mockData';
 
 function VoteStartScreen({ scenario }: { scenario: string | null }) {
   const navigate = useRoomNavigation();
@@ -54,10 +55,32 @@ function VoteStartScreen({ scenario }: { scenario: string | null }) {
     };
   }, []);
   const summary = summarizeCandidates(initial.categories);
+  const people = isolated
+    ? createRegistrationStatusMock(initial.now, scenario).participants
+    : registrationParticipants(room);
+  const completed =
+    isolated && Number.isInteger(location.state?.completed)
+      ? location.state.completed
+      : people.filter(({ status }) => status === 'completed').length;
+  const total =
+    isolated && Number.isInteger(location.state?.total) ? location.state.total : people.length;
   const valid = isValidVoteDeadline(new Date(deadline), new Date(now), new Date(initial.meeting));
   return (
     <div className="page vote-start">
-      <Header title="투표 시작" showBackButton onBack={goBack} />
+      <Header
+        title="투표 시작"
+        showBackButton
+        onBack={() => {
+          if (!location.state?.fromRegistrationStatus) {
+            goBack();
+            return;
+          }
+          const query = isolated && scenario ? `?scenario=${encodeURIComponent(scenario)}` : '';
+          navigate(`${PATHS.registration}${query}`, {
+            state: { registrationDeadline: location.state.registrationDeadline },
+          });
+        }}
+      />
       <main className="vote-start__content">
         {!isolated && !room.registrationClosed && (
           <p>
@@ -92,9 +115,7 @@ function VoteStartScreen({ scenario }: { scenario: string | null }) {
               <div>
                 <dt>등록 완료 인원</dt>
                 <dd>
-                  {isolated
-                    ? '3 / 4명'
-                    : `${room.participants.filter(({ status }) => status === 'completed').length} / ${room.participants.length}명`}
+                  {completed} / {total}명
                 </dd>
               </div>
             </dl>

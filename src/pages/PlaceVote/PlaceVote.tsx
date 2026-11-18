@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { useRoomNavigation, useRoomLink, useRoomBack } from '../../router/useRoomNavigation';
+import { useRoomLink, useRoomBack } from '../../router/useRoomNavigation';
 import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
@@ -18,7 +18,6 @@ function PlaceVoteScreen({
   scenario: string | null;
   fixedClock: boolean;
 }) {
-  const navigate = useRoomNavigation();
   const goBack = useRoomBack(PATHS.voteStatus);
   const roomLink = useRoomLink();
   const { room, send, isolated } = useMockRoom();
@@ -87,50 +86,48 @@ function PlaceVoteScreen({
     >
       <Header title={initial.roomName} showBackButton onBack={goBack} />
       <main className="place-vote__content">
-        <section className="place-vote__intro" aria-labelledby="place-vote-title">
-          <div className="place-vote__title-row">
-            <h2 id="place-vote-title">장소 투표</h2>
-            <span className="place-vote__timer" role="timer">
-              {!started
-                ? '투표 시작 전'
-                : expired
-                  ? '투표 마감'
-                  : `마감까지 ${formatVoteRemaining(initial.deadline, now)}`}
-            </span>
-          </div>
-          <div
-            className="place-vote__progress"
-            role="progressbar"
-            aria-label="장소 선택 완료율"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(progress.percent)}
-            aria-valuetext={`${progress.total}곳 중 ${progress.completed}곳 선택 완료`}
-          >
-            <span style={{ width: `${progress.percent}%` }} />
-          </div>
-          <p className="place-vote__count" aria-live="polite">
-            {progress.completed} / {progress.total}곳 선택 완료 ·{' '}
-            {vote.submitted ? '제출 완료' : '제출 전'}
-          </p>
-          <p className="place-vote__description">
-            각 후보마다 하나씩 골라주세요. 내 선택은 나만 볼 수 있어요.
-          </p>
-          {!isolated && room.phase === 'registration' && (
-            <p>
-              아직 목 투표가 시작되지 않았어요.{' '}
-              <Link to={roomLink(PATHS.registration)}>등록 현황으로 이동</Link>
-            </p>
-          )}
-          {automaticOnly && <p>모든 후보가 자동 선정 대상이에요. 응답 없이 제출할 수 있어요.</p>}
-          {vote.submitted && (
-            <div className="place-vote__submitted" role="status">
-              <h3>투표 제출 완료</h3>
-              <p>제출한 투표는 수정할 수 없어요.</p>
-              <p>개발용 목 상태이며, 서버에 저장되지 않았어요.</p>
+        {vote.submitted ? (
+          <h2 className="place-vote__submitted" role="status">
+            투표 제출 완료
+          </h2>
+        ) : (
+          <section className="place-vote__intro" aria-labelledby="place-vote-title">
+            <div className="place-vote__title-row">
+              <h2 id="place-vote-title">장소 투표</h2>
+              <span className="place-vote__timer" role="timer">
+                {!started
+                  ? '투표 시작 전'
+                  : expired
+                    ? '투표 마감'
+                    : `마감까지 ${formatVoteRemaining(initial.deadline, now)}`}
+              </span>
             </div>
-          )}
-        </section>
+            <div
+              className="place-vote__progress"
+              role="progressbar"
+              aria-label="장소 선택 완료율"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progress.percent)}
+              aria-valuetext={`${progress.total}곳 중 ${progress.completed}곳 선택 완료`}
+            >
+              <span style={{ width: `${progress.percent}%` }} />
+            </div>
+            <p className="place-vote__count" aria-live="polite">
+              {progress.completed} / {progress.total}곳 선택 완료 · 제출 전
+            </p>
+            <p className="place-vote__description">
+              각 후보마다 하나씩 골라주세요. 내 선택은 나만 볼 수 있어요.
+            </p>
+            {!isolated && room.phase === 'registration' && (
+              <p>
+                아직 목 투표가 시작되지 않았어요.{' '}
+                <Link to={roomLink(PATHS.registration)}>등록 현황으로 이동</Link>
+              </p>
+            )}
+            {automaticOnly && <p>모든 후보가 자동 선정 대상이에요. 응답 없이 제출할 수 있어요.</p>}
+          </section>
+        )}
         {initial.categories
           .filter((category) => category.places.length > 0)
           .map((category) => (
@@ -178,17 +175,12 @@ function PlaceVoteScreen({
       <footer ref={footerRef} className="place-vote__footer">
         {vote.submitted ? (
           <>
-            <p>제출한 투표는 수정할 수 없어요.</p>
-            <a
+            <Link
               className="place-vote__status-link"
-              href={roomLink(PATHS.voteStatus)}
-              onClick={(event) => {
-                event.preventDefault();
-                navigate(PATHS.voteStatus);
-              }}
+              to={roomLink(isolated ? `${PATHS.voteStatus}?scenario=ongoing` : PATHS.voteStatus)}
             >
               투표 현황 보기
-            </a>
+            </Link>
           </>
         ) : (
           <>

@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
+import { getCreatedRoom } from '../../features/createdRoom/model';
+import { PATHS } from '../../router/paths';
+import { useRoomNavigation } from '../../router/useRoomNavigation';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import AvailabilityGrid from './components/AvailabilityGrid';
@@ -119,6 +122,19 @@ function ScheduleTransit({
         </footer>
       </form>
     </div>
+  );
+}
+
+export function ScheduleTransitRoute() {
+  const navigate = useRoomNavigation();
+  const [params] = useSearchParams();
+  const room = getCreatedRoom(params.get('roomId'))!;
+
+  return (
+    <ScheduleTransit
+      room={{ ...MOCK_SCHEDULE_ROOM, id: room.id }}
+      onComplete={(scheduleInput) => navigate(PATHS.participation, { state: { scheduleInput } })}
+    />
   );
 }
 

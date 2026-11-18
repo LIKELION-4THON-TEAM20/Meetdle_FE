@@ -1,8 +1,8 @@
 import { Link, useSearchParams } from 'react-router';
 import { formatCandidateDates } from '../CreateRoom/createRoomState';
-import { getCreatedRoom } from '../../features/createdRoom/model';
+import { getCreatedRoom, getJoinedParticipants } from '../../features/createdRoom/model';
 import { PATHS, roomPath } from '../../router/paths';
-import { useRoomBack } from '../../router/useRoomNavigation';
+import { useRoomBack, useRoomNavigation } from '../../router/useRoomNavigation';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import MeetingInfoCard from './components/MeetingInfoCard';
@@ -11,6 +11,7 @@ import './RoomCreated.scss';
 
 function RoomCreated() {
   const goBack = useRoomBack(PATHS.create);
+  const navigate = useRoomNavigation();
   const [params] = useSearchParams();
   const room = getCreatedRoom(params.get('roomId'))!;
   const { inviteCode, creation } = room;
@@ -18,7 +19,13 @@ function RoomCreated() {
     name: creation.name.trim(),
     candidateDates: formatCandidateDates(creation.dateRange),
     capacity: creation.capacity,
-    participantCount: 1,
+    participantCount: getJoinedParticipants(room).length,
+  };
+
+  const shareInviteOnKakao = () => {
+    window.alert(
+      '카카오톡 공유 SDK는 아직 연동되지 않았어요. 초대 코드나 링크를 복사해 공유해주세요.',
+    );
   };
 
   const copyInviteLink = async () => {
@@ -50,17 +57,15 @@ function RoomCreated() {
           <p>개발용 목 약속방이에요. 서버에는 저장되지 않았어요.</p>
         </div>
         <MeetingInfoCard meeting={meeting} />
-        <InviteCodeCopy code={inviteCode} />
+        <InviteCodeCopy code={inviteCode} onShare={shareInviteOnKakao} />
       </main>
       <footer className="room-created__footer">
-        <Button
-          className="room-created__action"
-          onClick={() =>
-            window.alert(
-              '카카오톡 공유 SDK는 아직 연동되지 않았어요. 초대 코드나 링크를 복사해 공유해주세요.',
-            )
-          }
-        >
+        {params.get('role') !== 'participant' && (
+          <Button onClick={() => navigate(roomPath(PATHS.recruitment, '?role=host', room.id))}>
+            참여 현황 보기
+          </Button>
+        )}
+        <Button className="room-created__action" onClick={shareInviteOnKakao}>
           카카오톡으로 초대하기
         </Button>
         <Button

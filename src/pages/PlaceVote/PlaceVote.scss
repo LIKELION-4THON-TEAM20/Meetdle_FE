@@ -114,19 +114,11 @@
     }
   }
   &__submitted {
-    h3 {
-      margin: 0 0 8px;
-      color: #03000f;
-      font-size: 18px;
-      font-weight: 600;
-      line-height: 26px;
-    }
-    p {
-      margin: 0;
-      color: #969696;
-      font-size: 12px;
-      line-height: 18px;
-    }
+    margin: 0;
+    color: #03000f;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 26px;
   }
   &__footer {
     display: flex;
@@ -146,9 +138,11 @@
     }
   }
   &__status-link {
-    align-self: flex-start;
-    padding: 8px 4px;
-    color: #7c5cff;
+    padding: 14px 20px;
+    border-radius: 12px;
+    background: #7c5cff;
+    color: #fff;
+    text-align: center;
     font-size: 16px;
     font-weight: 500;
     line-height: 24px;
