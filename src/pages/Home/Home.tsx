@@ -1,5 +1,6 @@
 import type { JoinByCodeHandler } from './join-code.types';
 import { useEffect, useRef, useState } from 'react';
+import AppointmentDeleteModal from './components/AppointmentDeleteModal';
 import HomeHeader from '../../components/common/HomeHeader/HomeHeader';
 import plus from '../../assets/icons/home/plus.svg';
 import AppointmentCard from './components/AppointmentCard';
@@ -18,15 +19,34 @@ const FILTERS: { value: AppointmentFilter; label: string }[] = [
 interface HomeProps {
   appointments?: Appointment[];
   onProfileClick?: () => void;
+  onLogout?: () => void;
   onJoinByCode?: JoinByCodeHandler;
 }
 
-function Home({ appointments = MOCK_APPOINTMENTS, onProfileClick, onJoinByCode }: HomeProps) {
+function Home({
+  appointments = MOCK_APPOINTMENTS,
+  onProfileClick,
+  onLogout,
+  onJoinByCode,
+}: HomeProps) {
   const [filter, setFilter] = useState<AppointmentFilter>('all');
   const [today, setToday] = useState(getTodayKey);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [deleteModeId, setDeleteModeId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Appointment | null>(null);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const visibleAppointments = filterAppointments(appointments, filter, today);
+  const visibleAppointments = filterAppointments(
+    appointments.filter((item) => !deletedIds.includes(item.id)),
+    filter,
+    today,
+  );
+
+  useEffect(() => {
+    if (deleteModeId === null || deleteTarget !== null) return;
+    const timer = window.setTimeout(() => setDeleteModeId(null), 1_500);
+    return () => window.clearTimeout(timer);
+  }, [deleteModeId, deleteTarget]);
 
   useEffect(() => {
     const refreshDate = () => setToday(getTodayKey());
@@ -40,7 +60,7 @@ function Home({ appointments = MOCK_APPOINTMENTS, onProfileClick, onJoinByCode }
 
   return (
     <div className="page home-page">
-      <HomeHeader onProfileClick={onProfileClick} />
+      <HomeHeader onProfileClick={onProfileClick} onLogout={onLogout} />
       <main className="home-page__content">
         <h1>내 약속</h1>
         <div className="home-page__filters" role="tablist" aria-label="약속 기간">
@@ -86,7 +106,15 @@ function Home({ appointments = MOCK_APPOINTMENTS, onProfileClick, onJoinByCode }
           </div>
           {visibleAppointments.length ? (
             visibleAppointments.map((appointment) => (
-              <AppointmentCard key={appointment.id} appointment={appointment} today={today} />
+              <AppointmentCard
+                key={appointment.id}
+                appointment={appointment}
+                today={today}
+                deleteMode={deleteModeId === appointment.id}
+                onRevealDelete={() => setDeleteModeId(appointment.id)}
+                onHideDelete={() => setDeleteModeId(null)}
+                onDelete={() => setDeleteTarget(appointment)}
+              />
             ))
           ) : (
             <p className="home-page__empty">표시할 약속이 없어요.</p>
@@ -105,6 +133,19 @@ function Home({ appointments = MOCK_APPOINTMENTS, onProfileClick, onJoinByCode }
           <img src={plus} alt="" draggable={false} />
         </button>
       </div>
+      {deleteTarget && (
+        <AppointmentDeleteModal
+          canDelete={deleteTarget.date < today}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            // API 연결 전에는 현재 홈 목록에서만 제거한다.
+            if (deleteTarget.date >= getTodayKey()) return;
+            setDeletedIds((ids) => [...ids, deleteTarget.id]);
+            setDeleteTarget(null);
+            setDeleteModeId(null);
+          }}
+        />
+      )}
       {isSheetOpen && (
         <AddAppointmentSheet onClose={() => setIsSheetOpen(false)} onSubmitCode={onJoinByCode} />
       )}
