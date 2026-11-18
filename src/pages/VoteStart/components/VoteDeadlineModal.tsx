@@ -14,6 +14,7 @@ interface Props {
   now: number;
   meeting: number;
   registrationExtension?: boolean;
+  voteExtension?: boolean;
   onClose: () => void;
   onConfirm: (deadline: number) => void;
 }
@@ -22,6 +23,7 @@ export default function VoteDeadlineModal({
   now,
   meeting,
   registrationExtension,
+  voteExtension,
   onClose,
   onConfirm,
 }: Props) {
@@ -30,25 +32,31 @@ export default function VoteDeadlineModal({
   const validate = (at: number) =>
     registrationExtension
       ? isValidRegistrationExtension(parsed.getTime(), deadline, at, meeting)
-      : isValidVoteDeadline(parsed, new Date(at), new Date(meeting));
+      : (!voteExtension || parsed.getTime() > deadline) &&
+        isValidVoteDeadline(parsed, new Date(at), new Date(meeting));
   const valid = validate(now);
   const range = registrationExtension
     ? getRegistrationExtensionWindow(deadline, now, meeting)
     : getVoteDeadlineWindow(new Date(now), new Date(meeting));
-  const minimum = Math.ceil(range.minimum / 60000) * 60000;
+  const minimum =
+    Math.ceil(Math.max(range.minimum, voteExtension ? deadline + 1 : 0) / 60000) * 60000;
   const maximum = Math.floor(range.maximum / 60000) * 60000;
   return (
     <Modal
       open
       onClose={onClose}
-      className={`vote-deadline-modal${registrationExtension ? ' vote-deadline-modal--registration' : ''}`}
+      className={`vote-deadline-modal${registrationExtension || voteExtension ? ' vote-deadline-modal--registration' : ''}`}
       aria-labelledby="vote-deadline-title"
       aria-describedby="vote-deadline-help"
     >
       <h2 id="vote-deadline-title">
-        {registrationExtension ? '장소 등록 마감 시간 연장' : '투표 마감 시간 설정'}
+        {registrationExtension
+          ? '장소 등록 마감 시간 연장'
+          : voteExtension
+            ? '투표 마감 시간 연장'
+            : '투표 마감 시간 설정'}
       </h2>
-      {registrationExtension && <p>마감 일시를 선택해주세요</p>}
+      {(registrationExtension || voteExtension) && <p>마감 일시를 선택해주세요</p>}
       <input
         aria-label={registrationExtension ? '등록 마감 일시' : '투표 마감 일시'}
         aria-describedby="vote-deadline-help"
@@ -72,7 +80,11 @@ export default function VoteDeadlineModal({
           if (validate(Date.now())) onConfirm(parsed.getTime());
         }}
       >
-        {registrationExtension ? '등록 마감시간 연장하기' : '확인'}
+        {registrationExtension
+          ? '등록 마감시간 연장하기'
+          : voteExtension
+            ? '투표 마감시간 연장하기'
+            : '확인'}
       </Button>
     </Modal>
   );

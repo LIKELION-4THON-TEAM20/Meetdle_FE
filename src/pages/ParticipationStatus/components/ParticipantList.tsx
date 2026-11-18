@@ -10,7 +10,7 @@ const STATUS_LABELS: Record<ParticipantStatus, string> = {
 
 interface ParticipantListProps {
   participants: readonly Participant[];
-  mode?: 'input' | 'waiting' | 'registration';
+  mode?: 'input' | 'waiting' | 'registration' | 'vote';
 }
 
 function ParticipantAvatar({ url }: { url?: string }) {
@@ -26,13 +26,20 @@ function ParticipantAvatar({ url }: { url?: string }) {
 function ParticipantList({ participants, mode = 'input' }: ParticipantListProps) {
   const waiting = mode === 'waiting';
   const registration = mode === 'registration';
+  const voting = mode === 'vote';
   const registrationLabels = { completed: '등록 완료', inProgress: '등록중', notStarted: '미등록' };
 
   return (
     <ul
       className={`participant-list${registration ? ' registration-participants' : ''}`}
       aria-label={
-        waiting ? '약속방 참여자' : registration ? '참여자별 장소 등록 현황' : '참여자별 입력 현황'
+        voting
+          ? '참여자별 투표 현황'
+          : waiting
+            ? '약속방 참여자'
+            : registration
+              ? '참여자별 장소 등록 현황'
+              : '참여자별 입력 현황'
       }
     >
       {participants.map((participant) => (
@@ -42,11 +49,15 @@ function ParticipantList({ participants, mode = 'input' }: ParticipantListProps)
           <span
             className={`participant-list__badge participant-list__badge--${waiting ? 'waiting' : participant.status}`}
           >
-            {waiting
-              ? '대기중'
-              : registration
-                ? registrationLabels[participant.status]
-                : STATUS_LABELS[participant.status]}
+            {voting
+              ? participant.status === 'completed'
+                ? '투표 완료'
+                : '미투표'
+              : waiting
+                ? '대기중'
+                : registration
+                  ? registrationLabels[participant.status]
+                  : STATUS_LABELS[participant.status]}
           </span>
         </li>
       ))}

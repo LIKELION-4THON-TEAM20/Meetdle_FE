@@ -218,7 +218,7 @@ export function aggregate(room: MockRoom, now: number): MockRoom {
 export type Action =
   | { type: 'startRegistration'; categoryIds: CategoryId[]; deadline: number; now: number }
   | { type: 'deadline'; deadline: number; now: number }
-  | { type: 'tick'; now: number }
+  | { type: 'extendVote'; deadline: number; now: number }
   | { type: 'extend'; minutes: number; now: number }
   | { type: 'extendRegistration'; deadline: number; now: number }
   | { type: 'closeRegistration' }
@@ -267,13 +267,18 @@ export function reduceRoom(room: MockRoom, action: Action): MockRoom {
         )
         ? { ...room, voteDeadline: action.deadline }
         : room;
-    case 'tick': {
-      if (room.phase !== 'voting') return room;
-      const count = completedVoters(room).length;
-      return count === room.participants.length || action.now >= room.voteDeadline
-        ? { ...room, phase: count > room.participants.length / 2 ? 'counting' : 'insufficient' }
+    case 'extendVote':
+      return host &&
+        room.phase === 'voting' &&
+        action.now >= room.voteDeadline &&
+        action.deadline > room.voteDeadline &&
+        isValidVoteDeadline(
+          new Date(action.deadline),
+          new Date(action.now),
+          new Date(room.meetingAt),
+        )
+        ? { ...room, voteDeadline: action.deadline }
         : room;
-    }
     case 'extend': {
       const deadline = extendRegistrationDeadline(
         room.registrationDeadline,
@@ -361,18 +366,17 @@ export function reduceRoom(room: MockRoom, action: Action): MockRoom {
           };
     }
     case 'closeVote':
-      return host && room.phase === 'voting' && action.now < room.voteDeadline
+      return host &&
+        room.phase === 'voting' &&
+        completedVoters(room).length > room.participants.length / 2
         ? {
             ...room,
-            closedEarly: true,
-            phase:
-              completedVoters(room).length > room.participants.length / 2
-                ? 'counting'
-                : 'insufficient',
+            closedEarly: action.now < room.voteDeadline,
+            phase: 'counting',
           }
         : room;
     case 'count':
-      return room.result ? room : aggregate(room, action.now);
+      return host && room.phase === 'counting' ? aggregate(room, action.now) : room;
     case 'tie': {
       const tie = room.ties.find(({ id }) => id === action.categoryId);
       const place = tie?.places.find(({ id }) => id === action.placeId);

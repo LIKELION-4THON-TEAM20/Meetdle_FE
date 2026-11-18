@@ -69,7 +69,7 @@ test('submission renders status link and live completion count; counting is expl
   let room = reduceRoom(createMockRoom(now), { type: 'closeRegistration' });
   room = reduceRoom(room, { type: 'start', now, deadline: now + 3600000 });
   assert.match(render('PlaceVote', room), /place-vote--with-fixed-cta/);
-  assert.match(render('VoteStatus', room), /투표 마감하기/);
+  assert.doesNotMatch(render('VoteStatus', room), /투표 마감하기/);
   const participant = { ...room, role: 'participant', currentUserId: 'haneul' };
   assert.doesNotMatch(render('VoteStatus', participant), /투표 마감하기/);
   for (const category of room.categories.filter(({ places }) => places.length > 1)) {
@@ -84,7 +84,6 @@ test('submission renders status link and live completion count; counting is expl
   assert.match(render('VoteStatus', room), /aria-valuenow="75"/);
   room = reduceRoom(room, { type: 'closeVote', now });
   assert.match(render('VoteStatus', room), /개발용 목 결과 확인/);
-  assert.match(render('VoteStatus', room), /실제 서버 집계가 아니에요/);
   room = reduceRoom(room, { type: 'count', now });
   assert.match(render('VoteResult', room), /방문 순서 확인하기/);
 });
@@ -100,7 +99,7 @@ test('isolated development scenarios render without using the connected room dat
     isolated: true,
     url: '/rooms/vote/status?scenario=insufficient',
   });
-  assert.match(expired, /과반에 미달/);
+  assert.match(expired, /집계할 수 없어요/);
   const tie = render('VoteResult', room, {
     isolated: true,
     url: '/rooms/vote/result?scenario=tie',

@@ -60,16 +60,6 @@ function Provider({
       }
     }
   }, [isolated, room]);
-  useEffect(() => {
-    if (isolated) return;
-    const refresh = () => send({ type: 'tick', now: Date.now() });
-    const timer = globalThis.setInterval(refresh, 1000);
-    globalThis.addEventListener('focus', refresh);
-    return () => {
-      globalThis.clearInterval(timer);
-      globalThis.removeEventListener('focus', refresh);
-    };
-  }, [isolated, send]);
   return (
     <MockRoomContext.Provider value={{ room, send, isolated }}>
       {(pathname === PATHS.setup || hostOnlyRegistration) && room.role === 'participant' ? (

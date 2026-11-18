@@ -52,7 +52,8 @@ export default function PlaceVoteCard({
       </div>
       <div className="place-vote-card__details">
         <p>
-          {category} · {place.distanceMeters}m
+          {category}
+          {Number.isFinite(place.distanceMeters) && ` · ${place.distanceMeters}m`}
         </p>
         <p>{place.address}</p>
       </div>

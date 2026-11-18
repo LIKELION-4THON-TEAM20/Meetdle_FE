@@ -118,9 +118,9 @@ test('deadline validation, expiration, strict majority and incomplete ballots', 
   for (const deadline of [now, now + 29 * 60000, room.meetingAt])
     assert.equal(reduceRoom(room, { type: 'start', deadline, now }), room);
   room = start();
-  const expired = reduceRoom(room, { type: 'tick', now: room.voteDeadline });
-  assert.equal(expired.phase, 'insufficient');
-  assert.equal(reduceRoom(expired, { type: 'count', now: room.voteDeadline }), expired);
+  assert.equal(reduceRoom(room, { type: 'closeVote', now }), room);
+  assert.equal(reduceRoom(room, { type: 'closeVote', now: room.voteDeadline }), room);
+  assert.equal(reduceRoom(room, { type: 'count', now: room.voteDeadline }), room);
   assert.equal(
     completedVoters({
       ...room,
@@ -131,6 +131,24 @@ test('deadline validation, expiration, strict majority and incomplete ballots', 
     }).length,
     0,
   );
+});
+
+test('expired voting reopens only with a valid host extension and retains ballots', () => {
+  const room = start();
+  const endedAt = room.voteDeadline;
+  const action = { type: 'extendVote', now: endedAt, deadline: endedAt + 30 * 60_000 };
+  assert.equal(reduceRoom(room, { ...action, now: endedAt - 1 }), room);
+  assert.equal(reduceRoom(room, { ...action, deadline: action.deadline - 1 }), room);
+  assert.equal(reduceRoom(room, { ...action, deadline: room.meetingAt }), room);
+  const participant = { ...room, role: 'participant' };
+  assert.equal(reduceRoom(participant, action), participant);
+  const extended = reduceRoom(room, action);
+  assert.equal(extended.voteDeadline, action.deadline);
+  assert.equal(extended.registrationDeadline, room.registrationDeadline);
+  assert.equal(extended.participants, room.participants);
+  assert.deepEqual(restoreRoom({ getItem: () => JSON.stringify(extended) }, now), extended);
+  const counting = { ...room, phase: 'counting' };
+  assert.equal(reduceRoom(counting, action), counting);
 });
 
 test('missing required, zero candidates and all-automatic categories', () => {
@@ -163,7 +181,8 @@ test('multiple ties stay unresolved, participant cannot choose or save order', (
     ...participant,
     vote: { responses: { ...responses }, submitted: true },
   }));
-  room = reduceRoom(room, { type: 'count', now });
+  assert.equal(reduceRoom(room, { type: 'count', now }), room);
+  room = reduceRoom(reduceRoom(room, { type: 'closeVote', now }), { type: 'count', now });
   assert.equal(room.ties.length, 3);
   while (room.ties.length) {
     const tie = room.ties[0];
@@ -194,7 +213,7 @@ test('selection failure never invents a winner; malformed storage resets safely'
     ...participant,
     vote: { responses: { ...responses }, submitted: true },
   }));
-  room = reduceRoom(room, { type: 'count', now });
+  room = reduceRoom(reduceRoom(room, { type: 'closeVote', now }), { type: 'count', now });
   assert.equal(room.result.categories.length, 0);
   for (const value of [
     '{',
@@ -313,7 +332,7 @@ test('tie rendering fields are validated and valid ties survive restoration', ()
       vote: { submitted: true, responses: { ...responses } },
     })),
   };
-  room = reduceRoom(room, { type: 'count', now });
+  room = reduceRoom(reduceRoom(room, { type: 'closeVote', now }), { type: 'count', now });
   assert.ok(room.ties.length > 0);
   assert.equal(isMockRoom(room), true);
   assert.deepEqual(restoreRoom({ getItem: () => JSON.stringify(room) }, now), room);
@@ -331,7 +350,7 @@ test('tie rendering fields are validated and valid ties survive restoration', ()
   assert.equal(isMockRoom(malformed), false);
 });
 
-test('consecutive commands and timer ticks use latest state and persist every accepted change', () => {
+test('consecutive commands use latest state and persist every accepted change', () => {
   const updates = [];
   let persisted = null;
   const send = createRoomDispatcher(createMockRoom(now), (room) => {
@@ -351,10 +370,10 @@ test('consecutive commands and timer ticks use latest state and persist every ac
     'restaurant-b': 'like',
   });
   assert.deepEqual(restoreRoom({ getItem: () => persisted }, now), updates.at(-1));
-  assert.equal(send({ type: 'tick', now: now + 3600000 }), true);
-  assert.equal(updates.at(-1).phase, 'insufficient');
+  assert.equal(send({ type: 'closeVote', now: now + 3600000 }), false);
+  assert.equal(updates.at(-1).phase, 'voting');
   const count = updates.length;
-  assert.equal(send({ type: 'vote', action: { type: 'submit', now } }), false);
+  assert.equal(send({ type: 'vote', action: { type: 'submit', now: now + 3600000 } }), false);
   assert.equal(updates.length, count);
   assert.deepEqual(restoreRoom({ getItem: () => persisted }, now), updates.at(-1));
 });
