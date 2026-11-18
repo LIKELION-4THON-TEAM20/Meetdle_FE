@@ -42,11 +42,12 @@
     }
   }
   &__footer {
+    display: grid;
+    gap: 10px;
     padding: 14px 27px max(28px, env(safe-area-inset-bottom));
     &::before {
       display: block;
       height: 1px;
-      margin-bottom: 10px;
       background: #d5d4d9;
       content: '';
     }
@@ -57,5 +58,38 @@
 }
 
 .registration-participants .participant-list__badge--inProgress {
-  background: #fff0e8;
+  background: #f7f5ff;
+}
+
+.common-button.registration-secondary:not(:disabled) {
+  background: #7e7e8a;
+  color: #fff;
+}
+
+.registration-share-message {
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 1px solid #aba9b2;
+  border-radius: 6px;
+  background: #fafafa;
+  color: #86817c;
+  font: inherit;
+  font-size: 14px;
+}
+
+.participation-share-modal.registration-share--select {
+  min-height: 209px;
+  gap: 10px;
+
+  .participation-share-modal__send:disabled {
+    background: #fee500;
+    color: #191919;
+  }
+}
+
+.participation-share-modal.registration-share--compact {
+  min-height: 150px;
+  gap: 13px;
+  padding-bottom: 18px;
 }

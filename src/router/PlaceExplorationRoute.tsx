@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import PlaceExploration from '../pages/PlaceExploration/PlaceExploration';
-import { MOCK_ROOM_ID, PATHS, safeReturnTo } from './paths';
+import { MOCK_ROOM_ID, PATHS, roomPath, safeReturnTo } from './paths';
 import { RoomRecovery } from './FlowLayout';
 import { CREATED_ROOM_PREVIEW_ID } from '../features/createdRoom/model';
 import { restoreRoom } from '../features/mockRoom/model';
@@ -30,5 +30,12 @@ export default function PlaceExplorationRoute() {
   }
   const returnTo = params.get('returnTo');
   const backPath = returnTo ? safeReturnTo(returnTo) : PATHS.setup;
-  return <PlaceExploration onBack={() => navigate(backPath)} />;
+  return (
+    <PlaceExploration
+      onBack={() => navigate(backPath)}
+      onViewStatus={
+        fromConfirmation ? () => navigate(roomPath(PATHS.registration, `?${params}`)) : undefined
+      }
+    />
+  );
 }

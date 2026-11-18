@@ -23,6 +23,7 @@ function Provider({
   fallbackRoom: unknown;
 }) {
   const { pathname, search } = useLocation();
+  const hostOnlyRegistration = pathname === PATHS.closeRegistration || pathname === PATHS.startVote;
   const [room, setRoom] = useState<MockRoom>(() => {
     const initial = (() => {
       try {
@@ -71,8 +72,11 @@ function Provider({
   }, [isolated, send]);
   return (
     <MockRoomContext.Provider value={{ room, send, isolated }}>
-      {pathname === PATHS.setup && room.role === 'participant' ? (
-        <Navigate to={roomPath(PATHS.info, search)} replace />
+      {(pathname === PATHS.setup || hostOnlyRegistration) && room.role === 'participant' ? (
+        <Navigate
+          to={roomPath(hostOnlyRegistration ? PATHS.registration : PATHS.info, search)}
+          replace
+        />
       ) : (
         children
       )}
@@ -84,11 +88,7 @@ export default function MockRoomLayout() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const roomId = params.get('roomId') ?? MOCK_ROOM_ID;
-  const confirmationRoute =
-    location.pathname === PATHS.confirmed ||
-    location.pathname === PATHS.info ||
-    location.pathname === PATHS.setup;
-  if (roomId !== MOCK_ROOM_ID && !(confirmationRoute && roomId === CREATED_ROOM_PREVIEW_ID)) {
+  if (roomId !== MOCK_ROOM_ID && roomId !== CREATED_ROOM_PREVIEW_ID) {
     return (
       <RoomRecovery message="이 약속방의 확정·등록·투표 데이터가 이 브라우저에 없어요. 다른 방의 목 결과를 대신 표시하지 않습니다." />
     );
@@ -96,10 +96,7 @@ export default function MockRoomLayout() {
   const scenario = import.meta.env.DEV ? params.get('scenario') : null;
   const clock = import.meta.env.DEV && params.get('clock') === 'fixed';
   const requestedRole = params.get('role');
-  const role =
-    import.meta.env.DEV || (confirmationRoute && requestedRole === 'participant')
-      ? requestedRole
-      : null;
+  const role = import.meta.env.DEV || requestedRole === 'participant' ? requestedRole : null;
   const reset = import.meta.env.DEV && params.get('mock') === 'reset';
   const isolated = scenario !== null || clock;
   return (

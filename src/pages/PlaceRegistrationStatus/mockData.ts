@@ -17,7 +17,13 @@ export function createRegistrationStatusMock(now: number, scenario: string | nul
           : participant.status,
     })),
     deadline:
-      now + (scenario === 'expired' ? -1 : scenario === 'expiringSoon' ? 10 : 2 * 60 * 60) * 1000,
+      now +
+      (scenario === 'expired' || scenario === 'extend'
+        ? -60
+        : scenario === 'expiringSoon'
+          ? 10
+          : 2 * 60 * 60) *
+        1000,
     votingEligibility: (scenario === 'insufficient'
       ? 'insufficient'
       : 'unknown') as VotingEligibility,

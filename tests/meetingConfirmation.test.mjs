@@ -16,8 +16,19 @@ const { MOCK_CANDIDATE_DATA: data } = await server.ssrLoadModule(
 const { createMockRoom, reduceRoom, restoreRoom, saveRoom } = await server.ssrLoadModule(
   '/src/features/mockRoom/model.ts',
 );
+const { isValidVoteDeadline } = await server.ssrLoadModule('/src/pages/VoteStart/voteUtils.ts');
 const previewId = 'mock-created-preview';
 const now = Date.parse('2026-11-18T12:00:00+09:00');
+
+test('vote deadline accepts both inclusive boundaries and rejects invalid dates', () => {
+  const meeting = new Date(now + 5 * 60 * 60 * 1000);
+  const minimum = now + 30 * 60 * 1000;
+  const maximum = meeting.getTime() - 3 * 60 * 60 * 1000;
+  for (const value of [minimum, maximum])
+    assert.equal(isValidVoteDeadline(new Date(value), new Date(now), meeting), true);
+  for (const value of [minimum - 1, maximum + 1, NaN])
+    assert.equal(isValidVoteDeadline(new Date(value), new Date(now), meeting), false);
+});
 
 test('selected time and region drive both cards and survive room-scoped restoration', () => {
   const entries = new Map();
@@ -86,4 +97,36 @@ test('registration state comes from the room and supports the existing preview o
     'registrationClosed',
   );
   assert.equal(getConfirmationRegistrationStatus(createMockRoom(now), null), 'registrationOpen');
+});
+
+test('expired registration can extend without changing the vote deadline and reserves the vote window', () => {
+  const room = { ...createMockRoom(now, previewId), registrationDeadline: now - 60_000 };
+  const maximum = room.meetingAt - 3.5 * 60 * 60 * 1000;
+  const action = { type: 'extendRegistration', deadline: maximum, now };
+  const extended = reduceRoom(room, action);
+  assert.equal(extended.registrationDeadline, maximum);
+  assert.equal(extended.voteDeadline, room.voteDeadline);
+  assert.equal(reduceRoom(room, { ...action, deadline: maximum + 1 }), room);
+  assert.equal(reduceRoom(room, { ...action, deadline: now + 60 * 60 * 1000 - 1 }), room);
+  const participant = { ...room, role: 'participant' };
+  assert.equal(reduceRoom(participant, action), participant);
+});
+
+test('registration close keeps only enabled categories for the existing voting flow', () => {
+  const room = createMockRoom(now, previewId);
+  const started = reduceRoom(room, {
+    type: 'startRegistration',
+    categoryIds: ['restaurant', 'cafe'],
+    deadline: now + 60 * 60 * 1000,
+    now,
+  });
+  const closed = reduceRoom(started, { type: 'closeRegistration' });
+  assert.equal(closed.phase, 'registration');
+  assert.equal(closed.registrationClosed, true);
+  assert.deepEqual(
+    closed.categories.map(({ id }) => id),
+    ['restaurant', 'cafe'],
+  );
+  const storage = { getItem: () => JSON.stringify(closed) };
+  assert.deepEqual(restoreRoom(storage, now, previewId), closed);
 });

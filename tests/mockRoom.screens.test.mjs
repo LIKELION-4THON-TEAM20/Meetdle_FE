@@ -50,9 +50,9 @@ test('host/participant management controls and direct-entry recovery render', ()
     button(render('PlaceRegistrationStatus', room), '등록 마감하고 투표 시작하기'),
     /disabled/,
   );
-  assert.match(
+  assert.equal(
     button(render('PlaceRegistrationStatus', participant), '등록 마감하고 투표 시작하기'),
-    /disabled/,
+    '',
   );
   assert.match(
     button(render('RegistrationClose', participant), '등록 마감하고 투표 시작'),

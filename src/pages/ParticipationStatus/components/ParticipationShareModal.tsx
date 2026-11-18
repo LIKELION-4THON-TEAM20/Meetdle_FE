@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import Button from '../../../components/common/Button/Button';
 import Modal from '../../../components/common/Modal/Modal';
 
@@ -16,18 +16,31 @@ const COPY = {
 interface ParticipationShareModalProps {
   kind: keyof typeof COPY | null;
   onClose: () => void;
+  copy?: { title: string; description: string };
+  children?: ReactNode;
+  onSend?: () => void;
+  disabled?: boolean;
+  className?: string;
 }
 
-function ParticipationShareModal({ kind, onClose }: ParticipationShareModalProps) {
+function ParticipationShareModal({
+  kind,
+  onClose,
+  copy,
+  children,
+  onSend,
+  disabled,
+  className,
+}: ParticipationShareModalProps) {
   const id = useId();
   if (!kind) return null;
-  const { title, description } = COPY[kind];
+  const { title, description } = copy ?? COPY[kind];
 
   return (
     <Modal
       open
       onClose={onClose}
-      className="participation-share-modal"
+      className={className ? `participation-share-modal ${className}` : 'participation-share-modal'}
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-description`}
     >
@@ -35,9 +48,11 @@ function ParticipationShareModal({ kind, onClose }: ParticipationShareModalProps
         <h2 id={`${id}-title`}>{title}</h2>
         <p id={`${id}-description`}>{description}</p>
       </div>
+      {children}
       <Button
         className="participation-share-modal__send"
-        onClick={() => window.alert('카카오톡 공유 SDK는 아직 연동되지 않았어요.')}
+        disabled={disabled}
+        onClick={onSend ?? (() => window.alert('카카오톡 공유 SDK는 아직 연동되지 않았어요.'))}
       >
         카카오톡으로 전송하기
       </Button>

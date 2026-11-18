@@ -9,7 +9,10 @@ import { getVoteProgress, updateVote, type VoteAction } from '../../pages/PlaceV
 import type { ResultPlace, ResultRole, ResultState } from '../../pages/VoteResult/types';
 import { saveVisitOrder } from '../../pages/VoteResult/resultUtils';
 import { isValidVoteDeadline } from '../../pages/VoteStart/voteUtils';
-import { extendRegistrationDeadline } from '../../pages/PlaceRegistrationStatus/statusUtils';
+import {
+  extendRegistrationDeadline,
+  isValidRegistrationExtension,
+} from '../../pages/PlaceRegistrationStatus/statusUtils';
 import type { CandidateCategory } from '../../pages/VoteStart/mockData';
 import { isValidDeadline } from '../../pages/PlaceRegistrationSetup/deadlineUtils';
 import { CATEGORIES, REGISTRATION_RULES } from '../../pages/PlaceRegistrationSetup/mockData';
@@ -47,6 +50,8 @@ export interface MockCategory extends VoteCategory {
 export interface MockParticipant {
   id: string;
   name: string;
+  profileImageUrl?: string;
+  registrationStatus?: MockParticipant['status'];
   status: 'completed' | 'inProgress' | 'notStarted';
   vote: VoteState;
 }
@@ -105,6 +110,7 @@ export function createMockRoom(now: number, id = 'mock-room-10-14'): MockRoom {
       id: ['sangmin', 'jieun', 'haneul', 'yujin'][index],
       name,
       status: index === 2 ? 'inProgress' : 'completed',
+      registrationStatus: index < 2 ? 'completed' : index === 2 ? 'inProgress' : 'notStarted',
       vote: {
         submitted: index === 1 || index === 3,
         responses: index === 1 || index === 3 ? { ...sampleResponses } : {},
@@ -117,22 +123,32 @@ export function createMockRoom(now: number, id = 'mock-room-10-14'): MockRoom {
 }
 
 export function candidateCategories(room: MockRoom): CandidateCategory[] {
-  return room.categories.map((category) => ({
-    id: category.id,
-    name: category.name,
-    required: category.required,
-    candidates: category.places.map((place) => ({ id: place.id, valid: true })),
-    autoSelected: category.places.length === 1,
-  }));
+  return room.categories
+    .filter(({ id }) => !room.registrationCategoryIds || room.registrationCategoryIds.includes(id))
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      required: category.required,
+      candidates: category.places.map((place) => ({ id: place.id, valid: true })),
+      autoSelected: category.places.length === 1,
+    }));
 }
 export function currentVote(room: MockRoom) {
   return room.participants.find((participant) => participant.id === room.currentUserId)!.vote;
 }
 export function validCandidates(room: MockRoom) {
+  const categories = candidateCategories(room);
   return (
-    room.categories.some((category) => category.places.length > 0) &&
-    room.categories.every((category) => !category.required || category.places.length > 0)
+    categories.some((category) => category.candidates.length > 0) &&
+    categories.every((category) => !category.required || category.candidates.length > 0)
   );
+}
+
+export function registrationParticipants(room: MockRoom) {
+  return room.participants.map((participant) => ({
+    ...participant,
+    status: participant.registrationStatus ?? participant.status,
+  }));
 }
 export function completedVoters(room: MockRoom) {
   return room.participants.filter(
@@ -204,6 +220,7 @@ export type Action =
   | { type: 'deadline'; deadline: number; now: number }
   | { type: 'tick'; now: number }
   | { type: 'extend'; minutes: number; now: number }
+  | { type: 'extendRegistration'; deadline: number; now: number }
   | { type: 'closeRegistration' }
   | { type: 'start'; deadline: number; now: number }
   | { type: 'vote'; action: VoteAction }
@@ -267,10 +284,49 @@ export function reduceRoom(room: MockRoom, action: Action): MockRoom {
         ? { ...room, registrationDeadline: deadline }
         : room;
     }
-    case 'closeRegistration':
-      return host && room.phase === 'registration' && validCandidates(room)
-        ? { ...room, registrationClosed: true }
+    case 'extendRegistration':
+      return host &&
+        room.phase === 'registration' &&
+        !room.registrationClosed &&
+        room.registrationStarted !== false &&
+        isValidRegistrationExtension(
+          action.deadline,
+          room.registrationDeadline,
+          action.now,
+          room.meetingAt,
+        )
+        ? { ...room, registrationDeadline: action.deadline }
         : room;
+    case 'closeRegistration': {
+      if (
+        !host ||
+        room.phase !== 'registration' ||
+        room.registrationClosed ||
+        room.registrationStarted === false ||
+        !validCandidates(room)
+      )
+        return room;
+      const categories = room.categories.filter(
+        ({ id }) => !room.registrationCategoryIds || room.registrationCategoryIds.includes(id),
+      );
+      if (categories.length === room.categories.length)
+        return { ...room, registrationClosed: true };
+      const allowedIds = new Set(categories.flatMap(({ places }) => places.map(({ id }) => id)));
+      return {
+        ...room,
+        categories,
+        registrationClosed: true,
+        participants: room.participants.map((participant) => ({
+          ...participant,
+          vote: {
+            ...participant.vote,
+            responses: Object.fromEntries(
+              Object.entries(participant.vote.responses).filter(([id]) => allowedIds.has(id)),
+            ),
+          },
+        })),
+      };
+    }
     case 'start':
       return host &&
         room.phase === 'registration' &&
@@ -388,7 +444,10 @@ export function isMockRoom(value: unknown, id = 'mock-room-10-14'): value is Moc
       typeof room.registrationClosed !== 'boolean' ||
       typeof room.closedEarly !== 'boolean' ||
       !Array.isArray(room.categories) ||
-      room.categories.length !== 4 ||
+      room.categories.length !==
+        (room.registrationClosed && Array.isArray(room.registrationCategoryIds)
+          ? room.registrationCategoryIds.length
+          : 4) ||
       !Array.isArray(room.participants) ||
       room.participants.length !== 4 ||
       !Array.isArray(room.ties)
@@ -425,6 +484,9 @@ export function isMockRoom(value: unknown, id = 'mock-room-10-14'): value is Moc
         !categoryId(category.id) ||
         categoryId(category.id) !== category.id ||
         ids.has(category.id) ||
+        (room.registrationClosed &&
+          room.registrationCategoryIds &&
+          !room.registrationCategoryIds.includes(category.id)) ||
         typeof category.name !== 'string' ||
         category.required !== ['restaurant', 'cafe'].includes(category.id) ||
         !Array.isArray(category.places)
@@ -442,6 +504,10 @@ export function isMockRoom(value: unknown, id = 'mock-room-10-14'): value is Moc
         !['sangmin', 'jieun', 'haneul', 'yujin'].includes(participant.id) ||
         people.has(participant.id) ||
         typeof participant.name !== 'string' ||
+        (participant.profileImageUrl !== undefined &&
+          typeof participant.profileImageUrl !== 'string') ||
+        (participant.registrationStatus !== undefined &&
+          !['completed', 'inProgress', 'notStarted'].includes(participant.registrationStatus)) ||
         !['completed', 'inProgress', 'notStarted'].includes(participant.status) ||
         typeof participant.vote.submitted !== 'boolean' ||
         !participant.vote.responses ||
