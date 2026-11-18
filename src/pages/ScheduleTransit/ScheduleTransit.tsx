@@ -59,15 +59,13 @@ function ScheduleTransit({
           </div>
           <section className="schedule-transit__availability" aria-labelledby="availability-title">
             <p className="schedule-transit__section-label">시간 정보</p>
-            <h3 id="availability-title">가능한 시간을 모두 선택해주세요</h3>
-            <div className="schedule-transit__grid-hint">
-              <p>드래그하면 연속된 시간을 한 번에 선택해요</p>
+            <div className="schedule-transit__availability-heading">
+              <h3 id="availability-title">가능한 시간을 모두 선택해주세요</h3>
               <span
-                className={`schedule-transit__count${selectedCount === 0 ? ' schedule-transit__count--empty' : ''}`}
-                role="status"
-                aria-live="polite"
+                className="schedule-transit__count schedule-transit__count--primary"
+                aria-hidden="true"
               >
-                {selectedCount}개 시간 선택
+                {selectedCount}시간 선택
               </span>
             </div>
             {dates.length ? (
@@ -82,6 +80,12 @@ function ScheduleTransit({
             ) : (
               <p>후보 날짜가 없어요.</p>
             )}
+            <div className="schedule-transit__grid-hint">
+              <span className="schedule-transit__count" role="status" aria-live="polite">
+                {selectedCount}시간 선택
+              </span>
+              <p>드래그하면 연속된 시간을 한 번에 선택해요</p>
+            </div>
           </section>
           <section className="schedule-transit__transit" aria-labelledby="transit-title">
             <h3 className="schedule-transit__section-label" id="transit-title">
