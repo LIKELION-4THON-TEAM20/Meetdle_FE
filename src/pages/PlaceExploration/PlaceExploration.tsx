@@ -4,12 +4,23 @@ import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import clock from '../../assets/place-exploration/clock.svg';
 import searchIcon from '../../assets/place-exploration/search.svg';
+import ExplorationNoticeModal from './components/ExplorationNoticeModal';
 import ExplorationMap from './components/ExplorationMap';
 import ExplorationPlaceCard from './components/ExplorationPlaceCard';
-import PlaceDetailLink from './components/PlaceDetailLink';
 import { createMockExplorationRepository, mockExplorationRepository } from './mockRepository';
-import { formatDistance, formatRemaining, registrationBlock, statusPreview } from './placeUtils';
-import type { CategoryId, ExplorationRepository, ExplorationSnapshot } from './types';
+import {
+  formatDistance,
+  formatRemaining,
+  missingRequiredCategories,
+  registrationBlock,
+  statusPreview,
+} from './placeUtils';
+import type {
+  CategoryId,
+  ExplorationRepository,
+  ExplorationSnapshot,
+  RecommendedPlace,
+} from './types';
 import './PlaceExploration.scss';
 
 function ExplorationScreen({
@@ -26,10 +37,10 @@ function ExplorationScreen({
   const [category, setCategory] = useState<CategoryId>('restaurant');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [openedPlaceId, setOpenedPlaceId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [registerError, setRegisterError] = useState('');
   const [notice, setNotice] = useState('');
+  const [modal, setModal] = useState<'outside' | 'required' | null>(null);
   const [now, setNow] = useState(Date.now);
   const submitting = useRef(false);
   const registrationRequest = useRef<AbortController | null>(null);
@@ -70,9 +81,9 @@ function ExplorationScreen({
   );
   const selected = snapshot?.recommendations.find((place) => place.id === selectedId);
 
-  async function registerSelected(submittedAt: number) {
-    if (!snapshot || !selected || submitting.current) return;
-    const blocked = registrationBlock(snapshot, selected, submittedAt);
+  async function registerPlace(place: RecommendedPlace, submittedAt: number) {
+    if (!snapshot || submitting.current) return;
+    const blocked = registrationBlock(snapshot, place, submittedAt);
     if (blocked) {
       setRegisterError(blocked);
       return;
@@ -84,7 +95,7 @@ function ExplorationScreen({
     registrationRequest.current = controller;
     try {
       const response = await repository.register(
-        { roomId: snapshot.roomId, placeId: selected.id },
+        { roomId: snapshot.roomId, placeId: place.id },
         controller.signal,
       );
       if (controller.signal.aborted) return;
@@ -105,21 +116,65 @@ function ExplorationScreen({
     }
   }
   const select = (id: string) => {
+    const place = snapshot?.recommendations.find((item) => item.id === id);
+    if (place && !place.eligible) {
+      setModal('outside');
+      return;
+    }
     setSelectedId(id);
-    setOpenedPlaceId(null);
     setRegisterError('');
     setNotice('');
   };
   const mine =
     snapshot?.registrations.filter((entry) => entry.userId === snapshot.currentUserId) ?? [];
 
+  const missing = snapshot ? missingRequiredCategories(snapshot) : [];
+  const registrationClosed = !snapshot || !snapshot.registrationOpen || now >= snapshot.deadline;
+  const canComplete = !!snapshot && missing.length === 0 && !registrationClosed;
+  const viewStatus = (data: ExplorationSnapshot) =>
+    navigate('/rooms/registration/status?scenario=exploration', {
+      state: statusPreview(data),
+    });
+  const changeCategory = (id: CategoryId) => {
+    setCategory(id);
+    setSelectedId(null);
+    setQuery('');
+    setRegisterError('');
+    setNotice('');
+  };
+  const complete = async () => {
+    if (!snapshot || submitting.current || registrationClosed) return;
+    if (missing.length) {
+      setModal('required');
+      return;
+    }
+    submitting.current = true;
+    setPending(true);
+    setRegisterError('');
+    const controller = new AbortController();
+    registrationRequest.current = controller;
+    try {
+      const response = await repository.complete(snapshot.roomId, controller.signal);
+      if (controller.signal.aborted) return;
+      setSnapshot(response);
+      viewStatus(response);
+    } catch (cause) {
+      if (!controller.signal.aborted)
+        setRegisterError(
+          cause instanceof Error
+            ? cause.message
+            : '등록 완료 처리에 실패했어요. 다시 시도해주세요.',
+        );
+    } finally {
+      submitting.current = false;
+      if (!controller.signal.aborted) setPending(false);
+    }
+  };
+
   return (
     <div className="page place-exploration">
       <Header title="장소 등록" showBackButton onBack={onBack} />
       <main className="place-exploration__content">
-        <p className="place-exploration__mock">
-          독립 목데이터 미리보기예요. 등록 설정의 선택값·방 데이터와는 아직 연결되지 않았어요.
-        </p>
         {!snapshot ? (
           <div className="place-exploration__state" role="status">
             {loadError ? (
@@ -178,12 +233,13 @@ function ExplorationScreen({
               <ul>
                 {snapshot.categories.map((item) => {
                   const entry = mine.find((registration) => registration.categoryId === item.id);
-                  const place = snapshot.recommendations.find(
-                    (candidate) => candidate.id === entry?.placeId,
-                  );
                   return (
-                    <li className={entry ? 'exploration-summary__registered' : ''} key={item.id}>
-                      {item.label} · {entry ? (place?.name ?? '등록됨') : '미등록'}
+                    <li
+                      className={entry ? 'exploration-summary__registered' : ''}
+                      key={item.id}
+                      aria-label={`${item.label} ${entry ? '등록됨' : '미등록'}`}
+                    >
+                      {item.label}
                     </li>
                   );
                 })}
@@ -195,14 +251,7 @@ function ExplorationScreen({
                   key={item.id}
                   type="button"
                   aria-pressed={category === item.id}
-                  onClick={() => {
-                    setCategory(item.id);
-                    setSelectedId(null);
-                    setOpenedPlaceId(null);
-                    setQuery('');
-                    setRegisterError('');
-                    setNotice('');
-                  }}
+                  onClick={() => changeCategory(item.id)}
                 >
                   {item.label}
                 </button>
@@ -218,46 +267,56 @@ function ExplorationScreen({
                 onChange={(event) => {
                   setQuery(event.target.value);
                   setSelectedId(null);
-                  setOpenedPlaceId(null);
                 }}
               />
             </label>
-            {query.trim() && (
-              <div className="exploration-results" aria-label="장소 검색 결과">
-                {places.length ? (
-                  places.map((place) => (
-                    <button
-                      key={place.id}
-                      type="button"
-                      aria-pressed={place.id === selectedId}
-                      onClick={() => select(place.id)}
-                    >
-                      {place.name}
-                      <span>
-                        {snapshot.categories.find((item) => item.id === place.categoryId)?.label} ·{' '}
-                        {formatDistance(place.distanceMeters)}
-                      </span>
-                    </button>
-                  ))
+            {query.trim() ? (
+              <section className="exploration-place-list" aria-label="장소 검색 결과">
+                <h3>검색 결과</h3>
+                {places.filter((place) => place.eligible).length ? (
+                  places
+                    .filter((place) => place.eligible)
+                    .map((place) => (
+                      <ExplorationPlaceCard
+                        key={place.id}
+                        place={place}
+                        selected={selectedId === place.id}
+                        categoryLabel={
+                          snapshot.categories.find((item) => item.id === place.categoryId)?.label ??
+                          ''
+                        }
+                        blocked={registrationBlock(snapshot, place, now)}
+                        registered={mine.some((entry) => entry.placeId === place.id)}
+                        pending={pending}
+                        onRegister={(submittedAt) => void registerPlace(place, submittedAt)}
+                      />
+                    ))
                 ) : (
-                  <p>검색 결과가 없어요.</p>
+                  <p className="exploration-place-list__empty">검색 결과가 없어요.</p>
                 )}
-              </div>
-            )}
-            {selected ? (
-              <ExplorationPlaceCard
-                place={selected}
-                categoryLabel={
-                  snapshot.categories.find((item) => item.id === selected.categoryId)?.label ?? ''
-                }
-                blocked={registrationBlock(snapshot, selected, now)}
-                pending={pending}
-                onRegister={(submittedAt) => void registerSelected(submittedAt)}
-              />
+              </section>
+            ) : selected ? (
+              <section className="exploration-place-list" aria-label="선택한 장소">
+                <h3>선택한 장소</h3>
+                <ExplorationPlaceCard
+                  place={selected}
+                  selected
+                  categoryLabel={
+                    snapshot.categories.find((item) => item.id === selected.categoryId)?.label ?? ''
+                  }
+                  blocked={registrationBlock(snapshot, selected, now)}
+                  registered={mine.some((entry) => entry.placeId === selected.id)}
+                  pending={pending}
+                  onRegister={(submittedAt) => void registerPlace(selected, submittedAt)}
+                />
+              </section>
             ) : (
               <div className="place-exploration__hint">
                 <h3>장소를 검색하거나 지도에서 찾아보세요</h3>
-                <p>지도에서 핀을 누르면 이 자리에 장소 정보가 표시돼요. 한 번에 1곳만 보여줘요.</p>
+                <p>
+                  지도에서 핀을 누르면 이 자리에 장소 정보가 표시돼요.
+                  <br />한 번에 1곳만 보여줘요.
+                </p>
               </div>
             )}
             {registerError && (
@@ -279,43 +338,6 @@ function ExplorationScreen({
               selectedId={selectedId}
               onSelect={select}
             />
-            <section className="exploration-recommendations" aria-label="추천 장소 목록">
-              <h3>추천 장소</h3>
-              {places.length ? (
-                <ul>
-                  {places.map((place) => (
-                    <li
-                      key={place.id}
-                      className={
-                        place.id === (openedPlaceId ?? selectedId)
-                          ? 'exploration-recommendations__selected'
-                          : ''
-                      }
-                    >
-                      <PlaceDetailLink
-                        place={place}
-                        className="exploration-recommendations__link"
-                        onActivate={() => setOpenedPlaceId(place.id)}
-                      >
-                        <span className="exploration-recommendations__name">{place.name}</span>
-                        <span className="exploration-recommendations__meta">
-                          {snapshot.categories.find((item) => item.id === place.categoryId)?.label}{' '}
-                          · {formatDistance(place.distanceMeters)}
-                        </span>
-                      </PlaceDetailLink>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p role="status">
-                  {query.trim()
-                    ? '검색 결과가 없어요.'
-                    : category === 'culture'
-                      ? '이 지역에는 등록할 수 있는 문화시설이 없어요.'
-                      : '추천 장소가 없어요.'}
-                </p>
-              )}
-            </section>
             {snapshot.source === 'mock' && (
               <p className="place-exploration__mock">
                 목 데이터 미리보기예요. 실제 추천·등록 API는 연결되지 않았어요.
@@ -326,18 +348,48 @@ function ExplorationScreen({
       </main>
       <footer className="place-exploration__footer">
         <Button
-          variant="secondary"
-          disabled={!snapshot}
-          onClick={() => {
-            if (snapshot)
-              navigate('/rooms/registration/status?scenario=exploration', {
-                state: statusPreview(snapshot),
-              });
-          }}
+          className="place-exploration__complete"
+          disabled={registrationClosed || pending}
+          data-ready={canComplete}
+          aria-busy={pending}
+          onClick={() => void complete()}
         >
-          등록 현황 보기
+          {pending ? '처리 중…' : '등록 완료'}
         </Button>
+        {!canComplete && (
+          <Button
+            className="place-exploration__status"
+            disabled={!snapshot || pending}
+            onClick={() => {
+              if (snapshot) viewStatus(snapshot);
+            }}
+          >
+            등록 현황 보기
+          </Button>
+        )}
       </footer>
+      {snapshot && modal && (
+        <ExplorationNoticeModal
+          title={
+            modal === 'outside'
+              ? '반경 밖의 장소는 선택할 수 없어요'
+              : '필수 카테고리의 장소를 선택해주세요'
+          }
+          description={
+            modal === 'outside'
+              ? `역으로부터 반경 ${formatDistance(snapshot.area.radiusMeters)} 이내 장소만 선택 가능해요`
+              : `${missing.map((item) => item.label).join('·')} 카테고리에 등록된 장소가 없으면 완료할 수 없어요`
+          }
+          actionLabel={
+            modal === 'outside' ? '다시 선택하러 가기' : '필수 카테고리 장소 등록하러 가기'
+          }
+          onClose={() => setModal(null)}
+          onAction={() => {
+            if (modal === 'required' && missing[0]) changeCategory(missing[0].id);
+            setModal(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,15 @@
 import type { ExplorationSnapshot, ExplorationStatusPreview, RecommendedPlace } from './types';
 
+export function missingRequiredCategories(snapshot: ExplorationSnapshot) {
+  return snapshot.categories.filter(
+    (category) =>
+      category.required &&
+      !snapshot.registrations.some(
+        (entry) => entry.userId === snapshot.currentUserId && entry.categoryId === category.id,
+      ),
+  );
+}
+
 export function registrationBlock(
   snapshot: ExplorationSnapshot,
   place: RecommendedPlace,
