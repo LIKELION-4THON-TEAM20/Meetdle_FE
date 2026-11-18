@@ -1,0 +1,64 @@
+@use '../../../styles/setting/variables' as variables;
+
+.login-required-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 348px;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 0 5px rgb(0 0 0 / 25%);
+
+  &__message {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  h2 {
+    margin: 0;
+    color: #1e1e1e;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 24px;
+  }
+
+  p {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+    line-height: 21px;
+  }
+
+  &__kakao {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    align-self: center;
+    width: 100%;
+    max-width: 302.76px;
+    min-height: 48px;
+    padding: 12px 20px;
+    border: 0;
+    border-radius: 6px;
+    background: #fee500;
+    box-shadow: 0 0 5px rgb(151 80 43 / 20%);
+    color: #191919;
+    font-family: variables.$font-family-base;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 24px;
+    cursor: pointer;
+
+    img {
+      display: block;
+      flex-shrink: 0;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #7c5cff;
+      outline-offset: 3px;
+    }
+  }
+}
