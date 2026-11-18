@@ -49,7 +49,7 @@
     &::placeholder {
       color: #969696;
     }
-    &:focus:not(:placeholder-shown):not([aria-invalid='true']) {
+    &:focus {
       border-color: #7c5cff;
     }
   }

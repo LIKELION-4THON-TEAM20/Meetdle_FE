@@ -21,34 +21,28 @@ function TimeCandidateCard({ candidate, groupName, selected, onSelect }: TimeCan
         onChange={onSelect}
       />
       <span className="candidate-card__surface">
-        {allAvailable && <span className="candidate-card__all-badge">모두 가능한 시간이에요</span>}
         <span className="candidate-card__row">
           <span className="candidate-card__stack">
-            <span
-              className={`candidate-card__name${allAvailable ? ' candidate-card__name--compact' : ''}`}
-            >
-              {formatCandidateDate(candidate.date, allAvailable)}
-              {allAvailable && ` ${candidate.startTime}–${candidate.endTime}`}
+            <span className="candidate-card__name">{formatCandidateDate(candidate.date)}</span>
+            <span className="candidate-card__subtitle">
+              {candidate.startTime} - {candidate.endTime}
             </span>
-            {!allAvailable && (
-              <span className="candidate-card__subtitle">
-                {candidate.startTime} - {candidate.endTime}
-              </span>
-            )}
           </span>
           <span className="candidate-card__radio" aria-hidden="true" />
         </span>
-        <span className={allAvailable ? 'candidate-card__all-count' : 'candidate-card__badge'}>
-          {allAvailable
-            ? `참여자 ${candidate.availableCount} / ${candidate.totalCount}명 전원 가능`
+        <span
+          className={`candidate-card__badge${candidate.recommended ? ' candidate-card__badge--recommended' : ''}`}
+        >
+          {candidate.recommended
+            ? '추천'
             : `${candidate.availableCount} / ${candidate.totalCount}명 가능`}
         </span>
-        {candidate.recommended && !allAvailable && (
-          <span className="candidate-card__badge candidate-card__badge--recommended">추천</span>
-        )}
-        {candidate.averageWaitMinutes !== undefined && !allAvailable && (
+        {(candidate.averageWaitMinutes !== undefined || allAvailable) && (
           <span className="candidate-card__description">
-            평균 대기 {candidate.averageWaitMinutes}분
+            {candidate.averageWaitMinutes !== undefined &&
+              `평균 대기 ${candidate.averageWaitMinutes}분`}
+            {candidate.averageWaitMinutes !== undefined && allAvailable && ' · '}
+            {allAvailable && '전원 참여 가능'}
           </span>
         )}
         {candidate.unavailableParticipantNames.length > 0 && (

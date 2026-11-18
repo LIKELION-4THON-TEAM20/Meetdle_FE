@@ -1,6 +1,8 @@
 @use '../../../styles/setting/variables' as variables;
 
 .home-header {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -8,7 +10,7 @@
   min-height: 71px;
   padding: calc(12px + env(safe-area-inset-top)) 20px 12px;
   background: variables.$color-white;
-  box-shadow: 0 8px 4px rgb(0 0 0 / 5%);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 5%);
 
   &__logo {
     position: relative;
@@ -50,6 +52,48 @@
     }
     img {
       display: block;
+    }
+  }
+
+  &__account {
+    position: relative;
+  }
+
+  &__account-panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+  }
+
+  &__logout {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 85px;
+    height: 26px;
+    padding: 0 14px 0 15px;
+    border: 0;
+    border-radius: 12px;
+    background: #fafafa;
+    box-shadow: 1px 1px 4px rgb(0 0 0 / 25%);
+    color: #757575;
+    font: 600 10px / 26px variables.$font-family-base;
+    white-space: nowrap;
+    cursor: pointer;
+
+    img {
+      display: block;
+      flex-shrink: 0;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #7c5cff;
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.5;
     }
   }
 }

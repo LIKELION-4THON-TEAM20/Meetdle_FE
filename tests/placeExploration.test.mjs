@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { createServer } from 'vite';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 const server = await createServer({
   optimizeDeps: { noDiscovery: true, include: [] },
@@ -13,12 +15,14 @@ const { createExplorationMock } = await server.ssrLoadModule(
 const { createMockExplorationRepository } = await server.ssrLoadModule(
   '/src/pages/PlaceExploration/mockRepository.ts',
 );
-const { registrationBlock, statusPreview, isExplorationStatusPreview } = await server.ssrLoadModule(
-  '/src/pages/PlaceExploration/placeUtils.ts',
-);
+const { registrationBlock, missingRequiredCategories, statusPreview, isExplorationStatusPreview } =
+  await server.ssrLoadModule('/src/pages/PlaceExploration/placeUtils.ts');
 const { createPlaceMap } = await server.ssrLoadModule('/src/lib/kakaoMaps/controller.ts');
 const { attemptKakaoPlace, safeKakaoMapUrl, isMobileBrowser } = await server.ssrLoadModule(
   '/src/lib/kakaoMaps/placeLink.ts',
+);
+const { default: PlaceCard } = await server.ssrLoadModule(
+  '/src/pages/PlaceExploration/components/ExplorationPlaceCard.tsx',
 );
 const now = Date.now();
 const signal = () => new AbortController().signal;
@@ -50,7 +54,9 @@ test('mock failure preserves records and a retry updates place count independent
   assert.equal(response.source, 'mock');
   assert.equal(response.registeredPlaceCount, 9);
   assert.equal(response.registrations.filter((r) => r.userId === response.currentUserId).length, 2);
-  assert.equal(response.participants.filter((p) => p.status === 'completed').length, 4);
+  assert.equal(response.participants.filter((p) => p.status === 'completed').length, 3);
+  const completed = await repo.complete(initial.roomId, signal());
+  assert.equal(completed.participants.filter((p) => p.status === 'completed').length, 4);
   assert.equal(initial.registeredPlaceCount, 8);
   assert.equal(initial.registrations.length, 1);
   await assert.rejects(repo.register(request, signal()), /이미 등록/);
@@ -301,4 +307,56 @@ test('app fallback cancels on visibility/pagehide/unmount and falls back only wh
   attemptKakaoPlace('18577297', 'https://place.map.kakao.com/18577297', { document, window });
   t.mock.timers.tick(1500);
   assert.equal(navigations.at(-1), 'https://place.map.kakao.com/18577297');
+});
+
+test('completion requires the current user to register every required category', async () => {
+  const initial = createExplorationMock(Date.now());
+  const repo = createMockExplorationRepository(initial);
+  assert.deepEqual(
+    missingRequiredCategories(initial).map((item) => item.id),
+    ['cafe'],
+  );
+  await assert.rejects(repo.complete(initial.roomId, signal()), /필수 카테고리/);
+  await repo.register({ roomId: initial.roomId, placeId: 'cafe-a' }, signal());
+  const completed = await repo.complete(initial.roomId, signal());
+  assert.deepEqual(missingRequiredCategories(completed), []);
+  assert.equal(
+    completed.participants.find((p) => p.id === completed.currentUserId).status,
+    'completed',
+  );
+  assert.equal(completed.registrations.length, 2);
+});
+
+test('completion rejects a closed room or wrong room without changing participant status', async () => {
+  const initial = createExplorationMock(Date.now());
+  const repo = createMockExplorationRepository(initial, 'closed');
+  await assert.rejects(repo.complete('wrong-room', signal()), /약속방/);
+  await assert.rejects(repo.complete(initial.roomId, signal()), /마감/);
+  assert.equal(
+    (await repo.load(signal())).participants.filter((p) => p.status === 'completed').length,
+    3,
+  );
+});
+
+test('place cards keep Kakao navigation separate and disable registration for already registered places', () => {
+  const place = createExplorationMock(now).recommendations[0];
+  const render = (registered) =>
+    renderToStaticMarkup(
+      createElement(PlaceCard, {
+        place,
+        categoryLabel: '식당',
+        blocked: registered ? '이미 등록한 장소예요.' : null,
+        pending: false,
+        registered,
+        onRegister() {},
+      }),
+    );
+  const available = render(false);
+  assert.match(available, /역에서 320m/);
+  assert.match(available, /카카오맵 바로가기/);
+  assert.doesNotMatch(available, /disabled=""/);
+  const registered = render(true);
+  assert.match(registered, /disabled=""/);
+  assert.match(registered, /이미 등록한 장소/);
+  assert.match(registered, /<a[^>]+href="https:\/\/map.kakao.com/);
 });
