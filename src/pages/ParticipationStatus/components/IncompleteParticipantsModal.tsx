@@ -18,7 +18,7 @@ function IncompleteParticipantsModal({
   onProceed,
 }: IncompleteParticipantsModalProps) {
   const id = useId();
-  const names = participants.map(({ name }) => `${name}님`).join(', ');
+  const names = participants.map(({ name }) => name).join(', ');
 
   return (
     <Modal
@@ -29,7 +29,7 @@ function IncompleteParticipantsModal({
       aria-describedby={`${id}-description`}
     >
       <h2 id={`${id}-title`}>아직 입력하지 않은 친구가 있어요.</h2>
-      <p id={`${id}-description`}>{names}은 이번 후보 계산에서 제외됩니다.</p>
+      <p id={`${id}-description`}>{names}님은 이번 후보 계산에서 제외됩니다.</p>
       <div className="incomplete-participants-modal__actions">
         <Button
           variant="secondary"

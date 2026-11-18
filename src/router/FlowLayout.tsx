@@ -1,7 +1,11 @@
 import { Link, Navigate, Outlet, ScrollRestoration, useLocation } from 'react-router';
 import Header from '../components/common/Header/Header';
-import { findCreatedRoomByCode, getCreatedRoom } from '../features/createdRoom/model';
-import { PATHS } from './paths';
+import {
+  CREATED_ROOM_PREVIEW_ID,
+  findCreatedRoomByCode,
+  getCreatedRoom,
+} from '../features/createdRoom/model';
+import { PATHS, roomPath } from './paths';
 
 export default function FlowLayout() {
   return (
@@ -37,13 +41,20 @@ export function CreatedRoomLayout() {
   }
   // 참여 현황의 독립 fixture를 새로 만든 방의 실제 참여 결과로 노출하지 않는다.
   if (
-    (pathname === PATHS.participation || pathname === PATHS.candidates) &&
-    id &&
-    id !== 'mock-created-preview'
+    (pathname === PATHS.schedule ||
+      pathname === PATHS.participation ||
+      pathname === PATHS.candidates) &&
+    room.id !== CREATED_ROOM_PREVIEW_ID
   ) {
     return <RoomRecovery message="이 목 약속방의 참여 현황·후보 조회는 아직 연결되지 않았어요." />;
   }
-  return <Outlet />;
+  if (pathname === PATHS.candidates && params.get('role') === 'participant') {
+    return <Navigate to={roomPath(PATHS.participation, search)} replace />;
+  }
+  if (pathname === PATHS.recruitment && params.get('role') === 'participant') {
+    return <RoomRecovery message="모임 시작은 방장만 할 수 있어요." />;
+  }
+  return <Outlet context={room} />;
 }
 
 export function LegacyJoinRedirect() {

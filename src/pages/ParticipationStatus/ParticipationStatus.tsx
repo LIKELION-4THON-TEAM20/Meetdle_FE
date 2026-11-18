@@ -1,32 +1,55 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useLocation, useSearchParams } from 'react-router';
 import { useRoomNavigation } from '../../router/useRoomNavigation';
+import { getCreatedRoom } from '../../features/createdRoom/model';
+import type { ScheduleTransitInput } from '../ScheduleTransit/types';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import ParticipantList from './components/ParticipantList';
+import ParticipationSummary from './components/ParticipationSummary';
 import IncompleteParticipantsModal from './components/IncompleteParticipantsModal';
+import ParticipationShareModal from './components/ParticipationShareModal';
 import { getMockParticipants } from './mockData';
+import { getParticipationActions, MINIMUM_COMPLETED_COUNT } from './participationPolicy';
 import './ParticipationStatus.scss';
 import { PATHS } from '../../router/paths';
 
 function ParticipationStatus() {
   const navigate = useRoomNavigation();
   const [searchParams] = useSearchParams();
+  const { state } = useLocation();
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
+  const [shareKind, setShareKind] = useState<'reminder' | 'notifyHost' | null>(null);
 
-  const participants = getMockParticipants(
-    import.meta.env.DEV ? searchParams.get('scenario') : null,
+  const isHost = searchParams.get('role') !== 'participant';
+  const scenario = import.meta.env.DEV ? searchParams.get('scenario') : null;
+  const submittedInput: ScheduleTransitInput | undefined = state?.scheduleInput;
+  const roomId = getCreatedRoom(searchParams.get('roomId'))?.id;
+  const currentParticipantId = isHost ? 'sangmin' : 'haneul';
+  const participants = getMockParticipants(scenario).map((participant) =>
+    !scenario && submittedInput?.roomId === roomId && participant.id === currentParticipantId
+      ? { ...participant, status: 'completed' as const }
+      : participant,
   );
-  const completedCount = participants.filter(({ status }) => status === 'completed').length;
+  const completedParticipants = participants.filter(({ status }) => status === 'completed');
+  const completedCount = completedParticipants.length;
   const incompleteParticipants = participants.filter(({ status }) => status !== 'completed');
   const totalCount = participants.length;
-  const progress = totalCount === 0 ? 0 : (completedCount / totalCount) * 100;
-  const canProceed = completedCount >= 2;
+  const { meetsMinimum, allCompleted, showReminder, showHostNotification, canNotifyHost } =
+    getParticipationActions(completedCount, totalCount);
+  const canProceed = isHost && meetsMinimum;
+  const canShare = shareKind === 'reminder' ? showReminder : canNotifyHost;
+  const incompleteNames = incompleteParticipants.map(({ name }) => name).join(', ');
+  let summary = `${incompleteNames} 님이 아직 가능 시간을 입력하지 않았어요`;
+  if (allCompleted) summary = '참여 인원 모두가 입력을 완료했어요!';
+  else if (isHost && !meetsMinimum) {
+    summary = `최소 ${MINIMUM_COMPLETED_COUNT}명 이상 입력을 완료해야 후보를 계산할 수 있어요.`;
+  }
 
   const proceedWithCompletedParticipants = () => {
     if (!canProceed) return;
     setShowIncompleteModal(false);
-    navigate(PATHS.candidates);
+    navigate(PATHS.candidates, { state: { completedParticipants } });
   };
 
   const handleProceed = () => {
@@ -39,54 +62,45 @@ function ParticipationStatus() {
     <div className="page participation-status">
       <Header title="참여 현황" showBackButton onBack={() => navigate(PATHS.home)} />
       <main className="participation-status__content">
-        <section
-          className="participation-status__summary"
-          aria-labelledby="participation-status-title"
-        >
-          <h2 id="participation-status-title">
-            <span>
-              {completedCount} / {totalCount}명
-            </span>{' '}
-            입력 완료
-          </h2>
-          <p>
-            {incompleteParticipants.length > 0
-              ? `${incompleteParticipants.map(({ name }) => `${name} 님`).join(', ')}이 아직 가능 시간을 입력하지 않았어요`
-              : '모든 친구가 입력을 완료했어요'}
-          </p>
-          {!canProceed && (
-            <p className="participation-status__minimum">
-              최소 2명 이상 입력을 완료해야 후보를 계산할 수 있어요.
-            </p>
-          )}
-          <div
-            className="participation-status__progress"
-            role="progressbar"
-            aria-label="참여자 입력 완료율"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={progress}
-            aria-valuetext={`${totalCount}명 중 ${completedCount}명 입력 완료`}
-          >
-            <span style={{ width: `${progress}%` }} />
-          </div>
-        </section>
+        <ParticipationSummary
+          count={completedCount}
+          total={totalCount}
+          label="입력 완료"
+          description={summary}
+        />
         <ParticipantList participants={participants} />
       </main>
       <footer className="participation-status__footer">
-        <Button
-          className="participation-status__proceed"
-          disabled={!canProceed}
-          onClick={handleProceed}
-        >
-          지금까지 입력한 후보로 진행
-        </Button>
+        {isHost ? (
+          <Button
+            className="participation-status__proceed"
+            disabled={!canProceed}
+            onClick={handleProceed}
+          >
+            {allCompleted ? '약속 장소 확인하기' : '지금까지 입력한 후보로 진행'}
+          </Button>
+        ) : (
+          <>
+            {showReminder && (
+              <Button onClick={() => setShareKind('reminder')}>입력 재촉하기</Button>
+            )}
+            {showHostNotification && (
+              <Button disabled={!canNotifyHost} onClick={() => setShareKind('notifyHost')}>
+                방장에게 알리기
+              </Button>
+            )}
+          </>
+        )}
       </footer>
       <IncompleteParticipantsModal
-        open={showIncompleteModal}
+        open={canProceed && !allCompleted && showIncompleteModal}
         participants={incompleteParticipants}
         onClose={() => setShowIncompleteModal(false)}
         onProceed={proceedWithCompletedParticipants}
+      />
+      <ParticipationShareModal
+        kind={!isHost && canShare ? shareKind : null}
+        onClose={() => setShareKind(null)}
       />
     </div>
   );

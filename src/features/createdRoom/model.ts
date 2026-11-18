@@ -2,6 +2,7 @@ import { isCreateRoomState, type CreateRoomState } from '../../pages/CreateRoom/
 import { MOCK_CREATED_ROOM } from '../../pages/RoomCreated/mockData';
 
 export const CREATED_ROOM_STORAGE_KEY = 'meetdle:development-created-rooms:v1';
+export const CREATED_ROOM_PREVIEW_ID = 'mock-created-preview';
 export interface CreatedRoomPreview {
   id: string;
   inviteCode: string;
@@ -9,7 +10,7 @@ export interface CreatedRoomPreview {
 }
 const memory = new Map<string, CreatedRoomPreview>();
 const PREVIEW: CreatedRoomPreview = {
-  id: 'mock-created-preview',
+  id: CREATED_ROOM_PREVIEW_ID,
   inviteCode: MOCK_CREATED_ROOM.inviteCode,
   creation: {
     name: MOCK_CREATED_ROOM.meeting.name,

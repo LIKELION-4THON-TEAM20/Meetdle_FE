@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { useRoomNavigation } from '../../router/useRoomNavigation';
 import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
@@ -8,6 +9,7 @@ import RegionCandidateCard from './components/RegionCandidateCard';
 import { getTimeRegionCandidates } from './candidateData';
 import { getConfirmationRequest, reconcileSelection } from './candidateUtils';
 import type { CandidateConfirmationRequest, CandidateData, CandidateSelection } from './types';
+import type { Participant } from '../ParticipationStatus/types';
 import './TimeRegionCandidates.scss';
 
 interface TimeRegionCandidatesViewProps {
@@ -113,11 +115,18 @@ export function TimeRegionCandidatesView({
 
 function TimeRegionCandidates() {
   const navigate = useRoomNavigation();
+  const navigateHistory = useNavigate();
+  const { state } = useLocation();
+  const participants: Participant[] | undefined = state?.completedParticipants;
+  const included = participants?.map(({ name }) => name).join(', ');
+  const previewNotice =
+    '개발용 목 후보 예시예요. 현재 참여자의 입력으로 계산한 결과가 아니며, 후보 계산·확정 API는 아직 연결되지 않았어요.';
+
   return (
     <TimeRegionCandidatesView
       data={getTimeRegionCandidates()}
-      onBack={() => navigate(PATHS.participation)}
-      previewNotice="개발용 목 후보 예시예요. 현재 참여자의 입력으로 계산한 결과가 아니며, 후보 계산·확정 API는 아직 연결되지 않았어요."
+      onBack={() => (included ? navigateHistory(-1) : navigate(PATHS.participation))}
+      previewNotice={included ? `후보 계산 대상: ${included}. ${previewNotice}` : previewNotice}
     />
   );
 }

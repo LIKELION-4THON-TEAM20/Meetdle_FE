@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Participant, ParticipantStatus } from '../types';
 import './ParticipantList.scss';
 
@@ -8,20 +9,33 @@ const STATUS_LABELS: Record<ParticipantStatus, string> = {
 };
 
 interface ParticipantListProps {
-  participants: Participant[];
+  participants: readonly Participant[];
+  mode?: 'input' | 'waiting';
 }
 
-function ParticipantList({ participants }: ParticipantListProps) {
+function ParticipantAvatar({ url }: { url?: string }) {
+  const [failed, setFailed] = useState(false);
+
   return (
-    <ul className="participant-list" aria-label="참여자별 입력 현황">
+    <span className="participant-list__avatar" aria-hidden="true">
+      {url && !failed && <img src={url} alt="" onError={() => setFailed(true)} />}
+    </span>
+  );
+}
+
+function ParticipantList({ participants, mode = 'input' }: ParticipantListProps) {
+  const waiting = mode === 'waiting';
+
+  return (
+    <ul className="participant-list" aria-label={waiting ? '약속방 참여자' : '참여자별 입력 현황'}>
       {participants.map((participant) => (
         <li key={participant.id} className="participant-list__row">
-          <span className="participant-list__avatar" aria-hidden="true" />
+          <ParticipantAvatar key={participant.profileImageUrl} url={participant.profileImageUrl} />
           <span className="participant-list__name">{participant.name}</span>
           <span
-            className={`participant-list__badge participant-list__badge--${participant.status}`}
+            className={`participant-list__badge participant-list__badge--${waiting ? 'waiting' : participant.status}`}
           >
-            {STATUS_LABELS[participant.status]}
+            {waiting ? '대기중' : STATUS_LABELS[participant.status]}
           </span>
         </li>
       ))}
