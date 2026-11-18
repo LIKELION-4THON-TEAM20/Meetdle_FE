@@ -1,3 +1,7 @@
+import {
+  ExplorationStatusLayout,
+  ExplorationStatusRoute,
+} from '../pages/PlaceExploration/ServerPlaceExploration';
 import { createBrowserRouter, Link } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
@@ -9,13 +13,11 @@ import TimeRegionCandidates from '../pages/TimeRegionCandidates/TimeRegionCandid
 import MeetingConfirmed from '../pages/MeetingConfirmed/MeetingConfirmed';
 import MeetingInfo from '../pages/MeetingInfo/MeetingInfo';
 import PlaceRegistrationSetup from '../pages/PlaceRegistrationSetup/PlaceRegistrationSetup';
-import PlaceRegistrationStatus from '../pages/PlaceRegistrationStatus/PlaceRegistrationStatus';
 import RegistrationClose from '../pages/RegistrationClose/RegistrationClose';
 import VoteStart from '../pages/VoteStart/VoteStart';
 import PlaceVote from '../pages/PlaceVote/PlaceVote';
 import VoteStatus from '../pages/VoteStatus/VoteStatus';
 import VoteResult from '../pages/VoteResult/VoteResult';
-import MockRoomLayout from '../features/mockRoom/MockRoomLayout';
 
 import FlowLayout, { CreatedRoomLayout, LegacyJoinRedirect } from './FlowLayout';
 import LoginRoute from './LoginRoute';
@@ -28,7 +30,7 @@ export const router = createBrowserRouter([
     element: <FlowLayout />,
     children: [
       {
-        element: <MockRoomLayout />,
+        element: <ExplorationStatusLayout />,
         children: [
           { path: PATHS.confirmed, element: <MeetingConfirmed /> },
           { path: PATHS.info, element: <MeetingInfo /> },
@@ -38,7 +40,7 @@ export const router = createBrowserRouter([
           { path: PATHS.vote, element: <PlaceVote /> },
           { path: PATHS.closeRegistration, element: <RegistrationClose /> },
           { path: PATHS.startVote, element: <VoteStart /> },
-          { path: PATHS.registration, element: <PlaceRegistrationStatus /> },
+          { path: PATHS.registration, element: <ExplorationStatusRoute /> },
         ],
       },
       {

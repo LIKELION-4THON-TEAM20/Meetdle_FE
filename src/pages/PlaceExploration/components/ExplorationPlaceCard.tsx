@@ -57,9 +57,11 @@ function ExplorationPlaceCard({
       />
       <div className="exploration-place-card__info">
         <h3 title={place.name}>{place.name}</h3>
-        <p className="exploration-place-card__distance">
-          역에서 {formatDistance(place.distanceMeters)}
-        </p>
+        {place.distanceMeters !== undefined && (
+          <p className="exploration-place-card__distance">
+            역에서 {formatDistance(place.distanceMeters)}
+          </p>
+        )}
         <p className="exploration-place-card__address" title={place.address}>
           {place.address}
         </p>

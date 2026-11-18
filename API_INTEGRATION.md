@@ -75,3 +75,9 @@
 | 카카오 로그인 시작                        | 302, 목적지 호스트 `kauth.kakao.com`. 로그인 완료·세션 발급·로그아웃·콜백 복귀 URL은 미검증.                                                |
 
 백엔드에 `http://localhost:5173` Origin 허용, credentialed GET·POST·PUT·OPTIONS와 요청 헤더 허용, 로그인·초대 복귀 허용 URL을 확인한다. localhost와 API는 교차 사이트이므로 세션 쿠키의 SameSite/Secure 및 브라우저의 타사 쿠키 설정으로 실제 전송이 되는지도 확인해야 한다. 이 단계의 서버 검증은 GET과 OPTIONS로 수행했다.
+
+## #28 장소 탐색·등록 연동 (2026-11-19)
+
+실제 UUID의 장소 탐색은 `pages/PlaceExploration/apiRepository.ts`와 `ServerPlaceExploration.tsx`에서 A08/A14/A15/A16을 사용한다. round와 검색 응답 pickToken으로 등록·교체·철회하며, 각 변경 후 A08의 본인 장소/완료 상태를 확인한다. UUID의 등록 현황은 같은 방 ID로 복원하는 조회 전용 화면으로 연결한다. 기존 목 탐색/현황과 지도 UI는 유지하고 #25~#27 미병합 코드는 가져오지 않았다. 공통 API 코드와 환경변수 파일은 변경하지 않았다.
+
+Notion A08/A14/A15/A16은 연결된 계정으로 읽었고 배포 Swagger와 요청/응답 필드가 일치했다. 이미지·카카오 장소 ID가 없으므로 기본 이미지를 쓰고 detailUrl만 조건부 연결한다. 구현 경계와 76개 테스트·모의 브라우저 검증·실제 GET/OPTIONS 결과는 [SCREEN09.md](./SCREEN09.md)에 기록했다. localhost 403 때문에 실제 세션과 PUT 성공은 미검증이며 실제 PUT은 보내지 않았다.

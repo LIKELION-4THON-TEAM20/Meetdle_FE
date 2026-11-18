@@ -17,7 +17,7 @@ export interface RecommendedPlace {
   name: string;
   categoryId: CategoryId;
   coordinates: Coordinates;
-  distanceMeters: number;
+  distanceMeters?: number;
   address: string;
   imageUrl?: string;
   kakaoPlaceId: string | null; // 실제 카카오 장소 ID. 내부 ID로 대체하지 않는다.

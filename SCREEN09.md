@@ -1,5 +1,45 @@
 # SCREEN 09 — 장소 탐색 및 등록
 
+## #28 서버 API 연동 (2026-11-19)
+
+현재 브랜치는 `feat/#28-place-exploration-api`다. 아래 서버 경로와 기존 독립 목 미리보기를 분리한다. 이 절 아래의 #11 설명은 기존 목 구현 기록이다.
+
+### 진입·조회·현황 연결
+
+- `/rooms/places?roomId=<실제 UUID v4>`는 ServerPlaceExploration과 apiRepository를 사용한다. 최초 진입, 새로고침, 포커스 복귀, ‘최신 상태 다시 조회’에서 세션과 A08을 조회한다. URL의 role/scenario나 route state로 서버 권한과 방 데이터를 대체하지 않는다.
+- A08의 meeting.station 이름·좌표와 meetingAt, registration.round/closesAt/categories/myNominations/myCompleted, uniqueCandidateCount와 progress를 그대로 표시한다. 타 참여자는 completion의 이름별 완료 여부만 표시한다. 진행률 분모는 서버 capacity다.
+- 완료 후 A08의 myCompleted를 확인하고 `/rooms/registration/status?roomId=<같은 UUID>`로 이동한다. 이 UUID 경로만 목 레이아웃을 우회하는 조회 전용 현황 화면을 제공한다. 직접 접근·새로고침도 A08을 사용하며, 마감·연장·투표 같은 후속 변경 API는 연결하지 않는다.
+- 서버에 등록 섹션 또는 확정 meeting이 없으면 안내만 표시한다. 실패를 목 장소나 로컬 저장 성공으로 대체하지 않는다. 독립 `/rooms/places`와 `roomId=exploration-preview`, 기존 목 현황 경로는 유지한다.
+
+### 검색·지도·표시 데이터
+
+- A14에 카테고리(FOOD/CAFE/BAR/CULTURE), trim한 검색어(공백만 있으면 q 생략), page를 전달한다. 250ms 입력 지연·AbortController·응답 세대로 이전 결과를 폐기한다. 검색 중·없음·오류·다시 시도와 nextPage 기반 추가 검색을 제공한다.
+- 검색어가 없을 때도 카테고리 검색으로 지도 마커를 조회한다. 별도 추천 장소 목록은 추가하지 않는다. 핀 선택 시 선택한 장소 카드, 검색어 입력 시 검색 결과 카드를 표시한다.
+- 지도 컴포넌트와 SDK 제어는 기존 것을 재사용한다. 중심은 항상 서버 확정 역의 lat/lng다. 최초 반경은 해당 registration.categories의 radiusMeters, 검색 후에는 검색 응답 radiusMeters를 사용한다. expanded만 서버 확장 안내로 표시한다. 지도 이동으로 반경이나 등록 가능 여부를 계산하지 않는다.
+- 등록은 카테고리 available, 검색 available, 개별 registrable과 non-null pickToken을 모두 확인한다. 반경 밖 결과는 지도·검색에 표시할 수 있지만 등록 버튼은 비활성화한다.
+- 이미지·카카오 장소 ID는 DTO에 없어 추가하지 않았다. 카테고리별 기존 기본 이미지를 사용하고 카카오 장소 ID는 null로 유지한다. 상세 링크는 응답 detailUrl을 기존 안전한 카카오 URL 검사에 통과한 경우에만 사용한다. 없는 URL을 좌표/이름으로 만들어 넣지 않는다.
+- 저장된 내 장소에는 distanceMeters가 없으므로 거리 행을 숨긴다. 검색 카드만 응답의 거리를 표시한다. UI 식별 키는 이름/카테고리/주소/좌표 조합이며 서버 장소 ID나 등록 증표로 보내지 않는다.
+
+### 등록·변경·철회·완료
+
+- A15는 현재 registration.round와 **선택한 검색 응답의 pickToken**만 전송한다. 같은 카테고리의 새 장소는 교체하며, 철회는 pickToken:null이다. 새로운 검색·방 상태 조회 시 이전 검색 증표를 폐기한다. 증표를 로컬 저장소에 보관하지 않는다.
+- PLACE_SUBMISSION_OPEN, closedAt, 서버 시각 기준 마감, me.canRegister, myCompleted와 allowedActions를 함께 확인한다. 완료 전 본인 등록만 변경·철회할 수 있고 완료 후에는 검색과 조회만 가능하다.
+- A16은 모든 필수 카테고리의 본인 장소가 있을 때 현재 round로 호출한다. 버튼의 동기 잠금과 요청 핸들로 중복 실행을 합친다.
+- 각 PUT 후 A08을 조회하고 같은 round의 실제 myNominations/myCompleted가 요청 결과와 일치해야 성공을 표시한다. PUT 성공 후 GET만 실패하면 결과 확인 버튼은 GET만 재시도한다. 응답을 잃은 PUT도 다시 전송하지 않고 GET으로 저장 결과를 확인한다. 명시적 400/409 거절은 우연히 서버 결과가 같아도 성공으로 바꾸지 않는다.
+- 상태 불일치, STALE_ROUND, ALREADY_COMPLETED, DEADLINE_PASSED, WRONG_PHASE, 잘못된 증표 등은 오류와 최신 상태 재조회로 복구한다. 확인 전에는 추가 변경을 막는다. 401에는 로그인 링크, 403/404/429/503 및 네트워크 오류에는 해당 안내를 표시한다. 페이지를 떠난 뒤 늦은 응답으로 화면을 이동하지 않는다.
+
+### 계약 확인 및 범위
+
+배포 Swagger와 [Notion A14](https://app.notion.com/7979170baf5483d5b51981cca8b4bca6), [A15](https://app.notion.com/b6f9170baf548387b5fb014e2a86a1d0), [A16](https://app.notion.com/92f9170baf5482c88dfa813016e80fd4), [A08](https://app.notion.com/fd89170baf54821e8b0c81cb4b61ae8d)을 확인했다. 요청/응답 필드는 일치한다. Swagger의 required/nullable·오류 정의 누락은 Notion의 pickToken:null 및 400/409/503 정책으로 보완했다. 공통 src/api의 클라이언트·DTO·함수는 변경하지 않았으며 #25~#27 브랜치를 가져오지 않았다.
+
+### 검증 결과
+
+- `node --test tests/*.test.mjs`: **76개 통과**. 기존 64개 + #28의 DTO 표시·증표·회차·교체·철회·완료·권한·실패/재시도 테스트 12개.
+- `npm run build`, `npm run lint`: 통과. 번들의 500 kB 청크 경고는 남아 있다.
+- **모의 API 브라우저 검증**: 390×844 Chrome에서 서버 UUID 진입, 검색, 등록→교체→철회→완료, 새로고침 복원, 같은 roomId의 현황 화면과 현황 새로고침, PUT 성공/GET 실패 후 조회만 재시도, 검색 실패/재시도/빈 결과, 완료 후 수정 차단과 검색 허용, 401 안내, 독립 목 미리보기를 확인했다. 실제 서버 PUT 성공 검증이 아니다.
+- **실제 서버 전송**: GET `/v3/api-docs` 200. 인증 없는 더미 UUID의 GET state와 GET places/search는 401. localhost Origin GET `/api/me`는 403. A15/A16 PUT의 localhost OPTIONS는 403, 운영 `https://meetdle.co.kr` Origin의 OPTIONS는 200이며 credentials를 허용했다. **실제 PUT은 전송하지 않았다.**
+- localhost CORS 허용과 실제 로그인 세션이 없어 실제 보호된 DTO 직렬화, pickToken 발급/검증, PUT 저장 성공, 자동 마감·결과 전이의 실제 동작은 미검증이다. 기존 지도 계약 테스트는 통과했지만 실제 카카오 지도 타일·도메인 인증·실기기 지도/앱 전환은 이번 검증에 포함하지 않았다.
+
 이슈 #11. `/rooms/places`에서 연다. Figma UI → Meetdle UI — Flow의 `198:9658`(현재 이름 `SCREEN 09 — 수정1`)과 STATE 09-A~F를 확인했다.
 
 ## 구현 및 기존 화면 연결
