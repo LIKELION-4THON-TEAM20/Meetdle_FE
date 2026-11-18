@@ -20,6 +20,9 @@ const { default: TimeCard } = await server.ssrLoadModule(
 const { default: RegionCard } = await server.ssrLoadModule(
   '/src/pages/TimeRegionCandidates/components/RegionCandidateCard.tsx',
 );
+const { TimeRegionCandidatesView } = await server.ssrLoadModule(
+  '/src/pages/TimeRegionCandidates/TimeRegionCandidates.tsx',
+);
 const selected = {
   timeCandidateId: data.timeCandidates[0].id,
   regionCandidateId: data.regionCandidates[0].id,
@@ -66,7 +69,7 @@ test('목록에서 사라진 후보는 해제하고 남은 유효한 선택은 �
   assert.equal(getConfirmationRequest(data, { ...selected, timeCandidateId: 'unknown' }), null);
 });
 
-test('전원 가능 강조는 미선택이어도 표시하고 라디오를 자동 선택하지 않는다', () => {
+test('추천 시간은 날짜·시간을 나누고 전원 가능 설명을 표시한다', () => {
   const markup = renderToStaticMarkup(
     createElement(TimeCard, {
       candidate: data.timeCandidates[0],
@@ -76,8 +79,10 @@ test('전원 가능 강조는 미선택이어도 표시하고 라디오를 자�
     }),
   );
   assert.match(markup, /candidate-card--all-available/);
-  assert.match(markup, /모두 가능한 시간이에요/);
-  assert.match(markup, /참여자 4 \/ 4명 전원 가능/);
+  assert.match(markup, /추천/);
+  assert.match(markup, /11월 15일 일요일/);
+  assert.match(markup, /18:00 - 20:00/);
+  assert.match(markup, /평균 대기 0분 · 전원 참여 가능/);
   assert.doesNotMatch(markup, /checked=/);
 });
 
@@ -130,4 +135,23 @@ test('접은 상세는 접근성 트리에서 숨긴다', () => {
   );
   assert.match(markup, /aria-expanded="false"/);
   assert.match(markup, /hidden=""/);
+});
+
+
+test('추천 후보를 입력 순서와 관계없이 상단에 배치하고 기본 선택한다', () => {
+  const markup = renderToStaticMarkup(
+    createElement(TimeRegionCandidatesView, {
+      data: {
+        timeCandidates: [...data.timeCandidates].reverse(),
+        regionCandidates: [...data.regionCandidates].reverse(),
+      },
+      onBack() {},
+    }),
+  );
+  assert.ok(markup.indexOf('11월 15일') < markup.indexOf('11월 16일'));
+  assert.ok(markup.indexOf('건대입구역') < markup.indexOf('왕십리역'));
+  assert.match(markup, /checked="" value="time-1115-evening"/);
+  assert.match(markup, /checked="" value="region-konkuk"/);
+  assert.doesNotMatch(markup, /disabled=""|이동시간 상세/);
+  assert.match(markup, /이 후보로 확정하기/);
 });
