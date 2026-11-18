@@ -1,4 +1,6 @@
-// 백엔드가 state 검증과 카카오 인가 코드 처리를 담당하는 로그인 시작 주소.
+import { api } from './client';
+
+// 기존 로그인 화면의 환경변수 검증에 사용한다.
 export function getKakaoLoginUrl(value: string | undefined): string | null {
   if (!value?.trim()) return null;
   try {
@@ -7,4 +9,10 @@ export function getKakaoLoginUrl(value: string | undefined): string | null {
   } catch {
     return null;
   }
+}
+export const getSession = api.getSession;
+export const logout = api.logout;
+
+export function startKakaoLogin(inviteToken?: string) {
+  window.location.assign(api.url('/api/auth/kakao/start', { inviteToken }).href);
 }
