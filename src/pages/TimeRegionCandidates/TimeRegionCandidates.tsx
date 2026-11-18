@@ -1,7 +1,10 @@
 import { useId, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useRoomNavigation } from '../../router/useRoomNavigation';
-import { PATHS } from '../../router/paths';
+import { PATHS, roomPath } from '../../router/paths';
+import { CREATED_ROOM_PREVIEW_ID } from '../../features/createdRoom/model';
+import { saveRoom } from '../../features/mockRoom/model';
+import { createCandidateConfirmation } from '../MeetingConfirmed/confirmationData';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import TimeCandidateCard from './components/TimeCandidateCard';
@@ -117,15 +120,33 @@ function TimeRegionCandidates() {
   const navigate = useRoomNavigation();
   const navigateHistory = useNavigate();
   const { state } = useLocation();
+  const [params] = useSearchParams();
+  const data = getTimeRegionCandidates();
   const participants: Participant[] | undefined = state?.completedParticipants;
   const included = participants?.map(({ name }) => name).join(', ');
   const previewNotice =
-    '개발용 목 후보 예시예요. 현재 참여자의 입력으로 계산한 결과가 아니며, 후보 계산·확정 API는 아직 연결되지 않았어요.';
+    '개발용 목 후보 예시예요. 선택한 후보는 이 브라우저의 약속 확정 미리보기에 반영돼요.';
+
+  const confirm = (request: CandidateConfirmationRequest) => {
+    if (params.get('role') === 'participant') return;
+    const roomId = params.get('roomId') ?? CREATED_ROOM_PREVIEW_ID;
+    const room = createCandidateConfirmation(data, request, Date.now(), roomId);
+    if (!room) return;
+    const path = roomPath(PATHS.confirmed, '', roomId);
+    try {
+      saveRoom(window.sessionStorage, room);
+    } catch {
+      navigate(path, { state: { fallbackRoom: room } });
+      return;
+    }
+    navigate(path);
+  };
 
   return (
     <TimeRegionCandidatesView
-      data={getTimeRegionCandidates()}
+      data={data}
       onBack={() => (included ? navigateHistory(-1) : navigate(PATHS.participation))}
+      onConfirm={confirm}
       previewNotice={included ? `후보 계산 대상: ${included}. ${previewNotice}` : previewNotice}
     />
   );

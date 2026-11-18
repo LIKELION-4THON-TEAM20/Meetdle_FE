@@ -15,6 +15,13 @@ import type { CandidateCategory } from '../../pages/VoteStart/mockData';
 export const STORAGE_KEY = 'meetdle:development-mock-room:v1';
 export const HOUR = 3600000;
 export const MOCK_MEETING_LEAD_TIME = 7 * 24 * HOUR;
+export interface ConfirmedSelection {
+  endsAt: number;
+  availableCount: number;
+  averageTravelMinutes: number;
+  maximumTravelMinutes: number;
+  averageTransfers: number;
+}
 export type CategoryId = 'restaurant' | 'cafe' | 'pub' | 'culture';
 export function categoryId(id: string): CategoryId | undefined {
   return (
@@ -47,6 +54,8 @@ export interface MockRoom {
   name: string;
   meetingAt: number;
   area: string;
+  confirmation?: ConfirmedSelection;
+  registrationStarted?: boolean;
   registrationDeadline: number;
   registrationClosed: boolean;
   voteDeadline: number;
@@ -60,7 +69,7 @@ export interface MockRoom {
   ties: { id: CategoryId; name: string; places: ResultPlace[] }[];
 }
 
-export function createMockRoom(now: number): MockRoom {
+export function createMockRoom(now: number, id = 'mock-room-10-14'): MockRoom {
   const categories: MockCategory[] = voteCategories.map((category) => ({
     ...category,
     id: categoryId(category.id)!,
@@ -77,7 +86,7 @@ export function createMockRoom(now: number): MockRoom {
     });
   return {
     version: 1,
-    id: 'mock-room-10-14',
+    id,
     name: '11월 동기 모임 (목 데이터)',
     // 등록·투표 UI를 여유 있게 확인할 수 있도록 새 목 방은 일주일 뒤로 시작한다.
     meetingAt: now + MOCK_MEETING_LEAD_TIME,
@@ -337,13 +346,13 @@ function isResultPlace(place: ResultPlace): boolean {
 }
 
 // Validate the complete persisted shape and vote references before trusting session data.
-export function isMockRoom(value: unknown): value is MockRoom {
+export function isMockRoom(value: unknown, id = 'mock-room-10-14'): value is MockRoom {
   if (!value || typeof value !== 'object') return false;
   const room = value as MockRoom;
   try {
     if (
       room.version !== 1 ||
-      room.id !== 'mock-room-10-14' ||
+      room.id !== id ||
       typeof room.name !== 'string' ||
       typeof room.area !== 'string' ||
       ![room.meetingAt, room.registrationDeadline, room.voteDeadline].every(Number.isFinite) ||
@@ -356,6 +365,24 @@ export function isMockRoom(value: unknown): value is MockRoom {
       !Array.isArray(room.participants) ||
       room.participants.length !== 4 ||
       !Array.isArray(room.ties)
+    )
+      return false;
+    if (room.registrationStarted !== undefined && typeof room.registrationStarted !== 'boolean')
+      return false;
+    const confirmation = room.confirmation;
+    if (
+      confirmation !== undefined &&
+      (!confirmation ||
+        !Number.isFinite(confirmation.endsAt) ||
+        confirmation.endsAt <= room.meetingAt ||
+        !Number.isInteger(confirmation.availableCount) ||
+        confirmation.availableCount < 0 ||
+        confirmation.availableCount > room.participants.length ||
+        ![
+          confirmation.averageTravelMinutes,
+          confirmation.maximumTravelMinutes,
+          confirmation.averageTransfers,
+        ].every((value) => Number.isFinite(value) && value >= 0))
     )
       return false;
     const ids = new Set<string>();
@@ -472,12 +499,24 @@ export function isMockRoom(value: unknown): value is MockRoom {
   }
 }
 
-export function restoreRoom(storage: Pick<Storage, 'getItem'>, now: number): MockRoom {
+function storageKey(id: string) {
+  return id === 'mock-room-10-14' ? STORAGE_KEY : `${STORAGE_KEY}:${id}`;
+}
+
+export function saveRoom(storage: Pick<Storage, 'setItem'>, room: MockRoom) {
+  storage.setItem(storageKey(room.id), JSON.stringify(room));
+}
+
+export function restoreRoom(
+  storage: Pick<Storage, 'getItem'>,
+  now: number,
+  id = 'mock-room-10-14',
+): MockRoom {
   try {
-    const parsed: unknown = JSON.parse(storage.getItem(STORAGE_KEY) ?? 'null');
-    if (isMockRoom(parsed)) return parsed;
+    const parsed: unknown = JSON.parse(storage.getItem(storageKey(id)) ?? 'null');
+    if (isMockRoom(parsed, id)) return parsed;
   } catch {
     /* Storage can be unavailable. */
   }
-  return createMockRoom(now);
+  return createMockRoom(now, id);
 }
