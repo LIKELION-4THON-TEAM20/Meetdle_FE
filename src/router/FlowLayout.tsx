@@ -1,4 +1,5 @@
 import { Link, Navigate, Outlet, ScrollRestoration, useLocation } from 'react-router';
+import { isServerRoomId } from '../api/rooms';
 import Header from '../components/common/Header/Header';
 import {
   CREATED_ROOM_PREVIEW_ID,
@@ -34,6 +35,9 @@ export function CreatedRoomLayout() {
   const params = new URLSearchParams(search);
   const id = params.get('roomId');
   const code = params.get('code');
+  // #26의 실제 서버 입력·현황만 통과시키고, 목 방 복구는 기존 경로를 유지한다.
+  if (id && isServerRoomId(id) && (pathname === PATHS.schedule || pathname === PATHS.participation))
+    return <Outlet />;
   const room = id ? getCreatedRoom(id) : code ? findCreatedRoomByCode(code) : getCreatedRoom(null);
   if ((params.has('roomId') && !id) || !room || (code !== null && code !== room.inviteCode)) {
     return (

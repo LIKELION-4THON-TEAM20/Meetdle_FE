@@ -75,3 +75,7 @@
 | 카카오 로그인 시작                        | 302, 목적지 호스트 `kauth.kakao.com`. 로그인 완료·세션 발급·로그아웃·콜백 복귀 URL은 미검증.                                                |
 
 백엔드에 `http://localhost:5173` Origin 허용, credentialed GET·POST·PUT·OPTIONS와 요청 헤더 허용, 로그인·초대 복귀 허용 URL을 확인한다. localhost와 API는 교차 사이트이므로 세션 쿠키의 SameSite/Secure 및 브라우저의 타사 쿠키 설정으로 실제 전송이 되는지도 확인해야 한다. 이 단계의 서버 검증은 GET과 OPTIONS로 수행했다.
+
+## #26 일정 입력 연결 (2026-11-19)
+
+A08/A09/A10을 실제 UUID 일정 입력·참여 현황 경로에 연결했다. 공통 API 코드 변경 없이 기존 함수·DTO·CSRF 처리를 사용한다. 기존 목 경로를 유지하고 실제 요청 실패 시 목 응답으로 대체하지 않는다. 복원·전체 교체·revision 충돌·PUT 응답 유실 후 재조회 정책과 CORS 검증은 [SCREEN03_API.md](./SCREEN03_API.md)에 정리했다. 이 브랜치에는 #25/#27/#28의 화면 연동을 포함하지 않는다.

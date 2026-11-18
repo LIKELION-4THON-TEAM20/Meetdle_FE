@@ -14,13 +14,26 @@ interface StationSearchProps {
   stations: readonly Station[];
   value: StationSearchValue;
   onChange: (value: StationSearchValue) => void;
+  results?: readonly Station[];
+  loading?: boolean;
+  error?: string;
+  onRetry?: () => void;
 }
 
-function StationSearch({ kind, stations, value, onChange }: StationSearchProps) {
+function StationSearch({
+  kind,
+  stations,
+  value,
+  onChange,
+  results: serverResults,
+  loading = false,
+  error,
+  onRetry,
+}: StationSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
   const isDestination = kind === 'destination';
-  const results = searchStations(stations, value.query);
+  const results = serverResults ?? searchStations(stations, value.query);
   const hasQuery = value.query.trim().length > 0;
   const hasUnsupported = results.some((station) => !isSupportedStation(station));
   const onlyUnsupported =
@@ -51,6 +64,8 @@ function StationSearch({ kind, stations, value, onChange }: StationSearchProps) 
           placeholder={isDestination ? '이후 목적지 검색' : '지하철역 검색'}
           value={value.query}
           autoComplete="off"
+          maxLength={40}
+          aria-busy={loading}
           onChange={(event) => onChange(changeStationQuery(value, event.target.value))}
           onKeyDown={(event) => {
             if (event.key !== 'ArrowDown') return;
@@ -70,7 +85,20 @@ function StationSearch({ kind, stations, value, onChange }: StationSearchProps) 
           ref={resultsRef}
           aria-label={isDestination ? '이후 목적지 검색 결과' : '출발역 검색 결과'}
         >
-          {results.length ? (
+          {loading ? (
+            <li className="station-search__empty" role="status">
+              역을 검색하고 있어요.
+            </li>
+          ) : error ? (
+            <li className="station-search__empty" role="alert">
+              {error}
+              {onRetry && (
+                <button type="button" onClick={onRetry}>
+                  검색 다시 시도
+                </button>
+              )}
+            </li>
+          ) : results.length ? (
             results.map((station) => {
               const supported = isSupportedStation(station);
               const selected = value.station?.id === station.id;

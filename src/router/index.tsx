@@ -2,8 +2,7 @@ import { createBrowserRouter, Link } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
 import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
-import { ScheduleTransitRoute } from '../pages/ScheduleTransit/ScheduleTransit';
-import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatus';
+import { ScheduleTransitEntryRoute, ScheduleParticipationEntryRoute } from './ScheduleApiRoutes';
 import RoomRecruitment from '../pages/ParticipationStatus/RoomRecruitment';
 import TimeRegionCandidates from '../pages/TimeRegionCandidates/TimeRegionCandidates';
 import MeetingConfirmed from '../pages/MeetingConfirmed/MeetingConfirmed';
@@ -68,7 +67,7 @@ export const router = createBrowserRouter([
           },
           {
             path: PATHS.schedule,
-            element: <ScheduleTransitRoute />,
+            element: <ScheduleTransitEntryRoute />,
           },
           {
             path: PATHS.recruitment,
@@ -76,7 +75,7 @@ export const router = createBrowserRouter([
           },
           {
             path: PATHS.participation,
-            element: <ParticipationStatus />,
+            element: <ScheduleParticipationEntryRoute />,
           },
           {
             path: PATHS.candidates,
