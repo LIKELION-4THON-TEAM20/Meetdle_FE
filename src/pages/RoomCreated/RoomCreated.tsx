@@ -21,6 +21,12 @@ function RoomCreated() {
     participantCount: 1,
   };
 
+  const shareInviteOnKakao = () => {
+    window.alert(
+      '카카오톡 공유 SDK는 아직 연동되지 않았어요. 초대 코드나 링크를 복사해 공유해주세요.',
+    );
+  };
+
   const copyInviteLink = async () => {
     const inviteUrl = new URL(roomPath(PATHS.invitation, '', room.id), window.location.origin);
     inviteUrl.searchParams.set('code', inviteCode);
@@ -50,17 +56,10 @@ function RoomCreated() {
           <p>개발용 목 약속방이에요. 서버에는 저장되지 않았어요.</p>
         </div>
         <MeetingInfoCard meeting={meeting} />
-        <InviteCodeCopy code={inviteCode} />
+        <InviteCodeCopy code={inviteCode} onShare={shareInviteOnKakao} />
       </main>
       <footer className="room-created__footer">
-        <Button
-          className="room-created__action"
-          onClick={() =>
-            window.alert(
-              '카카오톡 공유 SDK는 아직 연동되지 않았어요. 초대 코드나 링크를 복사해 공유해주세요.',
-            )
-          }
-        >
+        <Button className="room-created__action" onClick={shareInviteOnKakao}>
           카카오톡으로 초대하기
         </Button>
         <Button
