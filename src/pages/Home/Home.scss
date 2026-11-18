@@ -321,3 +321,133 @@
     }
   }
 }
+
+.appointment-card-container {
+  position: relative;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+
+  &__link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  &:has(.appointment-card-delete--visible) .appointment-card {
+    // 삭제 영역의 너비는 드래그 거리에 맞춰 아래에서 조절한다.
+    background: #ededee;
+    border-color: #f4f3f1;
+    user-select: none;
+
+    h2 {
+      color: #969696;
+    }
+  }
+}
+
+.appointment-card-delete {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  // 클릭 시 transform: scale(...)이 적용돼도 중앙 정렬을 유지한다.
+  translate: 0 -50%;
+  cursor: pointer;
+
+  &--visible,
+  &:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  img {
+    display: block;
+  }
+}
+
+.appointment-delete-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 328px;
+  padding: 24px;
+  box-shadow:
+    -1px -1px 2px rgb(0 0 0 / 10%),
+    2px 2px 4px rgb(0 0 0 / 10%);
+
+  h2 {
+    margin: 0;
+    color: #03000f;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 26px;
+  }
+
+  p {
+    margin: 0;
+    color: #969696;
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  .common-button {
+    font-weight: 500;
+  }
+
+  .common-button--secondary {
+    background: #d9d9d8;
+  }
+
+  &--notice {
+    gap: 11px;
+    padding-block: 28px 27px;
+  }
+}
+
+.appointment-card-container {
+  .appointment-card {
+    padding-right: calc(13px + var(--delete-reveal, 0px));
+    transition:
+      padding-right 180ms ease,
+      background-color 180ms ease;
+  }
+
+  .appointment-card-delete {
+    opacity: var(--delete-opacity, 0);
+    clip-path: inset(0 0 0 calc(100% - var(--delete-reveal, 0px)));
+    transition:
+      opacity 180ms ease,
+      clip-path 180ms ease;
+
+    &:focus-visible {
+      opacity: 1;
+      clip-path: none;
+    }
+  }
+
+  &--dragging {
+    user-select: none;
+
+    .appointment-card,
+    .appointment-card-delete {
+      transition: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appointment-card-container .appointment-card,
+  .appointment-card-container .appointment-card-delete {
+    transition: none;
+  }
+}

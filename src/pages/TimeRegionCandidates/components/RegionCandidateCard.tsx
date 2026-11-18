@@ -6,6 +6,7 @@ interface RegionCandidateCardProps {
   groupName: string;
   selected: boolean;
   expanded: boolean;
+  showDetails?: boolean;
   onSelect: () => void;
   onToggleDetails: () => void;
 }
@@ -15,6 +16,7 @@ function RegionCandidateCard({
   groupName,
   selected,
   expanded,
+  showDetails = true,
   onSelect,
   onToggleDetails,
 }: RegionCandidateCardProps) {
@@ -51,7 +53,7 @@ function RegionCandidateCard({
           </span>
         </span>
       </label>
-      {candidate.participantTravels.length > 0 && (
+      {showDetails && candidate.participantTravels.length > 0 && (
         <>
           <button
             className="region-candidate__toggle"

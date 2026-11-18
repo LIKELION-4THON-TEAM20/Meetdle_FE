@@ -20,6 +20,7 @@ interface TimeRegionCandidatesViewProps {
   onBack: () => void;
   onConfirm?: (request: CandidateConfirmationRequest) => void;
   previewNotice?: string;
+  showTravelDetails?: boolean;
 }
 
 export function TimeRegionCandidatesView({
@@ -27,12 +28,19 @@ export function TimeRegionCandidatesView({
   onBack,
   onConfirm,
   previewNotice,
+  showTravelDetails = false,
 }: TimeRegionCandidatesViewProps) {
   const groupId = useId();
-  const [storedSelection, setSelection] = useState<CandidateSelection>({
-    timeCandidateId: null,
-    regionCandidateId: null,
-  });
+  const timeCandidates = [...data.timeCandidates].sort(
+    (a, b) => Number(b.recommended) - Number(a.recommended),
+  );
+  const regionCandidates = [...data.regionCandidates].sort(
+    (a, b) => Number(b.recommended) - Number(a.recommended),
+  );
+  const [storedSelection, setSelection] = useState<CandidateSelection>(() => ({
+    timeCandidateId: timeCandidates[0]?.id ?? null,
+    regionCandidateId: regionCandidates[0]?.id ?? null,
+  }));
   const [expandedRegionIds, setExpandedRegionIds] = useState<readonly string[]>([]);
   const [showConnectionNotice, setShowConnectionNotice] = useState(false);
   const selection = reconcileSelection(data, storedSelection);
@@ -58,13 +66,17 @@ export function TimeRegionCandidatesView({
       <main className="time-region-candidates__content">
         <section className="time-region-candidates__intro" aria-labelledby={`${groupId}-title`}>
           <h2 id={`${groupId}-title`}>가능한 일시 + 중간지역 후보</h2>
-          <p>참여자들의 입력을 모아 비교 가능한 후보를 만들었어요</p>
+          <p>
+            참여자들의 입력을 모아 비교 가능한 후보를 만들었어요
+            <br />
+            일시와 중간지역을 각각 1개씩 선택해주세요.
+          </p>
           {previewNotice && <p role="status">{previewNotice}</p>}
         </section>
         <fieldset className="time-region-candidates__group">
           <legend>가능한 일시</legend>
           <div className="time-region-candidates__list">
-            {data.timeCandidates.map((candidate) => (
+            {timeCandidates.map((candidate) => (
               <TimeCandidateCard
                 key={candidate.id}
                 candidate={candidate}
@@ -78,13 +90,14 @@ export function TimeRegionCandidatesView({
         <fieldset className="time-region-candidates__group">
           <legend>중간지역 후보</legend>
           <div className="time-region-candidates__list">
-            {data.regionCandidates.map((candidate) => (
+            {regionCandidates.map((candidate) => (
               <RegionCandidateCard
                 key={candidate.id}
                 candidate={candidate}
                 groupName={`${groupId}-region`}
                 selected={selection.regionCandidateId === candidate.id}
                 expanded={expandedRegionIds.includes(candidate.id)}
+                showDetails={showTravelDetails}
                 onSelect={() => selectCandidate({ regionCandidateId: candidate.id })}
                 onToggleDetails={() =>
                   setExpandedRegionIds((ids) =>

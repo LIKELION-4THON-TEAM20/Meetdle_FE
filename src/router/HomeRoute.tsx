@@ -48,6 +48,8 @@ export default function HomeRoute() {
   return (
     <Home
       appointments={appointments}
+      // 인증 해제 API는 계약 확정 후 연결한다. 현재는 로그인 화면으로 이동한다.
+      onLogout={() => navigate(PATHS.login, { replace: true })}
       onJoinByCode={async (code) => {
         // 조회/참여 성공으로 처리하지 않고 초대 확인 화면으로만 이동한다.
         navigate(`${PATHS.invitation}?code=${encodeURIComponent(code)}`);

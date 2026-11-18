@@ -52,6 +52,7 @@ export interface RegisterPlaceRequest {
 export interface ExplorationRepository {
   load(signal: AbortSignal): Promise<ExplorationSnapshot>;
   register(request: RegisterPlaceRequest, signal: AbortSignal): Promise<ExplorationSnapshot>;
+  complete(roomId: string, signal: AbortSignal): Promise<ExplorationSnapshot>;
 }
 export interface ExplorationStatusPreview {
   source: 'place-exploration-preview';
