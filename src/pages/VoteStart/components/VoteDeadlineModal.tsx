@@ -15,6 +15,7 @@ interface Props {
   meeting: number;
   registrationExtension?: boolean;
   voteExtension?: boolean;
+  confirmDisabled?: boolean;
   onClose: () => void;
   onConfirm: (deadline: number) => void;
   serverRange?: {
@@ -31,6 +32,7 @@ export default function VoteDeadlineModal({
   meeting,
   registrationExtension,
   voteExtension,
+  confirmDisabled,
   onClose,
   onConfirm,
   serverRange,
@@ -53,7 +55,8 @@ export default function VoteDeadlineModal({
       ? getRegistrationExtensionWindow(deadline, now, meeting)
       : getVoteDeadlineWindow(new Date(now), new Date(meeting)));
   const minimum =
-    Math.ceil(Math.max(range.minimum, voteExtension ? deadline + 1 : 0) / 60000) * 60000;
+    Math.ceil(Math.max(range.minimum, voteExtension && !serverRange ? deadline + 1 : 0) / 60000) *
+    60000;
   const maximum = Math.floor(range.maximum / 60000) * 60000;
   return (
     <Modal
@@ -89,7 +92,7 @@ export default function VoteDeadlineModal({
         <p role="status">설정 가능한 마감시간이 없어요. 약속 시간을 확인해 주세요.</p>
       )}
       <Button
-        disabled={!valid}
+        disabled={!valid || confirmDisabled}
         onClick={() => {
           if (validate(Date.now())) onConfirm(timestamp);
         }}

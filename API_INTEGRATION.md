@@ -282,3 +282,12 @@ fetch('https://api.meetdle.co.kr/api/me', { credentials: 'include' }).then(({ st
 - A34 400 INVALID_REQUEST, 400 INVALID_PICK, 400 CATEGORY_MISMATCH, 400 OUT_OF_RADIUS, 401 UNAUTHENTICATED, 403 FORBIDDEN, 404 NOT_FOUND, 409 STALE_ROUND, 409 WRONG_PHASE, 409 DEADLINE_PASSED, 409 CATEGORY_DISABLED, 409 ALREADY_COMPLETED, 409 PICK_EXPIRED
 - A35 400 INVALID_REQUEST, 401 UNAUTHENTICATED, 403 FORBIDDEN, 404 NOT_FOUND, 409 STALE_ROUND, 409 WRONG_PHASE, 409 DEADLINE_PASSED, 409 ALREADY_COMPLETED
 - A36 400 INVALID_REQUEST, 401 UNAUTHENTICATED, 403 FORBIDDEN, 404 NOT_FOUND, 409 STALE_RESULT, 409 WRONG_PHASE, 409 DEADLINE_PASSED
+
+## SCREEN 12·13 투표 연동
+
+- A17 성공 뒤 A08이 `VOTING_OPEN`을 반환하면 투표 권한이 있는 미제출 회원은 SCREEN 12로 진입한다. `/rooms/vote/status?mode=api&roomId=…`는 열린 투표의 진행 현황도 표시한다. 기제출 회원의 직접 재진입과 `VOTE_REVIEW_REQUIRED`는 SCREEN 13으로 연결한다.
+- SCREEN 12는 같은 방·회원·회차의 A08 `voting.myDraft`를 복원하고 미저장 선택을 그 위에 적용한다. 후보 유형은 A08의 `VOTE`와 `AUTO_SELECTED`를 따르며 선택 카테고리에서도 투표 대상 후보별로 선호도를 하나씩 지정한다. `NEUTRAL`은 유효한 선호도다.
+- 초안 저장 버튼 또는 미저장 선택이 있는 제출 확인에서 A18을 호출한다. 최초 초안 버전은 0이며 이후 요청은 최신 초안 버전으로 전체 선호도 목록을 교체한다. A18 성공과 A08 갱신을 확인한 뒤 A19에 저장 버전을 보낸다. A18·A19는 Idempotency-Key를 사용하지 않는다. A19의 204는 화면에서 쓰기를 잠그고, A08에서 제출 여부 또는 결과 단계가 확인될 때까지 조회만 재시도한다.
+- SCREEN 13의 진행률과 회원별 제출 상태는 A08 `voting` 또는 `voteReview`에서 가져온다. 기존 15초 polling과 포커스 재조회를 사용한다. 타이머 만료는 A08 재조회만 요청한다. `VOTE_REVIEW_REQUIRED`에서 방장은 서버의 결정 권한으로 A27을 실행한다. EXTEND는 회차당 1회이며 동일 요청의 재시도에 키를 재사용한다. 새 마감은 현재·기존 마감 이후의 서울 시각으로 선택하고 서버 상한을 적용한다. PROCEED는 제출표가 한 건 이상일 때만 열리며 이 구현은 선택 헤더를 생략한다. A27 성공 뒤 A08 읽기가 실패하면 읽기만 재시도한다.
+- A33 VOTING과 HOST는 공유 모달을 열 때 호출한다. 서버 문구·링크·대상을 확인한 뒤 사용자가 카카오톡에서 수신자를 선택한다.
+- `WAITING_FOR_HOST_DECISION`, `RESULT_READY`, `FINAL_PLACE_CONFIRMED`, `RECOVERY_REQUIRED`, `ENDED`는 같은 방의 `/rooms/vote/result?mode=api&roomId=…`로 연결한다. SCREEN 14는 최신 A08의 `tieDecision`, `result`, `recovery`, `allowedActions`를 읽는다. 다음 단계에서 `RECOLLECT`는 A20에 회차·새 마감·키, `RESOLVE_TIES`는 A21에 회차·결과 버전·선택, `REORDER_VISIT`는 A22에 회차·결과 버전·전체 후보 순서, `CONFIRM_RESULT`는 A36에 회차·결과 버전을 전달한다. A33 RESULT는 `FINAL_PLACE_CONFIRMED` 이후 사용한다.

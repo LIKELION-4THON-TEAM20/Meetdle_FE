@@ -14,6 +14,8 @@ import ServerMeeting from '../../pages/MeetingConfirmed/ServerMeeting';
 import { meetingDetails } from './meeting';
 import ServerRegistrationSetup from '../../pages/PlaceRegistrationSetup/ServerRegistrationSetup';
 import ServerRegistrationFlow from '../../pages/PlaceRegistrationStatus/ServerRegistrationFlow';
+import ServerPlaceVote from '../../pages/PlaceVote/ServerPlaceVote';
+import ServerVoteStatus from '../../pages/VoteStatus/ServerVoteStatus';
 
 function serverErrorMessage(error: unknown) {
   if (error instanceof ApiRequestError) {
@@ -84,6 +86,12 @@ const screenTitles: Partial<Record<string, string>> = {
   [PATHS.result]: '약속 결과',
 };
 
+const registrationScreens: readonly string[] = [
+  PATHS.registration,
+  PATHS.closeRegistration,
+  PATHS.startVote,
+];
+
 function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: string }) {
   const state = useRoomState(roomId, (room) => {
     const screen = roomScreenForEntry(room, requested);
@@ -94,7 +102,8 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
   const [accepted, setAccepted] = useState<{ revision: number; participantId: string } | null>(
     null,
   );
-  if (!state.room || state.error) {
+  const [submittedBallot, setSubmittedBallot] = useState<string>();
+  if (!state.room) {
     return (
       <RoomRequestStatus roomId={roomId} error={state.error} retry={() => void state.refresh()} />
     );
@@ -102,19 +111,49 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
 
   const room = state.room;
   const screen = roomScreenForEntry(room, requested);
-  const isRegistrationFlow = [PATHS.registration, PATHS.closeRegistration, PATHS.startVote].some(
-    (path) => path === screen,
-  );
+  const ballotKey = `${room.me.participantId}:${room.voting?.round}`;
+  const keepReceipt =
+    (requested === PATHS.vote || !requested) &&
+    submittedBallot === ballotKey &&
+    screen === PATHS.voteStatus;
+  const requestedVoteScreen =
+    requested === PATHS.vote || requested === PATHS.voteStatus || requested === PATHS.result;
   if (
-    requested &&
-    requested !== screen &&
-    [PATHS.registration, PATHS.closeRegistration, PATHS.startVote].some(
-      (path) => path === requested,
-    )
+    (!requested && screen === PATHS.result) ||
+    (requested &&
+      requested !== screen &&
+      (requestedVoteScreen || registrationScreens.includes(requested)) &&
+      !keepReceipt &&
+      !state.error)
   ) {
     return <Navigate to={serverScreenUrl(screen, roomId, room.meeting?.selectionId)} replace />;
   }
-  if (isRegistrationFlow) {
+  if ((screen === PATHS.vote || keepReceipt) && room.voting) {
+    return (
+      <ServerPlaceVote
+        key={ballotKey}
+        room={{ ...room, voting: room.voting }}
+        state={state}
+        accepted={submittedBallot === ballotKey}
+        onAccepted={() => setSubmittedBallot(ballotKey)}
+      />
+    );
+  }
+  if (state.error && screen !== PATHS.voteStatus) {
+    return (
+      <RoomRequestStatus roomId={roomId} error={state.error} retry={() => void state.refresh()} />
+    );
+  }
+  if (screen === PATHS.voteStatus) {
+    return (
+      <ServerVoteStatus
+        key={`${room.me.participantId}:${room.voteReview?.round ?? room.voting?.round}:${room.phase}`}
+        room={room}
+        state={state}
+      />
+    );
+  }
+  if (registrationScreens.includes(screen)) {
     if (
       !room.registration ||
       (accepted?.participantId === room.me.participantId && room.revision <= accepted.revision)
@@ -216,6 +255,10 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
           {room.me.role === 'HOST' ? '방장' : '참여자'} · {room.joinedCount} / {room.capacity}명
         </p>
         {room.phase === 'RESULT_READY' && <p>최종 확정을 기다리고 있어요.</p>}
+        {screen === PATHS.result && room.tieDecision && (
+          <p>방장의 동률 후보 선택을 기다리고 있어요.</p>
+        )}
+        {screen === PATHS.result && room.recovery && <p>장소 선정 상태를 확인 중이에요.</p>}
         {deadline && (
           <p>
             마감 {new Date(deadline).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}

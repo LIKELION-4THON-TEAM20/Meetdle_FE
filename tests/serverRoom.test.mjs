@@ -42,8 +42,11 @@ const { api, createApiClient, ApiRequestError } = await vite.ssrLoadModule('/src
 const { createRoomStateStore, estimateServerNow } = await vite.ssrLoadModule(
   '/src/features/serverRoom/roomState.ts',
 );
-const { roomScreen, shouldPollRoom, createdRoomDestination, serverRoomUrl } =
+const { roomScreen, roomScreenForEntry, shouldPollRoom, createdRoomDestination, serverRoomUrl } =
   await vite.ssrLoadModule('/src/features/serverRoom/routing.ts');
+const { ballotPermissions, ballotSelections, voteDecisionPermissions, voteExtensionRange } =
+  await vite.ssrLoadModule('/src/features/serverRoom/voting.ts');
+const { roomMutations, getRoomShare } = await vite.ssrLoadModule('/src/api/rooms.ts');
 const { invitationError, loadInvitation, resolveInvitationCode, joinResolvedInvitation } =
   await vite.ssrLoadModule('/src/features/serverRoom/invitation.ts');
 
@@ -164,7 +167,7 @@ test('server routes use role and allowedActions and never route mock IDs through
       me: { ...room.me, canVote: true },
       allowedActions: ['EDIT_PREFERENCES'],
     }),
-    false,
+    true,
   );
   assert.equal(shouldPollRoom({ ...room, phase: 'VOTING_OPEN', allowedActions: [] }), true);
   assert.equal(shouldPollRoom({ ...room, phase: 'RESULT_READY' }), false);
@@ -175,6 +178,148 @@ test('server routes use role and allowedActions and never route mock IDs through
     state: { createdRoom: response },
   });
   assert.equal(estimateServerNow(room, 1000, 3500), Date.parse(room.serverNow) + 2500);
+});
+
+test('A08 ballot restores eligible preferences and routes a submitted member to status', () => {
+  const room = {
+    ...dto(),
+    phase: 'VOTING_OPEN',
+    me: { role: 'MEMBER', participantId: 'me', canVote: true },
+    allowedActions: ['EDIT_PREFERENCES', 'SUBMIT_VOTE'],
+    voting: {
+      round: 2,
+      closesAt: '2026-11-19T13:00:00Z',
+      completion: [],
+      candidates: [
+        { candidateId: 'food', mode: 'VOTE' },
+        { candidateId: 'optional', mode: 'VOTE' },
+        { candidateId: 'auto', mode: 'AUTO_SELECTED' },
+      ],
+    },
+  };
+  const saved = [
+    { candidateId: 'food', choice: 'LIKE' },
+    { candidateId: 'auto', choice: 'LIKE' },
+    { candidateId: 'removed', choice: 'LIKE' },
+  ];
+  assert.equal(ballotSelections(room, saved, []).complete, false);
+  assert.deepEqual(
+    ballotSelections(room, saved, [
+      { candidateId: 'food', choice: 'DISLIKE' },
+      { candidateId: 'optional', choice: 'NEUTRAL' },
+    ]),
+    {
+      total: 2,
+      complete: true,
+      selections: [
+        { candidateId: 'food', choice: 'DISLIKE' },
+        { candidateId: 'optional', choice: 'NEUTRAL' },
+      ],
+    },
+  );
+  assert.deepEqual(ballotPermissions(room, Date.parse(room.serverNow)), {
+    edit: true,
+    submit: true,
+  });
+  assert.deepEqual(ballotPermissions(room, Date.parse(room.voting.closesAt)), {
+    edit: false,
+    submit: false,
+  });
+  assert.equal(roomScreenForEntry(room, '/rooms/vote/status'), '/rooms/vote/status');
+  assert.equal(roomScreen(room), '/rooms/vote');
+  room.voting.completion.push({ participantId: 'me', completed: true });
+  assert.equal(roomScreen(room), '/rooms/vote/status');
+});
+
+test('A27 permissions require server review, host, and a submitted ballot for PROCEED', () => {
+  const room = {
+    ...dto(),
+    phase: 'VOTE_REVIEW_REQUIRED',
+    allowedActions: ['EXTEND_VOTE', 'PROCEED_WITH_VOTES'],
+    voting: { closesAt: '2026-11-19T12:00:00Z' },
+    voteReview: { canExtend: true, canProceed: true, progress: { completedCount: 0 } },
+    deadlinePolicy: { votingCutoff: '2026-11-19T13:00:00Z' },
+  };
+  assert.deepEqual(voteDecisionPermissions(room), { extend: true, proceed: false });
+  room.voteReview.progress.completedCount++;
+  assert.deepEqual(voteDecisionPermissions(room), { extend: true, proceed: true });
+  room.voteReview.canExtend = false;
+  assert.deepEqual(voteDecisionPermissions(room), { extend: false, proceed: true });
+  assert.deepEqual(voteDecisionPermissions({ ...room, me: { role: 'MEMBER' } }), {
+    extend: false,
+    proceed: false,
+  });
+  assert.deepEqual(voteDecisionPermissions({ ...room, phase: 'VOTING_OPEN' }), {
+    extend: false,
+    proceed: false,
+  });
+  assert.deepEqual(voteExtensionRange(room, Date.parse(room.serverNow)), {
+    minimum: Date.parse(room.voting.closesAt) + 1,
+    maximum: Date.parse(room.deadlinePolicy.votingCutoff),
+  });
+});
+
+test('voting writes use the saved draft revision and apply a reusable key only to EXTEND', async () => {
+  api.clearSession();
+  const calls = [];
+  let failExtension = true;
+  responder = async (url, options) => {
+    if (url.pathname === '/api/me') return Response.json(session);
+    calls.push({
+      path: url.pathname.split(id)[1],
+      purpose: url.searchParams.get('purpose'),
+      method: options.method ?? 'GET',
+      key: new Headers(options.headers).get('Idempotency-Key'),
+      body: options.body && JSON.parse(options.body),
+    });
+    if (url.pathname.endsWith('/preferences/me'))
+      return Response.json({ draftRevision: 4, selections: [], submitted: false });
+    if (url.pathname.endsWith('/share'))
+      return Response.json({ purpose: url.searchParams.get('purpose') });
+    if (calls.at(-1).body?.action === 'EXTEND' && failExtension) {
+      failExtension = false;
+      throw new TypeError('Connection interrupted');
+    }
+    return new Response(null, { status: 204 });
+  };
+  const draft = await roomMutations
+    .savePreferences(id, { round: 2, draftRevision: 3, selections: [] })
+    .execute();
+  await roomMutations.submitVote(id, { round: 2, draftRevision: draft.draftRevision }).execute();
+  const extend = roomMutations.decideVote(id, {
+    round: 2,
+    action: 'EXTEND',
+    closesAt: '2026-11-19T13:00:00Z',
+  });
+  await assert.rejects(extend.execute(), { code: 'NETWORK_ERROR' });
+  await extend.execute();
+  await roomMutations.decideVote(id, { round: 2, action: 'PROCEED' }).execute();
+  await getRoomShare(id, 'VOTING');
+  await getRoomShare(id, 'HOST');
+  assert.deepEqual(
+    calls.map(({ path, method }) => [path, method]),
+    [
+      ['/preferences/me', 'PUT'],
+      ['/vote-submissions/me', 'PUT'],
+      ['/voting/decision', 'POST'],
+      ['/voting/decision', 'POST'],
+      ['/voting/decision', 'POST'],
+      ['/share', 'GET'],
+      ['/share', 'GET'],
+    ],
+  );
+  assert.deepEqual(calls[1].body, { round: 2, draftRevision: 4 });
+  assert.equal(calls[0].key, null);
+  assert.equal(calls[1].key, null);
+  assert.match(calls[2].key, /^[0-9a-f-]{36}$/);
+  assert.equal(calls[2].key, calls[3].key);
+  assert.deepEqual(calls[4].body, { round: 2, action: 'PROCEED' });
+  assert.equal(calls[4].key, null);
+  assert.deepEqual(
+    calls.slice(5).map(({ purpose }) => purpose),
+    ['VOTING', 'HOST'],
+  );
+  api.clearSession();
 });
 
 test('A06 is public after A03 401, then A25 and A07 use separate authenticated writes', async () => {

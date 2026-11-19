@@ -119,6 +119,12 @@ test('MINI_TIMER must extend the current cutoff, EXTEND may reopen from now, and
 
 test('server routes skip SCREEN 11 when the result is ready and use permission for ballots', () => {
   const path = '/rooms/registration/status';
+  const voting = {
+    round: room.registration.round,
+    closesAt: new Date(now + 3_600_000).toISOString(),
+    completion: [],
+    myDraft: null,
+  };
   assert.equal(roomScreenForEntry({ ...room, phase: 'RESULT_READY' }, path), '/rooms/vote/result');
   assert.equal(
     roomScreenForEntry(
@@ -129,7 +135,7 @@ test('server routes skip SCREEN 11 when the result is ready and use permission f
   );
   assert.equal(
     roomScreenForEntry(
-      { ...room, phase: 'VOTING_OPEN', allowedActions: ['EDIT_PREFERENCES'] },
+      { ...room, phase: 'VOTING_OPEN', voting, allowedActions: ['EDIT_PREFERENCES'] },
       path,
     ),
     '/rooms/vote',
@@ -139,6 +145,7 @@ test('server routes skip SCREEN 11 when the result is ready and use permission f
       {
         ...room,
         phase: 'VOTING_OPEN',
+        voting,
         me: { canVote: false },
         allowedActions: ['EDIT_PREFERENCES'],
       },

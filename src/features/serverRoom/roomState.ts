@@ -96,12 +96,15 @@ export function createRoomStateStore(roomId: string, read = getRoomState, client
     return task;
   }
 
-  function mutate<T>(action: Action, execute: (room: RoomState) => Promise<T>): Promise<T> {
+  function mutate<T>(
+    action: Action,
+    execute: (room: RoomState, receivedAt: number) => Promise<T>,
+  ): Promise<T> {
     if (mutation) {
       if (mutation.action === action) return mutation.task as Promise<T>;
       return Promise.reject(new Error('A room action is already running.'));
     }
-    const { room, error } = snapshot;
+    const { room, error, receivedAt } = snapshot;
     if (!room?.allowedActions.includes(action) || error) {
       return Promise.reject(new Error('This room action is unavailable.'));
     }
@@ -111,7 +114,7 @@ export function createRoomStateStore(roomId: string, read = getRoomState, client
       .then(async () => {
         try {
           if (scope !== start) throw new Error('The room session changed.');
-          const value = await execute(room);
+          const value = await execute(room, receivedAt);
           if (scope === start) await refresh({ replace: true });
           return value;
         } catch (error) {

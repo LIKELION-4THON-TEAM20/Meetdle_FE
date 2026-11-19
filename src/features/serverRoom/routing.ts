@@ -3,6 +3,7 @@ import { isServerRoomId } from '../../api/rooms';
 import { PATHS } from '../../router/paths';
 import { meetingActions } from './meeting';
 import { registrationWindow } from '../../pages/PlaceRegistrationSetup/serverSetupModel';
+import { ballotPermissions } from './voting';
 
 export function serverRoomUrl(roomId: string) {
   if (!isServerRoomId(roomId)) throw new TypeError('Invalid server room ID');
@@ -33,12 +34,10 @@ export function roomScreen(room: RoomState) {
       return room.me.role === 'HOST' && room.allowedActions.includes('START_VOTING')
         ? PATHS.startVote
         : PATHS.closeRegistration;
-    case 'VOTING_OPEN':
-      return room.me.canVote &&
-        (room.allowedActions.includes('EDIT_PREFERENCES') ||
-          room.allowedActions.includes('SUBMIT_VOTE'))
-        ? PATHS.vote
-        : PATHS.voteStatus;
+    case 'VOTING_OPEN': {
+      const { edit, submit } = ballotPermissions(room, Date.parse(room.serverNow));
+      return edit || submit ? PATHS.vote : PATHS.voteStatus;
+    }
     case 'VOTE_REVIEW_REQUIRED':
       return PATHS.voteStatus;
     case 'WAITING_FOR_HOST_DECISION':
@@ -51,6 +50,7 @@ export function roomScreen(room: RoomState) {
 }
 
 export function roomScreenForEntry(room: RoomState, requested?: string) {
+  if (requested === PATHS.voteStatus && room.phase === 'VOTING_OPEN') return requested;
   if (requested === PATHS.closeRegistration && room.phase === 'PLACE_SUBMISSION_CLOSED')
     return requested;
   if (room.meeting) {
@@ -94,6 +94,7 @@ export function shouldPollRoom(room: RoomState) {
       (screen === PATHS.recruitment || screen === PATHS.participation)) ||
     room.phase === 'PLACE_SUBMISSION_OPEN' ||
     room.phase === 'PLACE_SUBMISSION_CLOSED' ||
+    room.phase === 'VOTING_OPEN' ||
     screen === PATHS.voteStatus
   );
 }

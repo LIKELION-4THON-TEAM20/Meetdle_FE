@@ -10,10 +10,12 @@ import ParticipationShareModal from '../ParticipationStatus/components/Participa
 export default function ServerRegistrationShare({
   roomId,
   kind,
+  voting = false,
   onClose,
 }: {
   roomId: string;
   kind: 'reminder' | 'notifyHost';
+  voting?: boolean;
   onClose: () => void;
 }) {
   const [share, setShare] = useState<RoomShare>();
@@ -26,7 +28,7 @@ export default function ServerRegistrationShare({
 
   useEffect(() => {
     const request = new AbortController();
-    const purpose = kind === 'reminder' ? 'REGISTRATION' : 'HOST';
+    const purpose = kind === 'notifyHost' ? 'HOST' : voting ? 'VOTING' : 'REGISTRATION';
     void getRoomShare(roomId, purpose, request.signal)
       .then((result) => {
         if (request.signal.aborted) return;
@@ -47,7 +49,7 @@ export default function ServerRegistrationShare({
       request.abort();
       sendRequest.current?.abort();
     };
-  }, [roomId, kind, attempt]);
+  }, [roomId, kind, voting, attempt]);
 
   const message = share?.messages.find(({ id }) => id === messageId);
   const send = async () => {
@@ -61,7 +63,11 @@ export default function ServerRegistrationShare({
       if (!request.signal.aborted) onClose();
     } catch {
       if (!request.signal.aborted)
-        setError('카카오톡 공유를 열지 못했어요. 공유 설정을 확인해주세요.');
+        setError(
+          import.meta.env.VITE_KAKAO_SHARE_APP_KEY?.trim()
+            ? '카카오톡 공유를 열지 못했어요. 공유 설정을 확인해주세요.'
+            : '카카오톡 공유 키가 설정되지 않았어요.',
+        );
     } finally {
       if (sendRequest.current === request) sendRequest.current = null;
       if (!request.signal.aborted) setSending(false);
@@ -76,7 +82,10 @@ export default function ServerRegistrationShare({
       className="registration-share--select"
       disabled={!message || !recipient || sending}
       copy={{
-        title: kind === 'reminder' ? '등록 안 한 친구 재촉하기' : '방장에게 알리기',
+        title:
+          kind === 'reminder'
+            ? `${voting ? '투표' : '등록'} 안 한 친구 재촉하기`
+            : '방장에게 알리기',
         description: '공유 문구와 대상을 확인해주세요.',
       }}
     >
