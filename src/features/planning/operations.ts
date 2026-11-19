@@ -16,6 +16,7 @@ export function calculationOperation(state: RoomState) {
       pending = (async () => {
         if (!optionsId) optionsId = (await handle.execute()).optionsId;
         const fresh = await getRoomState(state.roomId);
+        if (fresh.roomId !== state.roomId) throw new TypeError('Room response mismatch');
         if (fresh.options?.optionsId !== optionsId)
           throw new Error('계산한 후보를 확인할 수 없어요. 방 상태를 새로 조회해주세요.');
         return fresh;
@@ -45,12 +46,18 @@ export function selectionOperation(state: RoomState, body: SelectMeetingRequest)
           try {
             selected = await handle.execute();
           } catch (error) {
-            if (error instanceof ApiRequestError && error.status !== null && error.status >= 400)
+            if (
+              error instanceof ApiRequestError &&
+              error.status !== null &&
+              error.status >= 400 &&
+              error.status < 500
+            )
               rejected = error;
             throw error;
           }
         }
         const fresh = await getRoomState(state.roomId);
+        if (fresh.roomId !== state.roomId) throw new TypeError('Room response mismatch');
         if (rejected) throw rejected;
         const meeting = fresh.meeting;
         const matches =

@@ -15,8 +15,16 @@ interface Props {
   meeting: number;
   registrationExtension?: boolean;
   voteExtension?: boolean;
+  confirmDisabled?: boolean;
   onClose: () => void;
   onConfirm: (deadline: number) => void;
+  serverRange?: {
+    minimum: number;
+    maximum: number;
+    hint: string;
+    toInput: (time: number) => string;
+    fromInput: (value: string) => number;
+  };
 }
 export default function VoteDeadlineModal({
   deadline,
@@ -24,22 +32,31 @@ export default function VoteDeadlineModal({
   meeting,
   registrationExtension,
   voteExtension,
+  confirmDisabled,
   onClose,
   onConfirm,
+  serverRange,
 }: Props) {
-  const [value, setValue] = useState(() => toLocalDateTime(deadline));
+  const toInput = serverRange?.toInput ?? toLocalDateTime;
+  const [value, setValue] = useState(() => toInput(deadline));
   const parsed = new Date(value);
+  const timestamp = serverRange ? serverRange.fromInput(value) : parsed.getTime();
   const validate = (at: number) =>
-    registrationExtension
-      ? isValidRegistrationExtension(parsed.getTime(), deadline, at, meeting)
-      : (!voteExtension || parsed.getTime() > deadline) &&
-        isValidVoteDeadline(parsed, new Date(at), new Date(meeting));
+    serverRange
+      ? timestamp >= serverRange.minimum && timestamp <= serverRange.maximum
+      : registrationExtension
+        ? isValidRegistrationExtension(parsed.getTime(), deadline, at, meeting)
+        : (!voteExtension || parsed.getTime() > deadline) &&
+          isValidVoteDeadline(parsed, new Date(at), new Date(meeting));
   const valid = validate(now);
-  const range = registrationExtension
-    ? getRegistrationExtensionWindow(deadline, now, meeting)
-    : getVoteDeadlineWindow(new Date(now), new Date(meeting));
+  const range =
+    serverRange ??
+    (registrationExtension
+      ? getRegistrationExtensionWindow(deadline, now, meeting)
+      : getVoteDeadlineWindow(new Date(now), new Date(meeting)));
   const minimum =
-    Math.ceil(Math.max(range.minimum, voteExtension ? deadline + 1 : 0) / 60000) * 60000;
+    Math.ceil(Math.max(range.minimum, voteExtension && !serverRange ? deadline + 1 : 0) / 60000) *
+    60000;
   const maximum = Math.floor(range.maximum / 60000) * 60000;
   return (
     <Modal
@@ -63,21 +80,21 @@ export default function VoteDeadlineModal({
         aria-invalid={!valid}
         type="datetime-local"
         value={value}
-        min={toLocalDateTime(minimum)}
-        max={toLocalDateTime(maximum)}
+        min={toInput(minimum)}
+        max={toInput(maximum)}
         onChange={(event) => setValue(event.target.value)}
       />
       <p id="vote-deadline-help">
-        {registrationExtension && '등록은 지금부터 최소 1시간 열어둬야 해요. '}
-        투표 시간은 최소 30분 이상이어야 하고, 약속 시작 3시간 전까지는 종료돼야 해요.
+        {serverRange?.hint ??
+          `${registrationExtension ? '등록은 지금부터 최소 1시간 열어둬야 해요. ' : ''}투표 시간은 최소 30분 이상이어야 하고, 약속 시작 3시간 전까지는 종료돼야 해요.`}
       </p>
       {minimum > maximum && (
         <p role="status">설정 가능한 마감시간이 없어요. 약속 시간을 확인해 주세요.</p>
       )}
       <Button
-        disabled={!valid}
+        disabled={!valid || confirmDisabled}
         onClick={() => {
-          if (validate(Date.now())) onConfirm(parsed.getTime());
+          if (validate(Date.now())) onConfirm(timestamp);
         }}
       >
         {registrationExtension

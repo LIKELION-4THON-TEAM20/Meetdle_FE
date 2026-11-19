@@ -1,14 +1,16 @@
 import Button from '../../../components/common/Button/Button';
+import { safeKakaoMapUrl } from '../../../lib/kakaoMaps/placeLink';
 import type { VoteChoice, VotePlace } from '../types';
 import { getKakaoMapUrl, voteChoices } from '../voteUtils';
 import './PlaceVoteCard.scss';
 
 interface Props {
-  place: VotePlace;
+  place: Omit<VotePlace, 'distanceMeters'> & { distanceMeters?: number; imageUrl?: string };
   category: string;
   automatic: boolean;
   choice?: VoteChoice;
   locked: boolean;
+  serverProvided?: boolean;
   onChoose: (choice: VoteChoice) => void;
 }
 
@@ -18,9 +20,12 @@ export default function PlaceVoteCard({
   automatic,
   choice,
   locked,
+  serverProvided,
   onChoose,
 }: Props) {
-  const mapUrl = getKakaoMapUrl(place.kakaoMapUrl);
+  const mapUrl = serverProvided
+    ? safeKakaoMapUrl(place.kakaoMapUrl ?? null)
+    : getKakaoMapUrl(place.kakaoMapUrl);
   return (
     <article
       className={`place-vote-card${automatic ? ' place-vote-card--automatic' : ''}${locked && !automatic ? ' place-vote-card--locked' : ''}`}
@@ -28,9 +33,8 @@ export default function PlaceVoteCard({
     >
       <div className="place-vote-card__heading">
         <h4 id={`place-${place.id}`}>{place.name}</h4>
-        {automatic ? (
-          <span className="place-vote-card__badge">자동 선정</span>
-        ) : mapUrl ? (
+        {automatic ? <span className="place-vote-card__badge">자동 선정</span> : null}
+        {mapUrl && (!automatic || serverProvided) ? (
           <a
             className="place-vote-card__map"
             href={mapUrl}
@@ -40,7 +44,7 @@ export default function PlaceVoteCard({
           >
             카카오맵 바로가기 ›
           </a>
-        ) : (
+        ) : !automatic ? (
           <span
             className="place-vote-card__map"
             aria-disabled="true"
@@ -48,7 +52,7 @@ export default function PlaceVoteCard({
           >
             카카오맵 바로가기 ›
           </span>
-        )}
+        ) : null}
       </div>
       <div className="place-vote-card__details">
         <p>
@@ -56,6 +60,9 @@ export default function PlaceVoteCard({
           {Number.isFinite(place.distanceMeters) && ` · ${place.distanceMeters}m`}
         </p>
         <p>{place.address}</p>
+        {place.imageUrl && (
+          <img src={place.imageUrl} alt="" width={64} height={64} loading="lazy" />
+        )}
       </div>
       {automatic ? (
         <p className="place-vote-card__automatic-note">후보가 1곳뿐이라 투표 없이 선정돼요.</p>

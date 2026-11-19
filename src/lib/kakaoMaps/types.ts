@@ -8,6 +8,7 @@ export interface Bounds {
   getNorthEast(): LatLng;
 }
 export interface MapInstance {
+  getProjection(): { containerPointFromCoords(coords: LatLng): { x: number; y: number } };
   setBounds(bounds: Bounds, top?: number, right?: number, bottom?: number, left?: number): void;
   getCenter(): LatLng;
   setCenter(center: LatLng): void;

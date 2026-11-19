@@ -1,10 +1,8 @@
-import {
-  ParticipationRoute,
-  CandidatesRoute,
-  ConfirmedRoute,
-  ConfirmedLayout,
-} from '../features/planning/PlanningRoutes';
-import { createBrowserRouter, Link } from 'react-router';
+import MockRoomLayout from '../features/mockRoom/MockRoomLayout';
+import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatus';
+import TimeRegionCandidates from '../pages/TimeRegionCandidates/TimeRegionCandidates';
+import MeetingConfirmed from '../pages/MeetingConfirmed/MeetingConfirmed';
+import { createBrowserRouter, Link, Navigate } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
 import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
@@ -24,15 +22,20 @@ import LoginRoute from './LoginRoute';
 import HomeRoute from './HomeRoute';
 import { PATHS } from './paths';
 import PlaceExplorationRoute from './PlaceExplorationRoute';
+import ServerRoomRoute from '../features/serverRoom/RoomStatus';
+import ServerRoomInvitation from '../pages/RoomInvitation/ServerRoomInvitation';
 
 export const router = createBrowserRouter([
   {
     element: <FlowLayout />,
     children: [
+      { path: '/rooms', element: <Navigate to={PATHS.home} replace /> },
+      { path: '/rooms/:roomId', element: <ServerRoomRoute /> },
+      { path: '/invite/:inviteToken', element: <ServerRoomInvitation /> },
       {
-        element: <ConfirmedLayout />,
+        element: <MockRoomLayout />,
         children: [
-          { path: PATHS.confirmed, element: <ConfirmedRoute /> },
+          { path: PATHS.confirmed, element: <MeetingConfirmed /> },
           { path: PATHS.info, element: <MeetingInfo /> },
           { path: PATHS.setup, element: <PlaceRegistrationSetup /> },
           { path: PATHS.result, element: <VoteResult /> },
@@ -78,11 +81,11 @@ export const router = createBrowserRouter([
           },
           {
             path: PATHS.participation,
-            element: <ParticipationRoute />,
+            element: <ParticipationStatus />,
           },
           {
             path: PATHS.candidates,
-            element: <CandidatesRoute />,
+            element: <TimeRegionCandidates />,
           },
         ],
       },

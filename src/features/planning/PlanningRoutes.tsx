@@ -1,23 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { ApiRequestError } from '../../api/client';
-import { isServerRoomId } from '../../api/rooms';
 import type { RoomState } from '../../api/types';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
-import MockRoomLayout from '../mockRoom/MockRoomLayout';
-import ParticipationStatus from '../../pages/ParticipationStatus/ParticipationStatus';
-import ParticipationSummary from '../../pages/ParticipationStatus/components/ParticipationSummary';
-import ParticipantList from '../../pages/ParticipationStatus/components/ParticipantList';
-import TimeRegionCandidates, {
-  TimeRegionCandidatesView,
-} from '../../pages/TimeRegionCandidates/TimeRegionCandidates';
+import { TimeRegionCandidatesView } from '../../pages/TimeRegionCandidates/TimeRegionCandidates';
 import type { CandidateConfirmationRequest } from '../../pages/TimeRegionCandidates/types';
-import MeetingConfirmed from '../../pages/MeetingConfirmed/MeetingConfirmed';
 import { PATHS } from '../../router/paths';
-import { planningCandidates, meetingSelection, seoulDateTime } from './model';
-import { calculationOperation, selectionOperation } from './operations';
-import { usePlanningRoom } from './usePlanningRoom';
+import { serverScreenUrl } from '../serverRoom/routing';
+import { planningCandidates, meetingSelection } from './model';
+import { selectionOperation } from './operations';
 import './planning.scss';
 
 function message(error: unknown): string {
@@ -72,34 +64,7 @@ function LoadingOrError({ error, reload }: { error: unknown; reload: () => void 
   );
 }
 
-function ServerPlanning({
-  roomId,
-  screen,
-}: {
-  roomId: string;
-  screen: 'participation' | 'candidates' | 'confirmed';
-}) {
-  const { state, error, reload } = usePlanningRoom(roomId);
-  if (!state) return <LoadingOrError error={error} reload={reload} />;
-  return (
-    <PlanningContent
-      key={`${state.revision}:${state.options?.optionsId}:${state.meeting?.selectionId}`}
-      state={state}
-      screen={screen}
-      reload={reload}
-    />
-  );
-}
-
-function PlanningContent({
-  state,
-  screen,
-  reload,
-}: {
-  state: RoomState;
-  screen: 'participation' | 'candidates' | 'confirmed';
-  reload: () => void;
-}) {
+export function ServerCandidates({ state, reload }: { state: RoomState; reload: () => void }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
@@ -112,7 +77,7 @@ function PlanningContent({
       alive.current = false;
     };
   }, []);
-  const path = (target: string) => `${target}?roomId=${encodeURIComponent(state.roomId)}`;
+  const path = (target: string) => serverScreenUrl(target, state.roomId);
   const run = async (
     makeOperation: () => { execute: () => Promise<RoomState> },
     target: string,
@@ -144,86 +109,12 @@ function PlanningContent({
       최신 상태 다시 조회
     </Button>
   );
-  if (screen === 'confirmed') {
-    if (!state.meeting)
-      return (
-        <LoadingOrError
-          error={new Error('확정된 약속이 없어요. 참여 현황에서 확인해주세요.')}
-          reload={reload}
-        />
-      );
-    const start = seoulDateTime(state.meeting.meetingAt);
-    const end = seoulDateTime(state.meeting.endsAt);
-    return (
-      <div className="page planning-status">
-        <Header title="약속 확정" showBackButton onBack={() => navigate(PATHS.home)} />
-        <main>
-          <h2>우리 여기서 만나요</h2>
-          <section className="meeting-confirmation-card" aria-label="확정된 약속 정보">
-            <h3>
-              {start.date} {start.time} – {end.date === start.date ? '' : `${end.date} `}
-              {end.time}
-            </h3>
-            <p>{state.meeting.station.name}</p>
-            <p>{state.meeting.station.lines.join(' · ')}</p>
-          </section>
-          {state.allowedActions.includes('SELECT_MEETING') && (
-            <Button onClick={() => navigate(path(PATHS.candidates))}>후보 다시 선택하기</Button>
-          )}
-
-          {refresh}
-          <Link to={PATHS.home}>내 약속 홈으로 이동</Link>
-        </main>
-      </div>
-    );
+  let data;
+  try {
+    data = planningCandidates(state);
+  } catch (cause) {
+    return <LoadingOrError error={cause} reload={reload} />;
   }
-  if (screen === 'participation') {
-    const canCalculate =
-      state.me.role === 'HOST' && state.allowedActions.includes('CALCULATE_OPTIONS');
-    return (
-      <div className="page participation-status">
-        <Header title="참여 현황" showBackButton onBack={() => navigate(PATHS.home)} />
-        <main className="participation-status__content">
-          <ParticipationSummary
-            count={state.inputProgress.completedCount}
-            total={state.inputProgress.capacity}
-            label="입력 완료"
-            description="입력 완료한 참여자를 기준으로 후보를 계산해요."
-          />
-          {state.members && (
-            <ParticipantList
-              participants={state.members.map((member) => ({
-                id: member.participantId,
-                name: member.nickname,
-                status: member.inputComplete ? 'completed' : 'notStarted',
-              }))}
-            />
-          )}
-          {feedback}
-          {!canCalculate && !state.options && (
-            <p>후보 계산은 서버에서 허용된 상태의 방장만 할 수 있어요.</p>
-          )}
-        </main>
-        <footer className="participation-status__footer">
-          {state.options ? (
-            <Button onClick={() => navigate(path(PATHS.candidates))}>계산된 후보 확인하기</Button>
-          ) : (
-            <Button
-              disabled={!canCalculate || busy}
-              onClick={() => void run(() => calculationOperation(state), PATHS.candidates)}
-            >
-              {busy ? '후보 계산 중…' : error ? '같은 요청 다시 시도' : '후보 계산하기'}
-            </Button>
-          )}
-          {state.meeting && (
-            <Button onClick={() => navigate(path(PATHS.confirmed))}>확정된 약속 확인하기</Button>
-          )}
-          {refresh}
-        </footer>
-      </div>
-    );
-  }
-  const data = planningCandidates(state);
   if (!data.timeCandidates.length || !data.regionCandidates.length)
     return (
       <div className="page planning-status">
@@ -275,34 +166,4 @@ function PlanningContent({
       }
     />
   );
-}
-
-function PlanningRoute({
-  screen,
-  mock,
-}: {
-  screen: 'participation' | 'candidates' | 'confirmed';
-  mock: React.ReactNode;
-}) {
-  const { search } = useLocation();
-  const roomId = new URLSearchParams(search).get('roomId');
-  return roomId && isServerRoomId(roomId) ? (
-    <ServerPlanning key={`${roomId}:${screen}`} roomId={roomId} screen={screen} />
-  ) : (
-    mock
-  );
-}
-export function ParticipationRoute() {
-  return <PlanningRoute screen="participation" mock={<ParticipationStatus />} />;
-}
-export function CandidatesRoute() {
-  return <PlanningRoute screen="candidates" mock={<TimeRegionCandidates />} />;
-}
-export function ConfirmedRoute() {
-  return <PlanningRoute screen="confirmed" mock={<MeetingConfirmed />} />;
-}
-export function ConfirmedLayout() {
-  const { pathname, search } = useLocation();
-  const id = new URLSearchParams(search).get('roomId');
-  return pathname === PATHS.confirmed && id && isServerRoomId(id) ? <Outlet /> : <MockRoomLayout />;
 }

@@ -1,13 +1,13 @@
 # SCREEN 05 — 가능한 일시 + 중간지역 후보 · HOST
 
-## 진입 경로와 호출 소유권 (#27)
+## 진입 경로와 호출 소유권 (#27, 최신 develop 반영)
 
-- 실제 서버: `/rooms/participation-status?roomId=<UUID v4>` → 계산 CTA의 A11 → `/rooms/candidates?roomId=<동일 UUID>` → 확정 CTA의 A12 → `/rooms/confirmed?roomId=<동일 UUID>`.
-- `features/planning/PlanningRoutes.tsx`에서 위 세 화면만 서버/목 경로를 분기한다. 참여 현황·후보는 기존 CreatedRoomLayout의 로컬 저장소 검사를 UUID에 한해 우회한다. 확정만 기존 MockRoomLayout을 우회한다. 다른 화면은 기존 경로를 유지한다.
-- 서버 화면은 최초 진입·새로고침·‘최신 상태 다시 조회’에서 세션과 A08을 읽는다. URL의 role/scenario와 navigation state를 서버 권한·데이터로 사용하지 않는다.
-- A11 호출 소유자는 **참여 현황 계산 CTA 하나**다. 후보 화면은 A08의 options만 읽으며 진입·새로고침 시 POST하지 않는다. 이미 options가 있으면 참여 현황에서도 재계산 대신 후보 조회로 이동한다.
-- A12 후 A08을 다시 읽어 반환된 selectionId·일시·역이 실제 meeting과 일치하는지 확인한다. 그 meeting을 다음 화면의 navigation state에 전달하되, 확정 화면도 A08로 복원한다. 로컬 확정값·저장소를 서버 성공으로 사용하지 않는다.
-- #28의 장소 등록 설정/장소 화면은 수정하지 않았다. 서버 확정 화면에서 기존 목 장소 등록 화면으로 넘어가는 CTA도 제공하지 않는다. 해당 연결은 후속 담당 범위다.
+- 실제 서버: `/rooms/participation-status?mode=api&roomId=<UUID>` → A11 → `/rooms/candidates?mode=api&roomId=<동일 UUID>` → A12 → `/rooms/confirmed?mode=api&roomId=<동일 UUID>`. 기존 mode 없는 UUID 주소도 지원한다.
+- `/rooms/{roomId}` 공통 진입은 A08의 phase·role·allowedActions로 분기한다. FlowLayout은 실제 UUID의 참여 현황·후보·확정 주소를 공통 ServerRoomHandoff에 연결한다. 목 흐름은 기존 경로를 유지한다.
+- A11의 UI 호출 소유자는 develop의 ServerParticipation 계산 CTA다. 기존 #27 임시 참여 현황을 제거하고 공통 createParticipationCommands의 동일 요청 핸들·키 재사용을 사용한다. 입력 일부 완료 시 기존 확인 모달도 유지한다.
+- 후보는 공통 useRoomState가 읽은 A08 options로 표시하며 진입·새로고침은 POST를 보내지 않는다. HOST만 후보 확정이 가능하며 일반 회원은 서버 진행 현황으로 연결된다. URL role/scenario와 navigation state를 권한으로 사용하지 않는다.
+- A12 뒤 A08의 실제 selectionId·역·일시가 요청/성공 응답과 일치하는지 확인한 후 서버 확정 화면으로 이동한다. navigation state로 meeting을 전달하더라도 다음 화면은 A08에서 복원한다.
+- 확정 후에는 develop의 ServerMeeting을 사용한다. #25·#26·#28의 미병합 작업은 가져오지 않으며 해당 화면 기능을 수정하지 않는다.
 
 ## 서버와 UI 매핑
 
@@ -22,7 +22,7 @@
 ## 요청·실패 처리
 
 - 계산 작업은 하나의 roomMutations.calculateOptions 핸들을 유지한다. 중복 클릭은 하나의 Promise로 합치고 실패 재시도는 같은 본문·Idempotency-Key를 사용한다. POST 성공 후 A08만 실패하면 조회만 재시도한다.
-- 확정 작업은 PUT을 한 번 시도한 후 다시 전송하지 않는다. 응답을 잃거나 성공 후 조회에 실패하면 ‘서버 확정 결과 다시 확인’으로 GET을 수행한다. 서버 meeting이 선택한 일시·역과 일치해야 이동한다. 성공 응답을 받은 경우 selectionId도 일치해야 한다. 명시적 HTTP 거절은 다른 사용자 확정과 우연히 일치해도 해당 요청의 성공으로 처리하지 않는다.
+- 확정 작업은 PUT을 한 번 시도한 후 다시 전송하지 않는다. 응답을 잃거나 성공 후 조회에 실패하면 ‘서버 확정 결과 다시 확인’으로 GET을 수행한다. 5xx 응답도 처리 결과가 불확실하므로 조회로 확인한다. 서버 meeting이 선택한 일시·역과 일치해야 이동한다. 성공 응답을 받은 경우 selectionId도 일치해야 한다. 명시적인 4xx 거절은 다른 사용자 확정과 우연히 일치해도 해당 요청의 성공으로 처리하지 않는다.
 - 실패 뒤 다른 후보를 선택하려면 ‘최신 상태 다시 조회’로 최신 버전과 기대 selectionId를 읽는다. 진행 중 제출·재조회 버튼과 선택 칸을 비활성화한다. 언마운트한 화면의 늦은 변경 응답으로 이동하지 않는다.
 - 로딩·빈 후보·401/403/404/410/409/429/503·네트워크 오류를 표시한다. STALE_INPUT/STALE_SELECTION/WRONG_PHASE 등은 최신 상태 재조회로 복구한다. 서버 실패를 목 후보·로컬 성공으로 대체하지 않는다.
 
@@ -31,11 +31,17 @@
 - `/rooms/candidates` 또는 `?roomId=mock-created-preview`는 기존 목 예시다. 참여 현황의 기존 최소 인원/확인 모달과 로컬 확정 미리보기 흐름을 유지한다.
 - 목 시간/지역 추천 정렬, 네이티브 라디오, 이동정보 상세 펼침 동작과 기존 테스트를 유지한다. 서버 경로에서는 상세 펼침 버튼을 표시한다.
 
-## 검증 (2026-11-19)
+## 검증 (2026-11-20)
 
-- `node --test tests/*.test.mjs`: 기존 64개와 #27의 서버 매핑·권한·중복 요청·재시도·선택 경합 테스트.
-- `npm run build`, `npm run lint` 실행. 빌드의 500 kB 청크 경고는 남아 있다.
-- 모바일 크기 Chrome에서 **API 응답을 가로챈 테스트**로 참여 현황 → 후보 → 확정, 새로고침 GET 전용, 동일 키 재시도, PUT 성공/GET 실패 후 조회만 재시도, 서버 MEMBER 권한, 후보 없음, 401, 기존 목 경로를 확인했다. 실제 인증 성공을 검증한 것이 아니다.
-- **실제 배포 서버에 전송**: GET `/v3/api-docs` 200; 인증 없는 더미 UUID의 GET state 401; localhost Origin GET `/api/me` 403; A11 POST와 A12 PUT의 localhost OPTIONS 403. 운영 Origin `https://meetdle.co.kr`의 OPTIONS는 200이며 credentials 및 각 요청 헤더를 허용했다. 실제 POST/PUT은 전송하지 않았다.
-- Swagger와 Notion A11/A12의 요청 필드·응답 구조는 일치했다. Swagger에는 required/nullable와 오류 응답 정의가 일부 빠져 있어 Notion의 최초 expectedSelectionId null·409/503 정책을 함께 사용했다. 평균 대기시간·교통수단은 두 응답 계약에 없다.
-- localhost CORS 허용 및 실제 카카오 세션이 없어 실제 사용자 A08 응답, 인증된 A11/A12 성공, 서버의 추천 품질·경로 계산·경합 처리는 아직 검증하지 못했다.
+- `npm run build`, `npm run lint` 통과. 기존 500 kB 청크 경고는 남아 있다.
+- `node --test --test-concurrency=1 tests/*.test.mjs`: 전체 104개 통과. 새 회귀 검증은 A12의 503 후 실제 결과 조회 복구와 명시적 409 거절의 성공 오인 방지다.
+- 모바일 크기 Chrome + 모의 API: 공통 참여 현황의 일부 완료 확인 모달 → 후보 → 서버 확정, 새로고침 GET 전용, 동일 키 재시도, PUT 성공/GET 실패 뒤 GET만 재시도, MEMBER 권한, 후보 없음, 401, 기존 목 경로, 409 후 최신 후보를 읽고 명시적 재확정을 검증했다.
+- 실제 배포 서버: GET OpenAPI 200, localhost:5173 Origin의 비인증 A03·A08 GET은 401이며 Allow-Origin·Allow-Credentials를 반환했다. A11 POST와 A12 PUT의 OPTIONS는 200이다. 과거 로컬 CORS 403은 재현되지 않았다. 실제 인증된 POST/PUT은 전송하지 않았다.
+- 최신 [Notion A11](https://app.notion.com/p/b449170baf5482778bdb01b41a8a627c)·[A12](https://app.notion.com/p/d009170baf5482f8b0c501a57032d9f9)와 [배포 OpenAPI](https://api.meetdle.co.kr/v3/api-docs)의 method·경로·요청/응답 필드는 일치한다. Swagger에는 required/nullable와 오류 응답 정의가 일부 빠져 있어 Notion의 최초 expectedSelectionId null·409/503 정책을 함께 사용했다. 평균 대기시간·교통수단은 만들지 않았다.
+- 실제 카카오 세션으로 두 역할의 계산·확정·재선택 성공과 쿠키 전송은 미검증이다. CORS 사전 요청 성공을 실제 저장 성공으로 보고하지 않는다.
+
+## 이번 develop 병합 수정
+
+- API_INTEGRATION.md와 router/index.tsx의 양쪽 변경을 보존하고 중복 import·구형 화면 분기를 정리했다.
+- 공통 RoomStatus가 후보 단계를 실제 ServerCandidates로 연결하며, 최신 조회 후 이전 오류·요청 핸들을 폐기한다.
+- 공통 API DTO·클라이언트는 현재 develop 그대로 사용한다. 세션 변경 시 공통 RoomState가 이전 화면과 진행 중 요청의 영향을 폐기한다.

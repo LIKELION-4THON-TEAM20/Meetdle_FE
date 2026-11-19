@@ -1,5 +1,4 @@
-// Wire DTOs from deployed OpenAPI. Field presence, nullable values and actions
-// omitted by OpenAPI are specified in the 1115 API contract.
+// Wire DTOs from deployed OpenAPI and the 1118 API detail export.
 export type Category = 'FOOD' | 'CAFE' | 'CULTURE' | 'BAR';
 export type RoomRole = 'HOST' | 'MEMBER';
 export type Phase =
@@ -11,6 +10,7 @@ export type Phase =
   | 'VOTING_OPEN'
   | 'VOTE_REVIEW_REQUIRED'
   | 'WAITING_FOR_HOST_DECISION'
+  | 'RESULT_READY'
   | 'FINAL_PLACE_CONFIRMED'
   | 'RECOVERY_REQUIRED'
   | 'ENDED';
@@ -19,6 +19,9 @@ export type Action =
   | 'COMPLETE_INPUT'
   | 'CALCULATE_OPTIONS'
   | 'SELECT_MEETING'
+  | 'EDIT_ROOM'
+  | 'START_ROOM'
+  | 'DELETE_ROOM'
   | 'OPEN_COLLECTION'
   | 'SEARCH_PLACES'
   | 'EDIT_NOMINATION'
@@ -33,7 +36,8 @@ export type Action =
   | 'PROCEED_WITH_VOTES'
   | 'RECOLLECT'
   | 'RESOLVE_TIES'
-  | 'REORDER_VISIT';
+  | 'REORDER_VISIT'
+  | 'CONFIRM_RESULT';
 export type ExtendRegistrationRequest = { round: number } & (
   { mode: 'MINI_TIMER'; closesAt?: string } | { mode: 'EXTEND'; closesAt: string }
 );
@@ -98,7 +102,7 @@ export interface SelectMeetingRequest {
   optionsId: string;
   slotId: string;
   candidateId: string;
-  expectedSelectionId: string | null;
+  expectedSelectionId?: string | null;
 }
 
 export interface Meeting {
@@ -122,8 +126,8 @@ export interface HourSlot {
 }
 
 export interface SaveMyInputRequest {
-  originStationId: string | null;
-  destinationStationId: string | null;
+  originStationId?: string | null;
+  destinationStationId?: string | null;
   slots: Array<HourSlot>;
   inputRevision: number;
   complete: boolean;
@@ -305,7 +309,11 @@ export interface CompletionEntry {
   participantId: string;
   nickname: string;
   completed: boolean;
+  status?: ProgressStatus;
+  profileImageUrl?: string | null;
 }
+
+export type ProgressStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
 
 export interface FinalResult {
   round: number;
@@ -315,6 +323,7 @@ export interface FinalResult {
   selected: Array<ResultPlace>;
   details: Array<ResultPlace>;
   visitOrder: Array<string>;
+  confirmed?: boolean;
 }
 
 export interface MemberStatus {
@@ -322,6 +331,8 @@ export interface MemberStatus {
   nickname: string;
   role: RoomRole;
   inputComplete: boolean;
+  inputStatus?: ProgressStatus;
+  profileImageUrl?: string | null;
 }
 
 export interface MyMember {
@@ -338,6 +349,7 @@ export interface Place {
   lng: number;
   category: Category;
   detailUrl: string | null;
+  imageUrl?: string | null;
 }
 
 export interface Progress {
@@ -347,7 +359,15 @@ export interface Progress {
 
 export interface Recovery {
   round: number;
-  reason: 'NO_ELIGIBLE_RESULT' | 'INSUFFICIENT_TIME' | 'RETRY_EXHAUSTED';
+  reason:
+    | 'NO_ELIGIBLE_RESULT'
+    | 'INSUFFICIENT_TIME'
+    | 'RETRY_EXHAUSTED'
+    | 'NO_SUBMITTED_VOTES'
+    | 'DECISION_EXPIRED'
+    | 'REGISTRATION_EXPIRED'
+    | 'HOST_DECISION_EXPIRED'
+    | 'CONFIRMATION_EXPIRED';
 }
 
 export interface Registration {
@@ -361,6 +381,12 @@ export interface Registration {
   myCompleted: boolean;
   myNominations: Array<Place>;
   categoryCounts: Array<CategoryCount> | null;
+  myCandidates?: RegisteredCandidate[] | null;
+}
+
+export interface RegisteredCandidate {
+  candidateId: string;
+  place: Place;
 }
 
 export interface ResultPlace {
@@ -393,6 +419,51 @@ export interface RoomState {
   result: FinalResult | null;
   recovery: Recovery | null;
   allowedActions: Action[];
+  startedAt?: string | null;
+  shareUrl?: string | null;
+  deadlinePolicy?: DeadlinePolicy | null;
+}
+
+export interface DeadlinePolicy {
+  registrationMinimumMinutes?: number | null;
+  registrationCutoff?: string | null;
+  votingMinimumMinutes?: number | null;
+  votingCutoff?: string | null;
+}
+
+export interface StartRoomRequest {
+  expectedRevision: number;
+}
+
+export interface UpdateRoomRequest extends StartRoomRequest {
+  title?: string | null;
+  dates: DateRange;
+  capacity?: number;
+}
+
+export interface ConfirmResultRequest {
+  round: number;
+  resultRevision: number;
+}
+
+export interface AddCandidateRequest {
+  round: number;
+  category: Category;
+  pickToken: string;
+}
+
+export interface AddedCandidate {
+  candidateId: string;
+}
+
+export type SharePurpose = 'INPUT' | 'REGISTRATION' | 'VOTING' | 'HOST' | 'RESULT';
+
+export interface RoomShare {
+  purpose: SharePurpose;
+  title: string | null;
+  shareUrl: string;
+  messages: Array<{ id: string; text: string }>;
+  recipients: Array<{ participantId: string; nickname: string; profileImageUrl?: string | null }>;
 }
 
 export interface TieDecision {
@@ -429,6 +500,7 @@ export interface PlaceSearchResponse {
   radiusMeters: number;
   expanded: boolean;
   available: boolean;
+  totalCount?: number | null;
 }
 
 export interface PlaceSearchItem {
@@ -446,6 +518,7 @@ export interface CategoryAvailability {
 export interface SessionUser {
   userId: string;
   nickname: string;
+  profileImageUrl?: string | null;
 }
 
 export interface SessionResponse {

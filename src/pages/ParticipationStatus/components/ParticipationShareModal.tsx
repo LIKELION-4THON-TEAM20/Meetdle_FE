@@ -11,6 +11,10 @@ const COPY = {
     title: '방장에게 알리기',
     description: '우리 이제 다음 단계로 넘어가자고 알려요',
   },
+  result: {
+    title: '최종 일정 공유하기',
+    description: '공유 문구와 대상을 확인해주세요.',
+  },
 };
 
 interface ParticipationShareModalProps {

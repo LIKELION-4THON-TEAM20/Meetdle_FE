@@ -16,7 +16,7 @@ export class ApiRequestError extends Error {
 
 type Query = Record<string, string | number | undefined>;
 type ReadOptions = { query?: Query; signal?: AbortSignal };
-type MutationMethod = 'POST' | 'PUT';
+type MutationMethod = 'POST' | 'PUT' | 'DELETE';
 
 function errorBody(value: unknown): value is ApiError {
   return (
@@ -33,6 +33,14 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
   let session: SessionResponse | undefined;
   let pendingSession: Promise<SessionResponse> | undefined;
   let generation = 0;
+  const sessionListeners = new Set<(authenticated: boolean) => void>();
+
+  function subscribeSession(listener: (authenticated: boolean) => void) {
+    sessionListeners.add(listener);
+    return () => {
+      sessionListeners.delete(listener);
+    };
+  }
 
   function url(path: string, query?: Query) {
     const origin = new URL(base?.trim() ?? '');
@@ -51,10 +59,15 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
     return target;
   }
 
-  function clearSession() {
+  function resetSession() {
     generation++;
     session = undefined;
     pendingSession = undefined;
+  }
+
+  function clearSession() {
+    resetSession();
+    sessionListeners.forEach((listener) => listener(false));
   }
 
   function assertSessionGeneration(start: number) {
@@ -66,7 +79,7 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
     }
   }
 
-  async function request<T>(target: URL, init: RequestInit): Promise<T> {
+  async function request<T>(target: URL, init: RequestInit, discardResponse = false): Promise<T> {
     const start = generation;
     let response: Response;
     let body: unknown;
@@ -78,7 +91,7 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
         redirect: 'error',
       });
       if (response.status === 401 && start === generation) clearSession();
-      if (response.status !== 204) {
+      if (response.status !== 204 && (!response.ok || !discardResponse)) {
         const text = await response.text();
         if (text) {
           try {
@@ -110,7 +123,7 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
       );
     }
     assertSessionGeneration(start);
-    if (response.status !== 204 && body === undefined) {
+    if (response.status !== 204 && !discardResponse && body === undefined) {
       throw new ApiRequestError(response.status, {
         code: 'INVALID_RESPONSE',
         message: 'Expected a JSON response.',
@@ -137,13 +150,12 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
             message: 'Expected an authenticated session and CSRF token.',
           });
         }
-        if (
+        const changed =
           session &&
-          (session.user.userId !== value.user.userId || session.csrfToken !== value.csrfToken)
-        ) {
-          clearSession();
-        }
+          (session.user.userId !== value.user.userId || session.csrfToken !== value.csrfToken);
+        if (changed) resetSession();
         session = value;
+        if (changed) sessionListeners.forEach((listener) => listener(true));
         return value;
       })
       .finally(() => {
@@ -157,9 +169,17 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
     method: MutationMethod,
     path: string,
     body?: unknown,
-    { idempotent = false } = {},
+    {
+      idempotent = false,
+      query,
+      discardResponse = false,
+    }: {
+      idempotent?: boolean;
+      query?: Query;
+      discardResponse?: boolean;
+    } = {},
   ) {
-    const target = url(path);
+    const target = url(path, query);
     const payload = JSON.stringify(body);
     const start = generation;
     const key = idempotent ? crypto.randomUUID() : undefined;
@@ -177,15 +197,19 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
       pending = (async () => {
         const current = await getSession();
         assertSessionGeneration(start);
-        return request<T>(target, {
-          method,
-          body: payload,
-          headers: {
-            'X-CSRF-TOKEN': current.csrfToken,
-            ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
-            ...(key ? { 'Idempotency-Key': key } : {}),
+        return request<T>(
+          target,
+          {
+            method,
+            body: payload,
+            headers: {
+              'X-CSRF-TOKEN': current.csrfToken,
+              ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
+              ...(key ? { 'Idempotency-Key': key } : {}),
+            },
           },
-        });
+          discardResponse,
+        );
       })()
         .then((value) => {
           completed = Promise.resolve(value);
@@ -217,7 +241,7 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
     return pendingLogout;
   }
 
-  return { url, get, getSession, clearSession, createMutation, logout };
+  return { url, get, getSession, clearSession, subscribeSession, createMutation, logout };
 }
 
 export const api = createApiClient(import.meta.env?.VITE_API_BASE_URL);

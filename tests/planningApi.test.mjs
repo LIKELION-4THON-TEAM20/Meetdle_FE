@@ -58,6 +58,7 @@ let fresh = structuredClone(base);
 let failPost = false;
 let failGet = false;
 let failPut = false;
+let putErrorStatus = 0;
 let writes = [];
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, init) => {
@@ -74,6 +75,11 @@ globalThis.fetch = async (url, init) => {
   }
   fresh = { ...base, meeting };
   if (failPut) throw new Error('lost PUT response');
+  if (putErrorStatus)
+    return Response.json(
+      { code: 'HTTP_ERROR', message: 'Write failed' },
+      { status: putErrorStatus },
+    );
   return Response.json(meeting);
 };
 const vite = await createServer({
@@ -238,4 +244,46 @@ test('재선택 요청은 기존 selectionId를 기대값으로 전달하며 동
   assert.equal((await first).meeting.selectionId, meeting.selectionId);
   assert.equal(writes.length, 1);
   assert.equal(JSON.parse(writes[0].body).expectedSelectionId, 'previous-selection');
+});
+
+test('PUT 503 뒤 이미 반영된 meeting을 GET으로 복구하며 재전송하지 않는다', async () => {
+  writes = [];
+  fresh = base;
+  putErrorStatus = 503;
+  const op = selectionOperation(
+    base,
+    meetingSelection(base, {
+      timeCandidateId: slot.slotId,
+      regionCandidateId: region.candidateId,
+    }),
+  );
+  try {
+    await assert.rejects(op.execute(), (error) => error.status === 503);
+    putErrorStatus = 0;
+    assert.equal((await op.execute()).meeting.selectionId, meeting.selectionId);
+    assert.equal(writes.length, 1);
+  } finally {
+    putErrorStatus = 0;
+  }
+});
+
+test('PUT의 명시적 409 거절은 meeting이 우연히 일치해도 성공으로 처리하지 않는다', async () => {
+  writes = [];
+  fresh = base;
+  putErrorStatus = 409;
+  const op = selectionOperation(
+    base,
+    meetingSelection(base, {
+      timeCandidateId: slot.slotId,
+      regionCandidateId: region.candidateId,
+    }),
+  );
+  try {
+    await assert.rejects(op.execute(), (error) => error.status === 409);
+    putErrorStatus = 0;
+    await assert.rejects(op.execute(), (error) => error.status === 409);
+    assert.equal(writes.length, 1);
+  } finally {
+    putErrorStatus = 0;
+  }
 });
