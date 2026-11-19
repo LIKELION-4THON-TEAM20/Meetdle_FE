@@ -158,7 +158,12 @@ test('server routes use role and allowedActions and never route mock IDs through
     assert.equal(roomScreen({ ...room, phase }), '/rooms/vote/result');
   }
   assert.equal(
-    shouldPollRoom({ ...room, phase: 'VOTING_OPEN', allowedActions: ['EDIT_PREFERENCES'] }),
+    shouldPollRoom({
+      ...room,
+      phase: 'VOTING_OPEN',
+      me: { ...room.me, canVote: true },
+      allowedActions: ['EDIT_PREFERENCES'],
+    }),
     false,
   );
   assert.equal(shouldPollRoom({ ...room, phase: 'VOTING_OPEN', allowedActions: [] }), true);

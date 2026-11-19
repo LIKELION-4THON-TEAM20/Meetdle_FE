@@ -30,12 +30,13 @@ export function roomScreen(room: RoomState) {
         ? PATHS.info
         : PATHS.registration;
     case 'PLACE_SUBMISSION_CLOSED':
-      return room.allowedActions.includes('START_VOTING')
+      return room.me.role === 'HOST' && room.allowedActions.includes('START_VOTING')
         ? PATHS.startVote
         : PATHS.closeRegistration;
     case 'VOTING_OPEN':
-      return room.allowedActions.includes('EDIT_PREFERENCES') ||
-        room.allowedActions.includes('SUBMIT_VOTE')
+      return room.me.canVote &&
+        (room.allowedActions.includes('EDIT_PREFERENCES') ||
+          room.allowedActions.includes('SUBMIT_VOTE'))
         ? PATHS.vote
         : PATHS.voteStatus;
     case 'VOTE_REVIEW_REQUIRED':
@@ -50,6 +51,8 @@ export function roomScreen(room: RoomState) {
 }
 
 export function roomScreenForEntry(room: RoomState, requested?: string) {
+  if (requested === PATHS.closeRegistration && room.phase === 'PLACE_SUBMISSION_CLOSED')
+    return requested;
   if (room.meeting) {
     const actions = meetingActions(room);
     if (requested === PATHS.info) return requested;
@@ -90,6 +93,7 @@ export function shouldPollRoom(room: RoomState) {
     (room.phase === 'WAITING_FOR_DEPARTURE' &&
       (screen === PATHS.recruitment || screen === PATHS.participation)) ||
     room.phase === 'PLACE_SUBMISSION_OPEN' ||
+    room.phase === 'PLACE_SUBMISSION_CLOSED' ||
     screen === PATHS.voteStatus
   );
 }

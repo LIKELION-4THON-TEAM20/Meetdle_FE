@@ -1,5 +1,14 @@
 # Meetdle API 연동 계획
 
+## SCREEN 10·11 서버 연동
+
+- SCREEN 09의 A16 성공 뒤 같은 방의 `serverScreenUrl(PATHS.registration, roomId)`로 이동한다. SCREEN 10은 A08 registration의 round·completion·progress를 읽는다. 정원과 회차 참여자 수를 구분하고 후보 수를 완료 인원에 포함하지 않는다. 타이머는 serverNow 보정 시각을 사용한다. 0초에는 A08만 다시 조회하고, 평소에는 공통 15초 polling과 포커스 복귀 조회를 사용한다.
+- 열린 회차의 방장은 `START_MINI_TIMER`와 정원 엄격한 과반·미완료자가 있을 때 A23 MINI_TIMER를 실행할 수 있다. 마감된 회차에서는 `EXTEND_COLLECTION`으로 A23 EXTEND를 실행한다. MINI_TIMER는 기존 마감 이후, EXTEND는 현재 이후이며 둘 다 등록 상한을 적용한다. 종류별 1회와 재개 시 완료 상태는 서버가 관리한다. 전원이 완료했지만 필수 후보가 비어 재개하면 서버는 완료 표시를 초기화할 수 있다.
+- A26은 `CLOSE_COLLECTION`과 정원 절반 이상(올림)을 확인하고 사용자가 마감 모달에 동의할 때 실행한다. 방 전체 필수 후보 충족은 공개된 카테고리 집계와 서버 권한을 따른다. A26 이후 자동 선정·복구·마감 등 A08이 반환한 단계로 이동한다.
+- SCREEN 11은 카테고리별 집계를 읽는다. 필수·선택 모두 후보 1곳은 자동 선정, 2곳 이상은 투표 대상이며 선택 후보 0곳은 제외한다. 집계가 비공개이면 개수를 표시하지 않는다. 별도 투표 시작 버튼에서 방장이 `START_VOTING`을 가진 닫힌 회차에만 A17을 실행한다. 마감은 Seoul 입력에서 Instant로 변환하며 서버 정책이 없으면 최소 30분·약속 3시간 전 상한이다.
+- A23·A17은 동일 요청 재시도에서 같은 키를 사용한다. A23·A26·A17 성공 또는 409 뒤 A08을 재조회한다. 쓰기 성공 뒤 읽기가 실패하면 A08만 재시도한다. VOTING_OPEN은 canVote와 allowedActions에 따라 SCREEN 12·13으로, 결과 단계는 SCREEN 14로 연결한다. 각 후속 화면은 최신 A08의 voting 또는 result DTO를 읽는다.
+- A33 REGISTRATION·HOST에서 서버 메시지·복귀 링크·대상 정보를 읽고, 사용자가 카카오톡 공유 창에서 최종 수신자를 선택한다.
+
 ## SCREEN 08 서버 연동
 
 - SCREEN 06·07에서 `serverScreenUrl(PATHS.setup, roomId, selectionId)`로 진입한다. A08의 HOST, REGION_CONFIRMED, 현재 selectionId와 OPEN_COLLECTION을 기준으로 시작 권한을 확인한다. URL의 selectionId는 전달 힌트다. 이미 등록이 시작됐으면 최신 A08 권한에 따라 SCREEN 09 또는 10 경로로 이동한다.

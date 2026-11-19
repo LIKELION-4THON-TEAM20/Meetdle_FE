@@ -13,6 +13,7 @@ import ServerParticipation from '../../pages/ParticipationStatus/ServerParticipa
 import ServerMeeting from '../../pages/MeetingConfirmed/ServerMeeting';
 import { meetingDetails } from './meeting';
 import ServerRegistrationSetup from '../../pages/PlaceRegistrationSetup/ServerRegistrationSetup';
+import ServerRegistrationFlow from '../../pages/PlaceRegistrationStatus/ServerRegistrationFlow';
 
 function serverErrorMessage(error: unknown) {
   if (error instanceof ApiRequestError) {
@@ -90,6 +91,9 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
   });
   const navigate = useNavigate();
   const [opened, setOpened] = useState<{ selectionId: string; participantId: string } | null>(null);
+  const [accepted, setAccepted] = useState<{ revision: number; participantId: string } | null>(
+    null,
+  );
   if (!state.room || state.error) {
     return (
       <RoomRequestStatus roomId={roomId} error={state.error} retry={() => void state.refresh()} />
@@ -98,6 +102,41 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
 
   const room = state.room;
   const screen = roomScreenForEntry(room, requested);
+  const isRegistrationFlow = [PATHS.registration, PATHS.closeRegistration, PATHS.startVote].some(
+    (path) => path === screen,
+  );
+  if (
+    requested &&
+    requested !== screen &&
+    [PATHS.registration, PATHS.closeRegistration, PATHS.startVote].some(
+      (path) => path === requested,
+    )
+  ) {
+    return <Navigate to={serverScreenUrl(screen, roomId, room.meeting?.selectionId)} replace />;
+  }
+  if (isRegistrationFlow) {
+    if (
+      !room.registration ||
+      (accepted?.participantId === room.me.participantId && room.revision <= accepted.revision)
+    ) {
+      return (
+        <RoomRequestStatus
+          roomId={roomId}
+          error={state.loading ? null : new Error('Registration state unavailable')}
+          retry={() => void state.refresh()}
+        />
+      );
+    }
+    return (
+      <ServerRegistrationFlow
+        key={room.me.participantId + ':' + room.registration.round}
+        room={{ ...room, registration: room.registration }}
+        state={state}
+        screen={screen}
+        onAccepted={(revision) => setAccepted({ revision, participantId: room.me.participantId })}
+      />
+    );
+  }
   if (requested === PATHS.setup && screen !== requested) {
     const destination = (
       [PATHS.places, PATHS.registration, PATHS.info, PATHS.confirmed] as string[]

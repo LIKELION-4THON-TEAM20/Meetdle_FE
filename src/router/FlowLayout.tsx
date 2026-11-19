@@ -32,6 +32,11 @@ export default function FlowLayout() {
         PATHS.setup,
         PATHS.places,
         PATHS.registration,
+        PATHS.closeRegistration,
+        PATHS.startVote,
+        PATHS.vote,
+        PATHS.voteStatus,
+        PATHS.result,
       ].some((path) => path === pathname)
     ) {
       return <ServerRoomHandoff roomId={id} path={pathname} />;
