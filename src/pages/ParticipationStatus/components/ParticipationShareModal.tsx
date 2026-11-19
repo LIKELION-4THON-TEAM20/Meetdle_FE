@@ -44,6 +44,8 @@ function ParticipationShareModal({
     <Modal
       open
       onClose={onClose}
+      closeOnBackdropClick={false}
+      closeOnEscape={false}
       className={className ? `participation-share-modal ${className}` : 'participation-share-modal'}
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-description`}

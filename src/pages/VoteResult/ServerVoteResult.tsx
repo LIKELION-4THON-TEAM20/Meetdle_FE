@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ApiRequestError } from '../../api/client';
 import { toUiCategory } from '../../api/mappers';
-import { roomMutations } from '../../api/rooms';
+import { getRoomShare, getRoomState, roomMutations } from '../../api/rooms';
 import type { Category, ResultPlace, RoomState } from '../../api/types';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
@@ -20,7 +20,7 @@ import type { useRoomState } from '../../features/serverRoom/useRoomState';
 import { categoryLabels } from '../../features/serverRoom/voting';
 import { PATHS } from '../../router/paths';
 import MeetingConfirmationLayout from '../MeetingConfirmed/components/MeetingConfirmationLayout';
-import ServerRegistrationShare from '../PlaceRegistrationStatus/ServerRegistrationShare';
+import { prepareKakaoShare, shareKakaoText } from '../../features/serverRoom/kakaoInviteShare';
 import {
   parseSeoulInput,
   registrationWindow,
@@ -84,6 +84,8 @@ export default function ServerVoteResult({
     revision: number;
   }>();
   const sending = useRef(false);
+  const shareRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => shareRequest.current?.abort(), []);
   const retry = useRef<{ signature: string; handle: ReturnType<typeof roomMutations.recollect> }>(
     undefined,
   );
@@ -193,6 +195,27 @@ export default function ServerVoteResult({
               choices: validated,
             })
             .execute();
+          const resolved = await getRoomState(latest.roomId);
+          const result = resolved.result;
+          if (
+            resolved.me.participantId !== latest.me.participantId ||
+            !result ||
+            !resultPermissions(resolved, estimateServerNow(resolved, Date.now())).confirm ||
+            !validated.every((choice) =>
+              result.selected.some(
+                (item) =>
+                  item.candidateId === choice.candidateId &&
+                  item.place.category === choice.category,
+              ),
+            )
+          )
+            throw new Error('Resolved result changed');
+          await roomMutations
+            .confirmResult(latest.roomId, {
+              round: result.round,
+              resultRevision: result.resultRevision,
+            })
+            .execute();
         } else {
           const live = latest.result;
           const expected = intent === 'order' ? editing?.revision : confirmationVersion;
@@ -223,6 +246,29 @@ export default function ServerVoteResult({
     } finally {
       sending.current = false;
       setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (permissions.finalized) void prepareKakaoShare().catch(() => undefined);
+  }, [permissions.finalized]);
+  async function shareFinalResult() {
+    if (busy || !permissions.finalized || shareRequest.current) return;
+    const request = new AbortController();
+    shareRequest.current = request;
+    setBusy(true);
+    setError('');
+    try {
+      const payload = await getRoomShare(room.roomId, 'RESULT', request.signal);
+      const message = payload.messages.find((item) => item.id === 'DEFAULT') ?? payload.messages[0];
+      if (!message) throw new Error('No share message');
+      await shareKakaoText(message.text, payload.shareUrl, request.signal);
+    } catch {
+      if (!request.signal.aborted)
+        setError('카카오톡 공유를 열지 못했어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+      shareRequest.current = null;
+      if (!request.signal.aborted) setBusy(false);
     }
   }
 
@@ -282,11 +328,13 @@ export default function ServerVoteResult({
         </Button>
       )}
       {permissions.finalized && (
-        <Button disabled={blocked} onClick={() => modal('share')}>
+        <Button disabled={blocked} onClick={() => void shareFinalResult()}>
           카카오톡으로 공유하기
         </Button>
       )}
-      <Link to={PATHS.home}>홈으로 이동</Link>
+      <Link className="common-button common-button--secondary vote-result__home" to={PATHS.home}>
+        홈으로 돌아가기 ↗︎
+      </Link>
     </footer>
   );
 
@@ -355,13 +403,6 @@ export default function ServerVoteResult({
   const dialogs = (
     <>
       {orderSheet}
-      {dialog === 'share' && permissions.finalized && (
-        <ServerRegistrationShare
-          roomId={room.roomId}
-          kind="result"
-          onClose={() => setDialog(null)}
-        />
-      )}
       {dialog && dialog !== 'order' && dialog !== 'share' && permissions[dialog] && (
         <Modal
           open
@@ -373,7 +414,7 @@ export default function ServerVoteResult({
         >
           <h2 id="server-result-dialog">
             {dialog === 'tie'
-              ? '선택한 동률 후보로 진행할까요?'
+              ? '선택한 동률 후보로 결과를 확정할까요?'
               : dialog === 'recover'
                 ? '장소 등록을 다시 시작할까요?'
                 : '최종 일정을 확정할까요?'}
@@ -421,12 +462,34 @@ export default function ServerVoteResult({
     </>
   );
 
+  if (
+    room.me.role === 'MEMBER' &&
+    !permissions.finalized &&
+    ['RESULT_READY', 'WAITING_FOR_HOST_DECISION'].includes(room.phase)
+  ) {
+    return (
+      <div className="page vote-result">
+        <Header title="최종 일정 확정 대기" showBackButton onBack={() => navigate(PATHS.home)} />
+        <main className="vote-result__content">
+          <section className="result-pending">
+            <h2>방장이 최종 일정을 확인하고 있어요</h2>
+            <p>방장이 결과를 확정하면 약속 일정과 장소를 보여드릴게요.</p>
+          </section>
+          <Link className="common-button common-button--secondary" to={PATHS.home}>
+            홈으로 돌아가기 ↗︎
+          </Link>
+        </main>
+      </div>
+    );
+  }
+
   if (permissions.finalized && meeting && result) {
     return (
       <MeetingConfirmationLayout
         meeting={meeting}
         onBack={back}
         title="만남 일정이 확정됐어요"
+        description="약속 일정과 방문할 장소가 모두 정해졌어요."
         showTravelSummary={false}
       >
         <section
@@ -522,7 +585,7 @@ export default function ServerVoteResult({
                     disabled={blocked || !tieChoices(room, choices)}
                     onClick={() => modal('tie')}
                   >
-                    동률 후보 확정하기
+                    결과 확정하기
                   </Button>
                 </>
               ) : (

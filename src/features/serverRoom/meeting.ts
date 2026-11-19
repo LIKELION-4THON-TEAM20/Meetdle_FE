@@ -61,7 +61,8 @@ export function meetingActions(room: RoomState, now = Date.parse(room.serverNow)
       !!room.meeting &&
       host &&
       beforeRegistration &&
-      room.allowedActions.includes('OPEN_COLLECTION'),
+      (room.allowedActions.includes('OPEN_COLLECTION') ||
+        room.allowedActions.includes('EDIT_ROOM')),
     canReselect:
       !!room.meeting &&
       host &&

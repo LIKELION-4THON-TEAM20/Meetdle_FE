@@ -1,3 +1,4 @@
+import RoomNotFound from '../../components/common/RoomNotFound/RoomNotFound';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { useState } from 'react';
 import { startKakaoLogin } from '../../api/auth';
@@ -11,7 +12,6 @@ import { ServerSchedule } from '../../router/ScheduleApiRoutes';
 import { ServerCandidates } from '../planning/PlanningRoutes';
 import ServerPlaceExploration from '../../pages/PlaceExploration/ServerPlaceExploration';
 import { useRoomState } from './useRoomState';
-import { getCreatedRoom } from '../createdRoom/model';
 import ServerParticipation from '../../pages/ParticipationStatus/ServerParticipation';
 import ServerMeeting from '../../pages/MeetingConfirmed/ServerMeeting';
 import { meetingDetails } from './meeting';
@@ -46,6 +46,7 @@ export function RoomRequestStatus({
   error: unknown;
   retry: () => void;
 }) {
+  if (error instanceof ApiRequestError && error.status === 404) return <RoomNotFound />;
   return (
     <div className="page">
       <Header title="약속 정보 확인" />
@@ -115,11 +116,14 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
 
   const room = state.room;
   const screen = roomScreenForEntry(room, requested);
+  if (screen === PATHS.created)
+    return <Navigate to={serverScreenUrl(PATHS.created, roomId)} replace />;
   const ballotKey = `${room.me.participantId}:${room.voting?.round}`;
   const keepReceipt =
     (requested === PATHS.vote || !requested) &&
     submittedBallot === ballotKey &&
-    screen === PATHS.voteStatus;
+    (screen === PATHS.voteStatus ||
+      ['RESULT_READY', 'WAITING_FOR_HOST_DECISION'].includes(room.phase));
   const requestedVoteScreen =
     requested === PATHS.vote || requested === PATHS.voteStatus || requested === PATHS.result;
   if (
@@ -245,7 +249,9 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
         key={room.me.participantId + screen}
         room={room}
         state={state}
-        recruitment={screen === PATHS.recruitment}
+        recruitment={
+          screen === PATHS.recruitment || (room.me.role === 'HOST' && room.startedAt === null)
+        }
       />
     );
   }
@@ -305,7 +311,7 @@ export function ServerRoomHandoff({ roomId, path }: { roomId: string; path: stri
 
 export default function ServerRoomRoute() {
   const { roomId = '' } = useParams();
-  if (!isServerRoomId(roomId) || getCreatedRoom(roomId)) {
+  if (!isServerRoomId(roomId)) {
     return (
       <RoomRequestStatus
         roomId={roomId}

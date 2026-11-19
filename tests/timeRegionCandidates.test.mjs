@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { createServer } from 'vite';
@@ -11,8 +12,8 @@ const server = await createServer({
 after(() => server.close());
 const { formatCandidateDate, reconcileSelection, getConfirmationRequest } =
   await server.ssrLoadModule('/src/pages/TimeRegionCandidates/candidateUtils.ts');
-const { MOCK_CANDIDATE_DATA: data } = await server.ssrLoadModule(
-  '/src/pages/TimeRegionCandidates/mockData.ts',
+const data = JSON.parse(
+  readFileSync(new URL('./fixtures/candidates.json', import.meta.url), 'utf8'),
 );
 const { default: TimeCard } = await server.ssrLoadModule(
   '/src/pages/TimeRegionCandidates/components/TimeCandidateCard.tsx',
@@ -136,7 +137,6 @@ test('접은 상세는 접근성 트리에서 숨긴다', () => {
   assert.match(markup, /aria-expanded="false"/);
   assert.match(markup, /hidden=""/);
 });
-
 
 test('추천 후보를 입력 순서와 관계없이 상단에 배치하고 기본 선택한다', () => {
   const markup = renderToStaticMarkup(

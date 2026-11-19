@@ -95,8 +95,7 @@ $border: #d5d4d9;
   }
 
   &__map,
-  &__notice,
-  &__mock-note {
+  &__notice {
     margin: 0;
     border-radius: 12px;
     color: $muted;
@@ -166,7 +165,24 @@ $border: #d5d4d9;
   }
 
   &.is-alternate {
-    background: #eeeef0;
+    background: #fff;
+  }
+  &:has(.result-place-card__select) {
+    transition:
+      border-color 180ms ease,
+      background-color 180ms ease;
+    &.is-selected {
+      background: #faf8ff;
+    }
+    .result-place-card__select {
+      border: 1px solid #7c5cff;
+      background: #fff;
+      color: #7c5cff;
+    }
+    &.is-selected .result-place-card__select {
+      background: #7c5cff;
+      color: #fff;
+    }
   }
 
   &__image {
@@ -462,4 +478,8 @@ $border: #d5d4d9;
   to {
     opacity: 1;
   }
+}
+
+.vote-result__home {
+  text-decoration: none;
 }

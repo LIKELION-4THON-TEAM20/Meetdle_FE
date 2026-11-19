@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
-import { createRoomPreview, getCreatedRoom } from '../../features/createdRoom/model';
-import { PATHS, roomPath } from '../../router/paths';
-import type { CreateRoomState } from './createRoomState';
+import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { roomMutations } from '../../api/rooms';
+import { createdRoomDestination } from '../../features/serverRoom/routing';
+import { authErrorMessage } from '../../features/auth/errors';
+import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import DateCalendar from './DateCalendar';
@@ -12,14 +13,19 @@ import './CreateRoom.scss';
 
 function CreateRoom() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const draft = params.has('roomId') ? getCreatedRoom(params.get('roomId'))?.creation : undefined;
-  const [roomName, setRoomName] = useState(draft?.name ?? '');
-  const [dateRange, setDateRange] = useState<DateRange | null>(draft?.dateRange ?? null);
-  const [capacity, setCapacity] = useState(draft?.capacity ?? 4);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const lock = useRef(false);
+  const request = useRef<{ key: string; handle: ReturnType<typeof roomMutations.create> } | null>(
+    null,
+  );
+  const [roomName, setRoomName] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [capacity, setCapacity] = useState(4);
   const canCreate =
     roomName.trim().length > 0 &&
     dateRange !== null &&
+    dateRange.end !== null &&
     capacity >= MIN_CAPACITY &&
     capacity <= MAX_CAPACITY;
 
@@ -28,12 +34,30 @@ function CreateRoom() {
       <Header title="새 약속 잡기" showBackButton onBack={() => navigate(PATHS.home)} />
       <form
         className="create-room__form"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
-          if (!canCreate || !dateRange) return;
-          const state: CreateRoomState = { name: roomName.trim(), dateRange, capacity };
-          const room = createRoomPreview(state);
-          navigate(roomPath(PATHS.created, '', room.id));
+          if (!canCreate || !dateRange || !dateRange.end || lock.current) return;
+          lock.current = true;
+          setBusy(true);
+          setError('');
+          try {
+            const body = {
+              title: roomName.trim(),
+              dates: { from: dateRange.start, through: dateRange.end },
+              capacity,
+            };
+            const key = JSON.stringify(body);
+            if (!request.current || request.current.key !== key)
+              request.current = { key, handle: roomMutations.create(body) };
+            const response = await request.current.handle.execute();
+            const destination = createdRoomDestination(response);
+            navigate(destination.to, { state: destination.state, replace: true });
+          } catch (cause) {
+            setError(authErrorMessage(cause));
+          } finally {
+            lock.current = false;
+            setBusy(false);
+          }
         }}
       >
         <main className="create-room__content">
@@ -77,15 +101,12 @@ function CreateRoom() {
               <CapacityPicker value={capacity} onChange={setCapacity} />
             </fieldset>
           </div>
-          <p className="create-room__notice">
-            방장만 약속 정보를 수정할 수 있어요.
-            <br />
-            개발용 목 약속방으로만 생성되며 서버에는 저장되지 않아요.
-          </p>
+          <p className="create-room__notice">방장만 약속 정보를 수정할 수 있어요.</p>
         </main>
+        {error && <p role="alert">{error}</p>}
         <footer className="create-room__footer">
-          <Button type="submit" disabled={!canCreate}>
-            약속방 만들기
+          <Button type="submit" disabled={!canCreate || busy}>
+            {busy ? '생성 중…' : '약속방 만들기'}
           </Button>
         </footer>
       </form>

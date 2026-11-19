@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { startKakaoLogin } from '../api/auth';
+import LoginRequiredModal from '../components/common/LoginRequiredModal/LoginRequiredModal';
 import { getInvitePreview, isServerRoomId } from '../api/rooms';
 import type { InvitePreview } from '../api/types';
 import { useAuthSession, sessionStore, type AuthState } from '../features/auth/session';
@@ -7,6 +9,8 @@ import { assertInvitePreview, invitationFlow } from '../features/auth/invitation
 import { authErrorMessage } from '../features/auth/errors';
 import {
   clearMatchingLoginReturn,
+  rememberLoginReturn,
+  kakaoLoginOptions,
   inviteReturnPath,
   loginErrorMessage,
 } from '../features/auth/loginReturn';
@@ -33,6 +37,8 @@ function InvitationContent({ auth }: { auth: AuthState }) {
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [codeOpen, setCodeOpen] = useState(false);
+  const [loginStarting, setLoginStarting] = useState(false);
+  const [loginError, setLoginError] = useState('');
   const joining = useRef(false);
   const mounted = useRef(true);
   const [busy, setBusy] = useState(false);
@@ -85,9 +91,20 @@ function InvitationContent({ auth }: { auth: AuthState }) {
     );
   const login = () => {
     const returnTo = token ? inviteReturnPath(token) : PATHS.invitation;
-    navigate(
-      `${PATHS.login}?returnTo=${encodeURIComponent(returnTo)}${token ? `&inviteToken=${encodeURIComponent(token)}` : ''}`,
-    );
+    if (loginStarting) return;
+    setLoginError('');
+    try {
+      try {
+        rememberLoginReturn(sessionStorage, returnTo);
+      } catch {
+        // The backend also retains inviteToken across OAuth.
+      }
+      setLoginStarting(true);
+      startKakaoLogin(kakaoLoginOptions(window.location.origin, returnTo, token));
+    } catch {
+      setLoginStarting(false);
+      setLoginError('로그인에 연결하지 못했어요. 다시 시도해주세요.');
+    }
   };
   const verified =
     preview && auth.status === 'authenticated'
@@ -154,7 +171,7 @@ function InvitationContent({ auth }: { auth: AuthState }) {
         {!preview && !loading && !error && <p>초대 코드를 입력해 약속 정보를 확인해주세요.</p>}
         {auth.status === 'anonymous' && (
           <p className="room-invitation__login-notice">
-            카카오 로그인이 필요해요. 로그인 후 초대 코드를 확인할 수 있어요.
+            카카오 로그인이 필요해요. 로그인하면 이 약속방으로 바로 돌아와요.
           </p>
         )}
         {loginErrorMessage(params.get('loginError')) && (
@@ -197,6 +214,14 @@ function InvitationContent({ auth }: { auth: AuthState }) {
                   : '초대 코드 확인하기'}
         </Button>
       </footer>
+      <LoginRequiredModal
+        open={auth.status === 'anonymous'}
+        dismissible={false}
+        onClose={() => {}}
+        onKakaoLogin={login}
+        busy={loginStarting}
+        error={loginError || loginErrorMessage(params.get('loginError'))}
+      />
       {codeOpen && (
         <JoinByCodeDialog
           onClose={() => setCodeOpen(false)}

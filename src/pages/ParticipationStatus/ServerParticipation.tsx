@@ -114,8 +114,7 @@ export default function ServerParticipation({
     }
   };
 
-  const { participants, completed, incomplete, host } = model;
-  const allCompleted = room.joinedCount > 0 && completed >= room.joinedCount;
+  const { participants, completed, incomplete, host, allCompleted, requiredInputs } = model;
   const activeShare =
     shareKind && (shareKind === 'reminder' ? model.canRemind : model.canNotifyHost)
       ? shareKind
@@ -142,40 +141,16 @@ export default function ServerParticipation({
                   : '방장이 모임을 시작하면 정원이 확정돼요.'}
               </p>
             </section>
-            <section aria-label="약속방 정보">
-              <h3>{room.title ?? '약속방'}</h3>
-              <p>
-                {room.joinedCount < room.capacity ? '참여 가능' : '정원 충족'} · 정원{' '}
-                {room.capacity}명
-              </p>
-              {!host && room.allowedActions.includes('EDIT_INPUT') && (
-                <Link to={serverScreenUrl(PATHS.schedule, room.roomId)}>내 일정 입력하기</Link>
-              )}
-              {host && model.canCalculate && (
-                <Link to={serverScreenUrl(PATHS.participation, room.roomId)}>
-                  입력 현황 확인하기
-                </Link>
-              )}
-              {host && room.invite && (
-                <Link to={serverScreenUrl(PATHS.created, room.roomId)}>초대 코드 및 링크 보기</Link>
-              )}
-            </section>
             <ParticipantList participants={participants} mode="waiting" />
-            {room.joinedCount < room.capacity && (
-              <ul aria-label="미가입 인원 슬롯" className="participant-list">
-                {Array.from({ length: room.capacity - room.joinedCount }, (_, index) => (
-                  <li key={index} className="participant-list__row">
-                    <span className="participant-list__avatar" aria-hidden="true" />
-                    <span className="participant-list__name">참여 대기</span>
-                  </li>
-                ))}
-              </ul>
-            )}
             <ParticipationSummary
               count={room.joinedCount}
               total={room.capacity}
               label="참여 완료"
-              description={`현재 ${room.joinedCount}명이 이 방에 참여했어요!`}
+              description={
+                room.joinedCount >= room.capacity
+                  ? '모든 인원이 이 방에 참여했어요!'
+                  : `현재 ${room.joinedCount}명이 이 방에 참여했어요!`
+              }
             />
           </>
         ) : (
@@ -187,10 +162,10 @@ export default function ServerParticipation({
               description={
                 allCompleted
                   ? '참여 인원 모두가 입력을 완료했어요!'
-                  : host && completed < 2
-                    ? '최소 2명 이상 입력을 완료해야 후보를 계산할 수 있어요.'
+                  : completed < requiredInputs
+                    ? `최소 ${requiredInputs}명 이상 입력을 완료해야 후보를 계산할 수 있어요.`
                     : incomplete.length
-                      ? `${incomplete.map(({ name }) => name).join(', ')} 님이 아직 입력을 완료하지 않았어요.`
+                      ? `${incomplete.map(({ name }) => name).join(', ')} 님이 아직 가능 시간을 입력하지 않았어요`
                       : '참여자의 입력 현황을 확인하세요.'
               }
             />
@@ -264,16 +239,6 @@ export default function ServerParticipation({
       <ParticipationShareModal
         kind={activeShare}
         onClose={closeShare}
-        copy={
-          message && share
-            ? {
-                title:
-                  share.title ??
-                  (activeShare === 'notifyHost' ? '방장에게 알리기' : '입력 재촉하기'),
-                description: message.text,
-              }
-            : undefined
-        }
         disabled={sharing || !message || !share?.recipients.length}
         onSend={() => void send()}
       >

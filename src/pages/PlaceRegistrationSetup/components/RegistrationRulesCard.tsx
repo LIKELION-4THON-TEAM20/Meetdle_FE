@@ -1,10 +1,8 @@
-import { REGISTRATION_RULES } from '../mockData';
 import type { CategoryId } from '../types';
 
 function RegistrationRulesCard({
   selected,
   requiredIds,
-  server = false,
 }: {
   selected: CategoryId[];
   requiredIds: CategoryId[];
@@ -19,15 +17,9 @@ function RegistrationRulesCard({
           {selected.length}개 (필수 {requiredCount} · 선택 {selected.length - requiredCount})
         </dd>
       </div>
-      {!server && (
-        <div>
-          <dt>1인 최대 등록</dt>
-          <dd>{selected.length}곳 (카테고리별 1곳)</dd>
-        </div>
-      )}
       <div>
         <dt>1인 최소 등록</dt>
-        <dd>{server ? 1 : REGISTRATION_RULES.minimumPlacesPerPerson}곳 이상</dd>
+        <dd>1곳 이상</dd>
       </div>
     </dl>
   );

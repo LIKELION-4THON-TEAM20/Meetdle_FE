@@ -9,7 +9,7 @@ interface ParticipationSummaryProps {
 
 function ParticipationSummary({ count, total, label, description }: ParticipationSummaryProps) {
   const id = useId();
-  const progress = total > 0 ? (count / total) * 100 : 0;
+  const progress = total > 0 ? Math.min(100, Math.max(0, (count / total) * 100)) : 0;
 
   return (
     <section className="participation-status__summary" aria-labelledby={id}>

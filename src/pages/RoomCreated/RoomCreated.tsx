@@ -1,62 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router';
 import { formatCandidateDates } from '../CreateRoom/createRoomState';
-import { getCreatedRoom, getJoinedParticipants } from '../../features/createdRoom/model';
-import { PATHS, roomPath } from '../../router/paths';
-import { useRoomBack } from '../../router/useRoomNavigation';
+import { PATHS } from '../../router/paths';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import MeetingInfoCard from './components/MeetingInfoCard';
 import InviteCodeCopy from './components/InviteCodeCopy';
 import type { MeetingInfo } from './types';
 import { useRoomState } from '../../features/serverRoom/useRoomState';
-import { serverRoomUrl } from '../../features/serverRoom/routing';
+import { serverRoomUrl, serverScreenUrl, roomScreen } from '../../features/serverRoom/routing';
 import { RoomRequestStatus } from '../../features/serverRoom/RoomStatus';
 import { prepareKakaoShare, shareKakaoInvite } from '../../features/serverRoom/kakaoInviteShare';
 import type { CreateRoomResponse } from '../../api/types';
 import Toast, { type ToastMessage } from '../../components/common/Toast/Toast';
 import './RoomCreated.scss';
-
-function MockRoomCreated() {
-  const [params] = useSearchParams();
-  const room = getCreatedRoom(params.get('roomId'))!;
-  const { inviteCode, creation } = room;
-  const meeting = {
-    name: creation.name.trim(),
-    candidateDates: formatCandidateDates(creation.dateRange),
-    capacity: creation.capacity,
-    participantCount: getJoinedParticipants(room).length,
-  };
-
-  const shareInviteOnKakao = () => {
-    window.alert(
-      '카카오톡 공유 SDK는 아직 연동되지 않았어요. 초대 코드나 링크를 복사해 공유해주세요.',
-    );
-  };
-
-  const copyInviteLink = async () => {
-    const inviteUrl = new URL(roomPath(PATHS.invitation, '', room.id), window.location.origin);
-    inviteUrl.searchParams.set('code', inviteCode);
-
-    try {
-      await navigator.clipboard.writeText(inviteUrl.toString());
-      window.alert(
-        '개발용 초대 링크를 복사했어요. 같은 브라우저의 목 정보 확인용이며 실제 참여 API는 미연결이에요.',
-      );
-    } catch {
-      window.alert('링크를 복사하지 못했어요. 브라우저의 클립보드 권한을 확인해주세요.');
-    }
-  };
-
-  return (
-    <CreatedView
-      meeting={meeting}
-      inviteCode={inviteCode}
-      share={shareInviteOnKakao}
-      copy={copyInviteLink}
-    />
-  );
-}
 
 function CreatedView({
   meeting,
@@ -66,8 +23,6 @@ function CreatedView({
   copy,
   message,
   dismiss,
-  onBack,
-  roomUrl,
 }: {
   meeting: MeetingInfo;
   inviteCode?: string;
@@ -76,13 +31,15 @@ function CreatedView({
   copy: () => void;
   message?: ToastMessage | null;
   dismiss?: () => void;
-  onBack?: () => void;
-  roomUrl?: string;
 }) {
-  const goBack = useRoomBack(PATHS.create);
+  const navigate = useNavigate();
   return (
     <div className="page room-created">
-      <Header title="약속방 생성 완료" showBackButton onBack={onBack ?? goBack} />
+      <Header
+        title="약속방 생성 완료"
+        showBackButton
+        onBack={() => navigate(PATHS.home, { replace: true })}
+      />
       <main className="room-created__content">
         <div className="room-created__intro">
           <h2>약속 방이 생성되었어요!</h2>
@@ -105,12 +62,7 @@ function CreatedView({
         >
           링크 복사하기
         </Button>
-        {roomUrl && (
-          <Link className="room-created__home-link" to={roomUrl}>
-            약속방으로 이동<span aria-hidden="true">↗</span>
-          </Link>
-        )}
-        <Link className="room-created__home-link" to={PATHS.home}>
+        <Link className="room-created__home-link" to={PATHS.home} replace>
           홈으로 돌아가기<span aria-hidden="true">↗</span>
         </Link>
       </footer>
@@ -119,11 +71,8 @@ function CreatedView({
   );
 }
 
-export default MockRoomCreated;
-
 export function ServerRoomCreated({ roomId }: { roomId: string }) {
-  const state = useRoomState(roomId);
-  const navigate = useNavigate();
+  const state = useRoomState(roomId, true);
   const { state: navigation } = useLocation();
   const response = navigation?.createdRoom as CreateRoomResponse | undefined;
   const [message, setMessage] = useState<ToastMessage | null>(null);
@@ -151,6 +100,11 @@ export function ServerRoomCreated({ roomId }: { roomId: string }) {
     );
   }
 
+  if (room.me.role !== 'HOST' || room.phase !== 'WAITING_FOR_DEPARTURE')
+    return <Navigate to={serverRoomUrl(roomId)} replace />;
+  if (room.joinedCount > 1 || room.startedAt)
+    return <Navigate to={serverScreenUrl(roomScreen(room), roomId)} replace />;
+
   const meeting = {
     name: room.title ?? '약속방',
     candidateDates: formatCandidateDates({ start: room.dates.from, end: room.dates.through }),
@@ -162,8 +116,6 @@ export function ServerRoomCreated({ roomId }: { roomId: string }) {
       meeting={meeting}
       inviteCode={available ? invite.code : undefined}
       inviteUrl={available ? invite.inviteUrl : undefined}
-      roomUrl={serverRoomUrl(roomId)}
-      onBack={() => navigate(PATHS.create)}
       share={() => {
         if (!available) return;
         void shareKakaoInvite(meeting.name, invite.code, invite.inviteUrl).catch(() =>

@@ -64,12 +64,13 @@ export default function ServerMeeting({
   const selectionId = room.meeting.selectionId;
   const link = (path: string) => serverScreenUrl(path, room.roomId, selectionId);
   const stage = roomScreen(room);
-  const progressPath = stage === PATHS.info ? PATHS.registration : stage;
+  const progressPath = stage;
   const registrationDeadline = registration && seoulDateTime(registration.closesAt);
 
   return (
     <MeetingConfirmationLayout
       meeting={meeting}
+      description={room.me.role === 'MEMBER' ? '약속 일시와 만날 지역이 정해졌어요.' : undefined}
       onBack={() => navigate(PATHS.home)}
       details={
         <section className="meeting-info__summary" aria-label="약속방 정보">

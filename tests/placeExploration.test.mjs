@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { createServer } from 'vite';
@@ -9,14 +10,8 @@ const server = await createServer({
   server: { middlewareMode: true, hmr: false, ws: false, watch: null },
 });
 after(() => server.close());
-const { createExplorationMock } = await server.ssrLoadModule(
-  '/src/pages/PlaceExploration/mockData.ts',
-);
-const { createMockExplorationRepository } = await server.ssrLoadModule(
-  '/src/pages/PlaceExploration/mockRepository.ts',
-);
-const { registrationBlock, missingRequiredCategories, statusPreview, isExplorationStatusPreview } =
-  await server.ssrLoadModule('/src/pages/PlaceExploration/placeUtils.ts');
+const createExplorationMock = () =>
+  JSON.parse(readFileSync(new URL('./fixtures/map.json', import.meta.url), 'utf8'));
 const { createPlaceMap } = await server.ssrLoadModule('/src/lib/kakaoMaps/controller.ts');
 const { attemptKakaoPlace, safeKakaoMapUrl, isMobileBrowser } = await server.ssrLoadModule(
   '/src/lib/kakaoMaps/placeLink.ts',
@@ -26,59 +21,6 @@ const { default: PlaceCard } = await server.ssrLoadModule(
 );
 const now = Date.now();
 const signal = () => new AbortController().signal;
-
-test('registration limits use the current user/category, not other participants, selection, or map viewport', () => {
-  const snapshot = createExplorationMock(now);
-  const cafe = snapshot.recommendations.find((p) => p.categoryId === 'cafe');
-  const restaurant = snapshot.recommendations.find((p) => p.id === 'restaurant-b');
-  assert.equal(registrationBlock(snapshot, cafe, now), null);
-  assert.match(registrationBlock(snapshot, restaurant, now), /카테고리마다/);
-  snapshot.registrations.push({
-    id: 'other',
-    userId: 'other',
-    placeId: cafe.id,
-    categoryId: cafe.categoryId,
-  });
-  assert.equal(registrationBlock(snapshot, cafe, now), null);
-  assert.match(registrationBlock(snapshot, { ...cafe, eligible: false }, now), /범위를 벗어난/);
-  assert.match(registrationBlock(snapshot, cafe, snapshot.deadline), /마감/);
-});
-
-test('mock failure preserves records and a retry updates place count independently of completed participants', async () => {
-  const initial = createExplorationMock(now);
-  const repo = createMockExplorationRepository(initial, 'registerError');
-  const request = { roomId: initial.roomId, placeId: 'cafe-a' };
-  await assert.rejects(repo.register(request, signal()), /목 등록 요청에 실패/);
-  assert.equal((await repo.load(signal())).registrations.length, 1);
-  const response = await repo.register(request, signal());
-  assert.equal(response.source, 'mock');
-  assert.equal(response.registeredPlaceCount, 9);
-  assert.equal(response.registrations.filter((r) => r.userId === response.currentUserId).length, 2);
-  assert.equal(response.participants.filter((p) => p.status === 'completed').length, 3);
-  const completed = await repo.complete(initial.roomId, signal());
-  assert.equal(completed.participants.filter((p) => p.status === 'completed').length, 4);
-  assert.equal(initial.registeredPlaceCount, 8);
-  assert.equal(initial.registrations.length, 1);
-  await assert.rejects(repo.register(request, signal()), /이미 등록/);
-  assert.equal(isExplorationStatusPreview(statusPreview(response)), true);
-});
-
-test('aborted requests, loading retries and server-provided expanded areas never manufacture registrations', async () => {
-  const repo = createMockExplorationRepository(createExplorationMock(now), 'loadError');
-  await assert.rejects(repo.load(signal()));
-  assert.equal((await repo.load(signal())).source, 'mock');
-  const controller = new AbortController();
-  controller.abort();
-  await assert.rejects(repo.register({ roomId: 'x', placeId: 'x' }, controller.signal), {
-    name: 'AbortError',
-  });
-  const expanded = await createMockExplorationRepository(
-    createExplorationMock(now),
-    'expanded',
-  ).load(signal());
-  assert.equal(expanded.area.radiusMeters, 3000);
-  assert.equal(expanded.registrations.length, 1);
-});
 
 function sdkFixture() {
   const log = {
@@ -364,35 +306,6 @@ test('app fallback cancels on visibility/pagehide/unmount and falls back only wh
   attemptKakaoPlace('18577297', 'https://place.map.kakao.com/18577297', { document, window });
   t.mock.timers.tick(1500);
   assert.equal(navigations.at(-1), 'https://place.map.kakao.com/18577297');
-});
-
-test('completion requires the current user to register every required category', async () => {
-  const initial = createExplorationMock(Date.now());
-  const repo = createMockExplorationRepository(initial);
-  assert.deepEqual(
-    missingRequiredCategories(initial).map((item) => item.id),
-    ['cafe'],
-  );
-  await assert.rejects(repo.complete(initial.roomId, signal()), /필수 카테고리/);
-  await repo.register({ roomId: initial.roomId, placeId: 'cafe-a' }, signal());
-  const completed = await repo.complete(initial.roomId, signal());
-  assert.deepEqual(missingRequiredCategories(completed), []);
-  assert.equal(
-    completed.participants.find((p) => p.id === completed.currentUserId).status,
-    'completed',
-  );
-  assert.equal(completed.registrations.length, 2);
-});
-
-test('completion rejects a closed room or wrong room without changing participant status', async () => {
-  const initial = createExplorationMock(Date.now());
-  const repo = createMockExplorationRepository(initial, 'closed');
-  await assert.rejects(repo.complete('wrong-room', signal()), /약속방/);
-  await assert.rejects(repo.complete(initial.roomId, signal()), /마감/);
-  assert.equal(
-    (await repo.load(signal())).participants.filter((p) => p.status === 'completed').length,
-    3,
-  );
 });
 
 test('place cards keep Kakao navigation separate and disable registration for already registered places', () => {

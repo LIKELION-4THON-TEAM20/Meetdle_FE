@@ -1,11 +1,10 @@
+import RoomNotFound from '../components/common/RoomNotFound/RoomNotFound';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ApiRequestError } from '../api/client';
-import { getRoomState, isServerRoomId } from '../api/rooms';
+import { getRoomState } from '../api/rooms';
 import type { RoomState, SessionResponse } from '../api/types';
-import ScheduleTransit, {
-  ScheduleTransitRoute as MockScheduleTransitRoute,
-} from '../pages/ScheduleTransit/ScheduleTransit';
+import ScheduleTransit from '../pages/ScheduleTransit/ScheduleTransit';
 import Header from '../components/common/Header/Header';
 import Button from '../components/common/Button/Button';
 import ApiStationSearch from '../pages/ScheduleTransit/api/ApiStationSearch';
@@ -22,6 +21,7 @@ import { serverScreenUrl } from '../features/serverRoom/routing';
 function ApiState({ error, reload }: { error?: unknown; reload?: () => void }) {
   const [params] = useSearchParams();
   const loginReturn = `${PATHS.schedule}?roomId=${encodeURIComponent(params.get('roomId') ?? '')}`;
+  if (error instanceof ApiRequestError && error.status === 404) return <RoomNotFound />;
   return (
     <div className="page schedule-transit">
       <Header title="일정 입력" />
@@ -134,15 +134,5 @@ export function ServerSchedule({ roomId }: { roomId: string }) {
       session={result.data.session}
       reload={reload}
     />
-  );
-}
-
-export function ScheduleTransitEntryRoute() {
-  const [params] = useSearchParams();
-  const id = params.get('roomId');
-  return id && isServerRoomId(id) ? (
-    <ServerSchedule key={id} roomId={id} />
-  ) : (
-    <MockScheduleTransitRoute />
   );
 }

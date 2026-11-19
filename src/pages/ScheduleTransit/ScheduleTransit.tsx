@@ -1,13 +1,9 @@
+import { useNavigate } from 'react-router';
 import { useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
-import { getCreatedRoom } from '../../features/createdRoom/model';
-import { PATHS } from '../../router/paths';
-import { useRoomNavigation } from '../../router/useRoomNavigation';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import AvailabilityGrid from './components/AvailabilityGrid';
 import StationSearch from './components/StationSearch';
-import { MOCK_SCHEDULE_ROOM, MOCK_STATIONS } from './mockData';
 import { cellKey, paintAvailability, prepareScheduleInput } from './scheduleUtils';
 import { TIME_SLOTS } from './timeSlots';
 import type {
@@ -20,7 +16,7 @@ import type {
 import './ScheduleTransit.scss';
 
 interface ScheduleTransitProps {
-  room?: ScheduleRoom;
+  room: ScheduleRoom;
   stations?: readonly Station[];
   onComplete?: (input: ScheduleTransitInput) => void | Promise<void>;
   initialInput?: {
@@ -43,8 +39,8 @@ interface ScheduleTransitProps {
 }
 
 function ScheduleTransit({
-  room = MOCK_SCHEDULE_ROOM,
-  stations = MOCK_STATIONS,
+  room,
+  stations = [],
   onComplete,
   initialInput,
   renderStationSearch,
@@ -218,19 +214,6 @@ function ScheduleTransit({
         </footer>
       </form>
     </div>
-  );
-}
-
-export function ScheduleTransitRoute() {
-  const navigate = useRoomNavigation();
-  const [params] = useSearchParams();
-  const room = getCreatedRoom(params.get('roomId'))!;
-
-  return (
-    <ScheduleTransit
-      room={{ ...MOCK_SCHEDULE_ROOM, id: room.id }}
-      onComplete={(scheduleInput) => navigate(PATHS.participation, { state: { scheduleInput } })}
-    />
   );
 }
 

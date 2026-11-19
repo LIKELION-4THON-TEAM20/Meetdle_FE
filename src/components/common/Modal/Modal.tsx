@@ -8,6 +8,7 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   closeOnBackdropClick?: boolean;
+  closeOnEscape?: boolean;
   className?: string;
   'aria-label'?: string;
   'aria-labelledby'?: string;
@@ -22,6 +23,7 @@ function Modal({
   onClose,
   children,
   closeOnBackdropClick = true,
+  closeOnEscape = true,
   className = '',
   'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledBy,
@@ -70,7 +72,7 @@ function Modal({
       aria-describedby={ariaDescribedBy}
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        if (closeOnEscape) onClose();
       }}
       onPointerDown={(event) => {
         backdropPointerDown.current = event.target === event.currentTarget;

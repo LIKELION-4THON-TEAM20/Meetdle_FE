@@ -128,7 +128,7 @@ export default function ServerRegistrationSetup({
       mode === 'serverDefault' ? undefined : deadline,
     );
   const before = serverScreenUrl(PATHS.confirmed, roomId, selectionId);
-  const insufficient = !window.canOpen;
+  const insufficient = !window.canOpen || (Number.isFinite(deadline) && deadline > window.maximum);
 
   async function start() {
     if (!availability || !canStart || running.current) return;
@@ -215,21 +215,19 @@ export default function ServerRegistrationSetup({
         ) : (
           <p role="status">카테고리 가용성을 확인 중이에요.</p>
         )}
-        {insufficient ? (
-          <>
-            <p className="registration-setup__banner registration-setup__banner--blocked">
-              약속까지 남은 시간이 짧아 장소 등록을 진행하기 어려워요.
-            </p>
-            <Button variant="secondary" onClick={() => setShowShortage(true)}>
-              가능한 다음 단계 확인
-            </Button>
-          </>
-        ) : (
+        {insufficient && (
+          <p className="registration-setup__banner registration-setup__banner--blocked">
+            마감 이후 약속까지 남은 시간이 짧아 장소 등록을 진행하기 어려워요. 마감을 앞당기거나
+            후보 날짜를 연장해주세요.
+          </p>
+        )}
+        {window.canOpen && (
           <DeadlineSelector
             now={now}
             meetingStartsAt={Date.parse(room.meeting?.meetingAt ?? '')}
             deadline={deadline}
             mode={mode}
+            allowInvalidSelection
             serverPolicy={{
               window,
               minimumMinutes: window.minimumMinutes,
@@ -247,9 +245,19 @@ export default function ServerRegistrationSetup({
         {state.notice && <p role="status">{state.notice}</p>}
       </main>
       <footer className="registration-setup__footer">
+        {(insufficient || showShortage) && meetingActions(room).canReselect && (
+          <Button
+            variant="secondary"
+            onClick={() =>
+              navigate(`${serverScreenUrl(PATHS.candidates, roomId, selectionId)}&reselectTime=1`)
+            }
+          >
+            약속 시간 다시 정하기
+          </Button>
+        )}
         <Button
           className="registration-setup__start"
-          disabled={!canStart}
+          disabled={!canStart || showShortage}
           onClick={() => void start()}
         >
           {busy ? '장소 등록 시작 중…' : '장소 등록 시작하기'}

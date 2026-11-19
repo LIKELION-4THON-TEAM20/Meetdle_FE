@@ -16,7 +16,7 @@ export interface Appointment {
   date: string;
   participants: Participant[];
   participantCount?: number;
-  // 확인 가능한 진행 단계가 있는 개발용 목 약속에만 지정한다.
+  // 서버에서 확인한 약속방 진입 경로.
   entryPath?: string;
   badgeLabel?: string;
   canHide?: boolean;

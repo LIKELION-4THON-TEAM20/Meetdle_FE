@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ApiRequestError } from '../../api/client';
 import type { RoomState } from '../../api/types';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
 import { TimeRegionCandidatesView } from '../../pages/TimeRegionCandidates/TimeRegionCandidates';
 import type { CandidateConfirmationRequest } from '../../pages/TimeRegionCandidates/types';
+import { candidatesForTimeReselection } from './timeReselection';
 import { PATHS } from '../../router/paths';
 import { serverScreenUrl } from '../serverRoom/routing';
 import { planningCandidates, meetingSelection } from './model';
@@ -66,6 +67,16 @@ function LoadingOrError({ error, reload }: { error: unknown; reload: () => void 
 
 export function ServerCandidates({ state, reload }: { state: RoomState; reload: () => void }) {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const reselectTime = params.get('reselectTime') === '1';
+  const [clock, setClock] = useState(Date.now);
+  const [receivedAt] = useState(Date.now);
+  useEffect(() => {
+    if (!reselectTime) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [reselectTime]);
+  const currentTime = Date.parse(state.serverNow) + Math.max(0, clock - receivedAt);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
   const operation = useRef<{ execute: () => Promise<RoomState> } | null>(null);
@@ -111,7 +122,9 @@ export function ServerCandidates({ state, reload }: { state: RoomState; reload: 
   );
   let data;
   try {
-    data = planningCandidates(state);
+    data = planningCandidates(
+      reselectTime ? candidatesForTimeReselection(state, currentTime) : state,
+    );
   } catch (cause) {
     return <LoadingOrError error={cause} reload={reload} />;
   }
@@ -121,29 +134,44 @@ export function ServerCandidates({ state, reload }: { state: RoomState; reload: 
         <Header title="후보 비교" />
         <main>
           <p role="status">
-            비교 가능한 후보가 없어요. 참여 현황에서 입력 및 계산 상태를 확인해주세요.
+            {reselectTime
+              ? '약속까지 3시간 이상 남은 후보가 없어요. 등록 마감을 앞당길 수 있는지 확인해주세요.'
+              : '비교 가능한 후보가 없어요. 참여 현황에서 입력 및 계산 상태를 확인해주세요.'}
           </p>
-          <Button onClick={() => navigate(path(PATHS.participation))}>참여 현황으로 이동</Button>
+          <Button onClick={() => navigate(path(reselectTime ? PATHS.setup : PATHS.participation))}>
+            {reselectTime ? '장소 등록 설정으로 돌아가기' : '참여 현황으로 이동'}
+          </Button>
           {refresh}
         </main>
       </div>
     );
   const canSelect = state.me.role === 'HOST' && state.allowedActions.includes('SELECT_MEETING');
+  const confirmationTarget = PATHS.confirmed;
   const confirm = (request: CandidateConfirmationRequest) =>
-    void run(() => selectionOperation(state, meetingSelection(state, request)), PATHS.confirmed);
+    void run(() => {
+      const current = reselectTime
+        ? candidatesForTimeReselection(
+            state,
+            Date.parse(state.serverNow) + Math.max(0, Date.now() - receivedAt),
+          )
+        : state;
+      return selectionOperation(state, meetingSelection(current, request));
+    }, confirmationTarget);
   return (
     <TimeRegionCandidatesView
       data={data}
       showTravelDetails
       preserveOrder
-      onBack={() => navigate(path(PATHS.participation))}
+      onBack={() => navigate(path(reselectTime ? PATHS.setup : PATHS.participation))}
       onConfirm={confirm}
       busy={busy}
       choicesDisabled={!!error}
       confirmationDisabled={!canSelect || !!error}
       previewNotice={
         canSelect
-          ? '최초 후보 계산 당시 입력을 완료한 참여자 기준이에요.'
+          ? reselectTime
+            ? '현재 시각 기준 약속까지 3시간 이상 남은 후보만 보여드려요.'
+            : '최초 후보 계산 당시 입력을 완료한 참여자 기준이에요.'
           : '현재 방 상태에서는 후보를 확정할 수 없어요.'
       }
       feedback={
@@ -155,7 +183,7 @@ export function ServerCandidates({ state, reload }: { state: RoomState; reload: 
               onClick={() =>
                 void run(() => {
                   throw new Error('확정 요청이 없어요.');
-                }, PATHS.confirmed)
+                }, confirmationTarget)
               }
             >
               서버 확정 결과 다시 확인

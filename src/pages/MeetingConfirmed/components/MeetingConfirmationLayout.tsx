@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import Header from '../../../components/common/Header/Header';
 import MeetingConfirmationCard, { type MeetingConfirmation } from './MeetingConfirmationCard';
 import '../MeetingConfirmed.scss';
@@ -8,6 +8,7 @@ interface MeetingConfirmationLayoutProps {
   onBack: () => void;
   children: ReactNode;
   title?: string;
+  description?: string;
   showTravelSummary?: boolean;
   details?: ReactNode;
 }
@@ -17,6 +18,7 @@ function MeetingConfirmationLayout({
   onBack,
   children,
   title = '우리 여기서 만나요',
+  description = '확정된 일시와 지역을 친구들에게 알려주세요.',
   showTravelSummary,
   details,
 }: MeetingConfirmationLayoutProps) {
@@ -29,7 +31,7 @@ function MeetingConfirmationLayout({
             🎉
           </span>
           <h2>{title}</h2>
-          <p>확정된 일시와 지역을 친구들에게 알려주세요.</p>
+          <p>{description}</p>
         </div>
         <MeetingConfirmationCard meeting={meeting} showTravelSummary={showTravelSummary} />
         {details}

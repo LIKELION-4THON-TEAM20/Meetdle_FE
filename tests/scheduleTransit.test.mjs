@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { createServer } from 'vite';
@@ -16,8 +17,8 @@ const {
   prepareScheduleInput,
   searchStations,
 } = await server.ssrLoadModule('/src/pages/ScheduleTransit/scheduleUtils.ts');
-const { MOCK_SCHEDULE_ROOM: room, MOCK_STATIONS: stations } = await server.ssrLoadModule(
-  '/src/pages/ScheduleTransit/mockData.ts',
+const { room, stations } = JSON.parse(
+  readFileSync(new URL('./fixtures/schedule.json', import.meta.url), 'utf8'),
 );
 const { TIME_SLOT_GROUPS, TIME_SLOTS } = await server.ssrLoadModule(
   '/src/pages/ScheduleTransit/timeSlots.ts',

@@ -62,7 +62,7 @@ test('host setup and reselection require the current server phase and correspond
   assert.equal(roomScreenForEntry(host, '/rooms/registration/setup'), '/rooms/registration/setup');
   assert.equal(meetingActions({ ...host, allowedActions: [] }).canSetup, false);
   const member = { ...host, me: { role: 'MEMBER' } };
-  assert.equal(roomScreenForEntry(member, '/rooms/confirmed'), '/rooms/info');
+  assert.equal(roomScreenForEntry(member, '/rooms/confirmed'), '/rooms/confirmed');
   assert.equal(meetingActions(member).canReselect, false);
   assert.match(
     serverScreenUrl('/rooms/registration/setup', roomId, meeting.selectionId),
@@ -78,7 +78,7 @@ test('registration links use server eligibility, personal completion, and deadli
     allowedActions: ['EDIT_NOMINATION', 'SELECT_MEETING'],
     registration: { closesAt: '2026-11-19T01:00:00Z', closedAt: null, myCompleted: false },
   };
-  assert.equal(roomScreenForEntry(member), '/rooms/info');
+  assert.equal(roomScreenForEntry(member), '/rooms/places');
   assert.equal(roomScreenForEntry(member, '/rooms/places'), '/rooms/places');
   assert.equal(meetingActions(member).canReselect, false);
   assert.equal(meetingActions(member, Date.parse(member.registration.closesAt)).canRegister, false);

@@ -19,18 +19,26 @@ export function participationModel(room: RoomState) {
   const host = room.me.role === 'HOST';
   const waiting = room.phase === 'WAITING_FOR_DEPARTURE';
   const completed = room.inputProgress.completedCount;
+  const requiredInputs = Math.max(2, Math.ceil(room.inputProgress.capacity / 2));
+  const allCompleted = room.inputProgress.capacity > 0 && completed >= room.inputProgress.capacity;
   const incomplete = participants.filter((member) => member.status !== 'completed');
   return {
     participants,
     host,
     completed,
     incomplete,
+    requiredInputs,
+    allCompleted,
     canStart:
       waiting && host && room.joinedCount >= 2 && room.allowedActions.includes('START_ROOM'),
     canCalculate:
-      waiting && host && completed >= 2 && room.allowedActions.includes('CALCULATE_OPTIONS'),
-    canRemind: waiting && incomplete.some((member) => member.id !== room.me.participantId),
-    canNotifyHost: waiting && !host && completed >= 2,
+      waiting &&
+      host &&
+      completed >= requiredInputs &&
+      room.allowedActions.includes('CALCULATE_OPTIONS'),
+    canRemind:
+      waiting && !allCompleted && incomplete.some((member) => member.id !== room.me.participantId),
+    canNotifyHost: waiting && !host && completed >= requiredInputs,
   };
 }
 

@@ -1,4 +1,4 @@
-import type { ResultPlace, ResultRole, ResultState, VoteCounts } from './types';
+import type { ResultPlace, VoteCounts } from './types';
 
 export function getSelectionReason(
   place: ResultPlace,
@@ -46,22 +46,4 @@ export function moveVisitOrder(order: string[], id: string, targetIndex: number)
   next.splice(from, 1);
   next.splice(targetIndex, 0, id);
   return next;
-}
-
-export function isValidVisitOrder(state: ResultState, order: string[]) {
-  const ids = state.categories.map((category) => category.id);
-  return (
-    order.length === ids.length &&
-    new Set(order).size === ids.length &&
-    order.every((id) => ids.includes(id))
-  );
-}
-
-export function saveVisitOrder(state: ResultState, order: string[], role: ResultRole): ResultState {
-  if (role !== 'host' || state.finalized || !isValidVisitOrder(state, order)) return state;
-  return { ...state, order: [...order] };
-}
-
-export function incrementMockRevote(state: ResultState): ResultState {
-  return state.revotesUsed >= 1 ? state : { ...state, revotesUsed: state.revotesUsed + 1 };
 }

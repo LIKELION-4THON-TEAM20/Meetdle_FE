@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router';
 import { ApiRequestError } from '../../api/client';
 import { roomMutations } from '../../api/rooms';
 import type { RoomState, VoteDecisionRequest } from '../../api/types';
@@ -39,10 +39,12 @@ export default function ServerVoteStatus({
   state: ReturnType<typeof useRoomState>;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { now, deadline, expired } = useVoteClock(room, state);
-  const [dialog, setDialog] = useState<'EXTEND' | 'PROCEED' | 'reminder' | 'notifyHost' | null>(
-    null,
-  );
+  const [dialog, setDialog] = useState<
+    'SUMMARY' | 'EXTEND' | 'PROCEED' | 'reminder' | 'notifyHost' | null
+  >(null);
+  const [dismissedPrompt, setDismissedPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState('');
@@ -65,7 +67,6 @@ export default function ServerVoteStatus({
     data?.completion.some(
       ({ participantId, completed }) => participantId !== room.me.participantId && !completed,
     );
-  const canNotify = !host && (open || reviewing);
   const { minimum, maximum } = voteExtensionRange(room, now);
   const firstMinute = Math.ceil(minimum / MINUTE) * MINUTE;
   const lastMinute = Math.floor(maximum / MINUTE) * MINUTE;
@@ -108,6 +109,12 @@ export default function ServerVoteStatus({
           setAccepted(true);
         },
       );
+      if (action === 'PROCEED') go(PATHS.result);
+      if (action === 'EXTEND' && time !== undefined)
+        navigate(serverScreenUrl(PATHS.voteStatus, room.roomId), {
+          replace: true,
+          state: { votePromptDismissed: `${round}:${new Date(time).toISOString()}` },
+        });
     } catch (failure) {
       setError(voteError(failure));
       if (failure instanceof ApiRequestError) {
@@ -133,9 +140,24 @@ export default function ServerVoteStatus({
     }),
   );
 
+  const allCompleted = capacity > 0 && completed >= capacity;
+  const resultAvailable = ['RESULT_READY', 'WAITING_FOR_HOST_DECISION'].includes(room.phase);
+  const promptKey = `${data?.round}:${room.voting?.closesAt}`;
+  const automaticSummary =
+    host &&
+    open &&
+    !allCompleted &&
+    completed >= Math.ceil(capacity / 2) &&
+    dismissedPrompt !== promptKey &&
+    location.state?.votePromptDismissed !== promptKey;
+  const activeDialog = dialog ?? (automaticSummary ? 'SUMMARY' : null);
+  const waitUntilDeadline = () => {
+    setDialog(null);
+    setDismissedPrompt(promptKey);
+  };
   return (
     <div className="page vote-status" data-room-screen={PATHS.voteStatus}>
-      <Header title="투표 현황" showBackButton onBack={() => go(PATHS.info)} />
+      <Header title="투표 현황" showBackButton onBack={() => navigate(PATHS.home)} />
       <main className="vote-status__content">
         {data ? (
           <>
@@ -153,9 +175,11 @@ export default function ServerVoteStatus({
                   <time dateTime={room.voting?.closesAt}>{formatSeoulDeadline(deadline, now)}</time>
                 </p>
               )}
+              {allCompleted && <h3>모두 장소 투표를 마쳤어요.</h3>}
               {expired && (
                 <p role="status">투표 마감 시각이 지났어요. 서버 상태를 확인하고 있어요.</p>
               )}
+              {reviewing && <h3>장소 투표 시간이 끝났어요.</h3>}
               {reviewing && (
                 <p>
                   {host ? '마감 후 진행 방법을 선택해주세요.' : '방장의 결정을 기다리고 있어요.'}
@@ -197,20 +221,25 @@ export default function ServerVoteStatus({
             투표 재촉하기
           </Button>
         )}
-        {canNotify && (
-          <Button disabled={blocked} onClick={() => setDialog('notifyHost')}>
-            방장에게 알리기
-          </Button>
-        )}
         {permissions.extend && (
           <Button disabled={blocked || !validExtension} onClick={() => setDialog('EXTEND')}>
             조금 더 기다리기
           </Button>
         )}
         {permissions.extend && !validExtension && <p>투표를 연장할 시간이 부족해요.</p>}
+        {host && open && (
+          <Button disabled={blocked} onClick={() => setDialog('SUMMARY')}>
+            투표 마감하기
+          </Button>
+        )}
+        {host && resultAvailable && (
+          <Button disabled={blocked} onClick={() => go(PATHS.result)}>
+            투표 마감하기
+          </Button>
+        )}
         {permissions.proceed && (
-          <Button disabled={blocked} variant="secondary" onClick={() => setDialog('PROCEED')}>
-            제출된 투표로 결과 보기
+          <Button disabled={blocked} onClick={() => void decide('PROCEED')}>
+            투표 마감하기
           </Button>
         )}
         {reviewing && host && !permissions.extend && <p>현재 회차는 투표를 연장할 수 없어요.</p>}
@@ -240,17 +269,31 @@ export default function ServerVoteStatus({
           onConfirm={(value) => void decide('EXTEND', value)}
         />
       )}
-      {dialog === 'PROCEED' && permissions.proceed && (
+      {activeDialog === 'SUMMARY' && host && (
         <VoteCloseModal
-          final
-          confirmDisabled={blocked}
+          final={false}
           participants={participants}
           completed={completed}
-          onClose={() => setDialog(null)}
-          onConfirm={() => void decide('PROCEED')}
+          onClose={waitUntilDeadline}
+          onConfirm={() => setDialog('PROCEED')}
         />
       )}
-      {((dialog === 'reminder' && canRemind) || (dialog === 'notifyHost' && canNotify)) && (
+      {activeDialog === 'PROCEED' && host && (
+        <VoteCloseModal
+          final
+          participants={participants}
+          completed={completed}
+          confirmDisabled={blocked || (!permissions.proceed && !resultAvailable)}
+          unavailableReason={
+            !permissions.proceed && !resultAvailable
+              ? '현재 서버는 마감 전 조기 종료를 지원하지 않아요. 마감까지 기다려주세요.'
+              : undefined
+          }
+          onClose={waitUntilDeadline}
+          onConfirm={() => (resultAvailable ? go(PATHS.result) : void decide('PROCEED'))}
+        />
+      )}
+      {dialog === 'reminder' && canRemind && (
         <ServerRegistrationShare
           roomId={room.roomId}
           kind={dialog}

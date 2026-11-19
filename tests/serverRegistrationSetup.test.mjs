@@ -90,7 +90,7 @@ test('A13 request omits default deadline, validates exact boundaries and rejects
 test('setup directs open rounds to SCREEN 09 or 10 and denies member setup', () => {
   const setup = '/rooms/registration/setup';
   assert.equal(roomScreenForEntry(room, setup), setup);
-  assert.equal(roomScreenForEntry({ ...room, me: { role: 'MEMBER' } }, setup), '/rooms/info');
+  assert.equal(roomScreenForEntry({ ...room, me: { role: 'MEMBER' } }, setup), '/rooms/confirmed');
   const open = {
     ...room,
     phase: 'PLACE_SUBMISSION_OPEN',

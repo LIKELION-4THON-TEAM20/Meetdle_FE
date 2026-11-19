@@ -4,8 +4,8 @@ import { getSession } from '../../api/auth';
 import { api, ApiRequestError } from '../../api/client';
 import type { Category, PlaceSearchResponse, RoomState, SessionResponse } from '../../api/types';
 import Button from '../../components/common/Button/Button';
+import Modal from '../../components/common/Modal/Modal';
 import Header from '../../components/common/Header/Header';
-import RegistrationParticipantList from '../PlaceRegistrationStatus/components/RegistrationParticipantList';
 import { PATHS } from '../../router/paths';
 import { serverScreenUrl } from '../../features/serverRoom/routing';
 import ExplorationMap from './components/ExplorationMap';
@@ -20,7 +20,7 @@ import {
   registrationEditable,
   type ApiExplorationRepository,
 } from './apiRepository';
-import { formatRemaining } from './placeUtils';
+import { formatRemaining, formatDistance } from './placeUtils';
 import type { RecommendedPlace } from './types';
 import './PlaceExploration.scss';
 
@@ -55,13 +55,7 @@ function ErrorNotice({ error }: { error: unknown }) {
   );
 }
 
-export default function ServerPlaceExploration({
-  roomId,
-  statusOnly = false,
-}: {
-  roomId: string;
-  statusOnly?: boolean;
-}) {
+export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
   const repository = useMemo(() => createApiExplorationRepository(roomId), [roomId]);
   const navigate = useNavigate();
   const [snapshot, setSnapshot] = useState<{ state: RoomState; receivedAt: number }>();
@@ -196,12 +190,8 @@ export default function ServerPlaceExploration({
   const editable = !!state && registrationEditable(state, now) && !blocked;
   const status = () => navigate(path(PATHS.registration));
   return (
-    <div className={`page place-exploration${statusOnly ? ' place-registration-status' : ''}`}>
-      <Header
-        title={statusOnly ? '등록 현황' : '장소 등록'}
-        showBackButton
-        onBack={() => (statusOnly ? navigate(path(PATHS.places)) : navigate(PATHS.home))}
-      />
+    <div className="page place-exploration">
+      <Header title="장소 등록" showBackButton onBack={() => navigate(PATHS.home)} />
       <main className="place-exploration__content">
         {loading && <p role="status">약속 정보를 불러오는 중이에요.</p>}
         {!!error && <ErrorNotice error={error} />}
@@ -283,85 +273,66 @@ export default function ServerPlaceExploration({
                   now >= Date.parse(registration.closesAt)) && (
                   <p role="status">장소 등록이 마감됐어요.</p>
                 )}
-                {statusOnly ? (
-                  <>
-                    <RegistrationParticipantList
-                      participants={registration.completion.map((m) => ({
-                        id: m.participantId,
-                        name: m.nickname,
-                        status: m.completed ? 'completed' : 'inProgress',
-                      }))}
-                    />
-                    <Button onClick={() => navigate(path(PATHS.places))}>
-                      내 등록 장소 확인하기
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <section className="exploration-place-list" aria-label="내가 등록한 장소">
-                      <h3>내가 등록한 장소</h3>
-                      {!candidates.length && <p>아직 등록한 장소가 없어요.</p>}
-                      {candidates.map(({ candidateId, place: p }) => (
-                        <div key={candidateId}>
-                          <ExplorationPlaceCard
-                            place={displayPlace(p)}
-                            categoryLabel={categoryLabels[p.category]}
-                            blocked={null}
-                            pending={false}
-                            showRegister={false}
-                            onRegister={() => {}}
-                          />
-                          <Button
-                            variant="secondary"
-                            disabled={
-                              !editable || !state.allowedActions.includes('EDIT_NOMINATION')
-                            }
-                            onClick={() => void run(() => repository.withdraw(candidateId, now))}
-                          >
-                            {p.name} 등록 철회
-                          </Button>
-                        </div>
-                      ))}
-                    </section>
-                    <ServerSearch
-                      repository={repository}
-                      state={state}
-                      readVersion={snapshot!.receivedAt}
-                      disabled={!editable || !state.allowedActions.includes('EDIT_NOMINATION')}
-                      paused={busy || loading || failedIntent}
-                      onRegister={(category, place) =>
-                        void run(() => repository.nominate(category, place.id, now))
-                      }
-                    />
-                  </>
-                )}
+                <>
+                  <section className="exploration-place-list" aria-label="내가 등록한 장소">
+                    <h3>내가 등록한 장소</h3>
+                    {!candidates.length && <p>아직 등록한 장소가 없어요.</p>}
+                    {candidates.map(({ candidateId, place: p }) => (
+                      <div key={candidateId}>
+                        <ExplorationPlaceCard
+                          place={displayPlace(p)}
+                          categoryLabel={categoryLabels[p.category]}
+                          blocked={null}
+                          pending={false}
+                          showRegister={false}
+                          onRegister={() => {}}
+                        />
+                        <Button
+                          variant="secondary"
+                          disabled={!editable || !state.allowedActions.includes('EDIT_NOMINATION')}
+                          onClick={() => void run(() => repository.withdraw(candidateId, now))}
+                        >
+                          {p.name} 등록 철회
+                        </Button>
+                      </div>
+                    ))}
+                  </section>
+                  <ServerSearch
+                    repository={repository}
+                    state={state}
+                    readVersion={snapshot!.receivedAt}
+                    disabled={!editable || !state.allowedActions.includes('EDIT_NOMINATION')}
+                    paused={busy || loading || failedIntent}
+                    onRegister={(category, place) =>
+                      void run(() => repository.nominate(category, place.id, now))
+                    }
+                  />
+                </>
               </>
             )}
           </>
         )}
       </main>
-      {!statusOnly && (
-        <footer className="place-exploration__footer">
-          {state?.registration && !canCompleteRegistration(state) && (
-            <p>장소 후보를 한 곳 이상 등록하면 완료할 수 있어요.</p>
-          )}
-          <Button
-            disabled={
-              !editable ||
-              !state?.allowedActions.includes('COMPLETE_COLLECTION') ||
-              (!!state?.registration && !canCompleteRegistration(state))
-            }
-            onClick={() => {
-              void run(() => repository.complete(now), true);
-            }}
-          >
-            {busy ? '처리 중…' : registration?.myCompleted ? '등록 완료됨' : '등록 완료'}
-          </Button>
-          <Button variant="secondary" disabled={!state || busy} onClick={status}>
-            등록 현황 보기
-          </Button>
-        </footer>
-      )}
+      <footer className="place-exploration__footer">
+        {state?.registration && !canCompleteRegistration(state) && (
+          <p>장소 후보를 한 곳 이상 등록하면 완료할 수 있어요.</p>
+        )}
+        <Button
+          disabled={
+            !editable ||
+            !state?.allowedActions.includes('COMPLETE_COLLECTION') ||
+            (!!state?.registration && !canCompleteRegistration(state))
+          }
+          onClick={() => {
+            void run(() => repository.complete(now), true);
+          }}
+        >
+          {busy ? '처리 중…' : registration?.myCompleted ? '등록 완료됨' : '등록 완료'}
+        </Button>
+        <Button variant="secondary" disabled={!state || busy} onClick={status}>
+          등록 현황 보기
+        </Button>
+      </footer>
     </div>
   );
 }
@@ -389,6 +360,11 @@ function ServerSearch({
   const [query, setQuery] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [outsideRadius, setOutsideRadius] = useState<number | null>(null);
+  const [nearby, setNearby] = useState<{
+    category: Category;
+    items: PlaceSearchResponse['items'];
+  } | null>(null);
   const [result, setResult] = useState<{
     key: string;
     response?: PlaceSearchResponse;
@@ -417,7 +393,10 @@ function ServerSearch({
       void repository
         .search(category!, query, 1, abort.signal)
         .then((response) => {
-          if (!abort.signal.aborted) setResult({ key, response });
+          if (!abort.signal.aborted) {
+            setResult({ key, response });
+            if (!query.trim()) setNearby({ category: category!, items: response.items });
+          }
         })
         .catch((error: unknown) => {
           if (!abort.signal.aborted) setResult({ key, error });
@@ -431,7 +410,29 @@ function ServerSearch({
   }, [repository, key, category, query, canSearch, paused]);
   const response = current?.response;
   const places = response?.items.map((item) => displayPlace(item.place, item)) ?? [];
-  const selected = places.find((p) => p.id === selectedId);
+  const radius =
+    response?.radiusMeters ?? categories.find((c) => c.category === category)?.radiusMeters ?? 2500;
+  const searchPlaces = query.trim()
+    ? places.filter((p) => p.distanceMeters !== undefined && p.distanceMeters <= radius)
+    : places;
+  const outOfRangeSearch = !!query.trim() && !!response?.items.length && searchPlaces.length === 0;
+  const cultureUnavailable =
+    category === 'CULTURE' &&
+    (!categoryAvailable ||
+      response?.available === false ||
+      (!query.trim() && response?.items.length === 0 && response.nextPage === null));
+  const nearbyItems = nearby?.category === category ? nearby.items : [];
+  const mapPlaces = query.trim()
+    ? [
+        ...nearbyItems
+          .filter((item) => item.distanceMeters <= radius)
+          .map((item) => displayPlace(item.place, item)),
+        ...searchPlaces,
+      ]
+    : places;
+  const selected = [...places, ...nearbyItems.map((item) => displayPlace(item.place, item))].find(
+    (p) => p.id === selectedId,
+  );
   async function more() {
     if (!response?.nextPage || moreLock.current || paused) return;
     moreLock.current = true;
@@ -474,6 +475,39 @@ function ServerSearch({
       />
     );
   };
+  const map = state.meeting && category && (
+    <ExplorationMap
+      area={{
+        center: { latitude: state.meeting.station.lat, longitude: state.meeting.station.lng },
+        radiusMeters:
+          response?.radiusMeters ?? categories.find((c) => c.category === category)!.radiusMeters,
+      }}
+      places={[
+        ...new Map(
+          [
+            ...registeredCandidates(state)
+              .filter(({ place }) => place.category === category)
+              .map(({ place }) => displayPlace(place)),
+            ...mapPlaces,
+          ].map((place) => [place.id, place]),
+        ).values(),
+      ]}
+      registeredIds={registeredCandidates(state).map(({ place }) => placeKey(place))}
+      selectedId={selectedId}
+      onSelect={(id) => {
+        const item =
+          response?.items.find((item) => placeKey(item.place) === id) ??
+          nearbyItems.find((item) => placeKey(item.place) === id);
+        const radius =
+          response?.radiusMeters ?? categories.find((c) => c.category === category)!.radiusMeters;
+        if (item && item.distanceMeters > radius) {
+          setOutsideRadius(radius);
+          return;
+        }
+        setSelectedId(id);
+      }}
+    />
+  );
   return (
     <>
       <div className="place-exploration__categories" aria-label="장소 카테고리">
@@ -506,30 +540,21 @@ function ServerSearch({
           }}
         />
       </label>
-      {state.meeting && category && (
-        <ExplorationMap
-          area={{
-            center: { latitude: state.meeting.station.lat, longitude: state.meeting.station.lng },
-            radiusMeters:
-              response?.radiusMeters ??
-              categories.find((c) => c.category === category)!.radiusMeters,
-          }}
-          places={[
-            ...new Map(
-              [
-                ...registeredCandidates(state)
-                  .filter(({ place }) => place.category === category)
-                  .map(({ place }) => displayPlace(place)),
-                ...places,
-              ].map((place) => [place.id, place]),
-            ).values(),
-          ]}
-          registeredIds={registeredCandidates(state).map(({ place }) => placeKey(place))}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-        />
+      {cultureUnavailable && (
+        <div className="place-exploration__culture-empty" role="status">
+          <span className="place-exploration__culture-empty-icon" aria-hidden="true">
+            !
+          </span>
+          <p>이 지역에는 등록할 수 있는 문화시설이 없어요.</p>
+        </div>
       )}
-      {!canSearch ? (
+      {!cultureUnavailable && outOfRangeSearch && (
+        <p className="place-exploration__out-of-range" role="status">
+          선택 가능한 범위를 벗어난 장소예요.
+        </p>
+      )}
+      {map}
+      {cultureUnavailable ? null : !canSearch ? (
         <p>현재 방 상태에서는 장소를 검색할 수 없어요.</p>
       ) : (
         <>
@@ -558,10 +583,12 @@ function ServerSearch({
                 <p>서버에서 탐색 반경을 {response.radiusMeters}m로 확장했어요.</p>
               )}
               {query.trim() ? (
-                <section className="exploration-place-list" aria-label="장소 검색 결과">
-                  <h3>검색 결과</h3>
-                  {places.map(card)}
-                </section>
+                !outOfRangeSearch && (
+                  <section className="exploration-place-list" aria-label="장소 검색 결과">
+                    <h3>검색 결과</h3>
+                    {searchPlaces.map(card)}
+                  </section>
+                )
               ) : selected ? (
                 <section className="exploration-place-list" aria-label="선택한 장소">
                   <h3>선택한 장소</h3>
@@ -579,6 +606,16 @@ function ServerSearch({
           )}
         </>
       )}
+      <Modal
+        open={outsideRadius !== null}
+        onClose={() => setOutsideRadius(null)}
+        className="exploration-notice-modal"
+        aria-labelledby="outside-radius-title"
+      >
+        <h2 id="outside-radius-title">반경 밖의 장소는 선택할 수 없어요</h2>
+        <p>역으로부터 반경 {formatDistance(outsideRadius ?? 0)} 이내 장소만 선택 가능해요</p>
+        <Button onClick={() => setOutsideRadius(null)}>다시 선택하러 가기</Button>
+      </Modal>
     </>
   );
 }

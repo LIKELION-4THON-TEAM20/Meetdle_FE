@@ -23,18 +23,16 @@ export const PATHS = {
   result: '/rooms/vote/result',
 } as const;
 
-export const MOCK_ROOM_ID = 'mock-room-10-14';
-
 export function getRoomBackPath(fallback: string, search: string): string {
   return new URLSearchParams(search).get('from') === 'home' ? PATHS.home : fallback;
 }
 
-// 방과 개발용 역할만 이어 간다. reset/scenario/clock은 명시된 목적지에만 적용한다.
+// 다음 화면에는 방 ID만 전달한다.
 export function roomPath(path: string, search: string, defaultRoomId?: string): string {
   if (path === PATHS.home) return PATHS.home;
   const current = new URLSearchParams(search);
   const target = new URL(path, 'https://meetdle.invalid');
-  for (const key of ['roomId', 'role']) {
+  for (const key of ['roomId']) {
     const value = current.get(key) ?? (key === 'roomId' ? defaultRoomId : null);
     if (value && !target.searchParams.has(key)) target.searchParams.set(key, value);
   }

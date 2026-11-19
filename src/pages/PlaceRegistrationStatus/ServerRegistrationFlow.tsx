@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router';
 import { ApiRequestError } from '../../api/client';
 import { roomMutations } from '../../api/rooms';
 import type { RoomState } from '../../api/types';
@@ -29,6 +29,7 @@ import '../VoteStart/VoteStart.scss';
 import './PlaceRegistrationStatus.scss';
 
 type Intent = DeadlineKind | 'CLOSE';
+type RegistrationDialog = Intent | 'PROGRESS' | 'EXPIRED';
 type Handle = { execute: () => Promise<unknown> };
 const MINUTE = 60_000;
 function defaultDeadline(room: RoomState, kind: DeadlineKind, now: number) {
@@ -50,8 +51,12 @@ export default function ServerRegistrationFlow({
   onAccepted: (revision: number) => void;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [wallTime, setWallTime] = useState(Date.now);
-  const [dialog, setDialog] = useState<Intent | null>(null);
+  const [dialog, setDialog] = useState<RegistrationDialog | null>(null);
+  const [dismissedPrompt, setDismissedPrompt] = useState<string>(
+    () => location.state?.registrationPromptDismissed ?? '',
+  );
   const [voteDeadline, setVoteDeadline] = useState<number | null>(null);
   const [share, setShare] = useState<'reminder' | 'notifyHost' | null>(null);
   const [error, setError] = useState('');
@@ -86,7 +91,7 @@ export default function ServerRegistrationFlow({
         : intent === 'EXTEND'
           ? status.canExtend
           : status.canVote;
-  const isRegistration = screen === PATHS.registration && !status.closed;
+  const isRegistration = screen === PATHS.registration;
   const isVote = screen === PATHS.startVote;
   const link = (path: string) => serverScreenUrl(path, room.roomId, room.meeting?.selectionId);
   const progress = status.members
@@ -106,7 +111,10 @@ export default function ServerRegistrationFlow({
         ? ('inProgress' as const)
         : ('notStarted' as const),
   }));
-  const activeDeadline = dialog && dialog !== 'CLOSE' && allowed(dialog) ? dialog : null;
+  const activeDeadline =
+    dialog && ['MINI_TIMER', 'EXTEND', 'VOTE'].includes(dialog) && allowed(dialog as Intent)
+      ? (dialog as DeadlineKind)
+      : null;
   const initialDeadline = activeDeadline && defaultDeadline(room, activeDeadline, now);
   const chosenVoteDeadline = voteDeadline ?? defaultDeadline(room, 'VOTE', now);
   const voteRange = flowDeadline(room, 'VOTE', now);
@@ -114,6 +122,21 @@ export default function ServerRegistrationFlow({
     chosenVoteDeadline !== null &&
     chosenVoteDeadline >= voteRange.minimum &&
     chosenVoteDeadline <= voteRange.maximum;
+
+  const automatic =
+    status.host && isRegistration
+      ? status.closed || expired
+        ? 'EXPIRED'
+        : status.open && status.completed >= Math.ceil(status.capacity / 2)
+          ? 'PROGRESS'
+          : null
+      : null;
+  const promptKey = `${room.registration.round}:${room.registration.closesAt}:${automatic}`;
+  const prompt = dialog ?? (automatic && dismissedPrompt !== promptKey ? automatic : null);
+  const dismissPrompt = () => {
+    setDialog(null);
+    setDismissedPrompt(promptKey);
+  };
 
   async function run(intent: Intent, deadline?: number) {
     if (sending.current || state.loading || !allowed(intent)) return;
@@ -174,9 +197,18 @@ export default function ServerRegistrationFlow({
           retry.current = { signature, handle };
         }
         const response = await retry.current.handle.execute();
+        if ((intent === 'EXTEND' || intent === 'MINI_TIMER') && closesAt)
+          setDismissedPrompt(`${round}:${closesAt}:PROGRESS`);
         onAccepted(latest.revision);
         return response;
       });
+      if (intent === 'CLOSE') navigate(link(PATHS.startVote));
+      else if (intent === 'EXTEND' || intent === 'MINI_TIMER')
+        navigate(link(PATHS.registration), {
+          state: {
+            registrationPromptDismissed: `${room.registration.round}:${new Date(deadline!).toISOString()}:PROGRESS`,
+          },
+        });
     } catch (failure) {
       setError(
         failure instanceof ApiRequestError
@@ -256,7 +288,7 @@ export default function ServerRegistrationFlow({
         ) : (
           <>
             <section className={isVote ? 'vote-start__hero' : 'registration-close__intro'}>
-              <h2>장소 등록이 마감됐어요.</h2>
+              <h2>{status.open ? '장소 등록을 마감할까요?' : '장소 등록이 마감됐어요.'}</h2>
               <p>
                 회차 {room.registration.round} · 등록 완료 {status.completed} / {status.members}명
               </p>
@@ -329,32 +361,47 @@ export default function ServerRegistrationFlow({
           participants.some(
             ({ id, status }) => id !== room.me.participantId && status !== 'completed',
           ) && <Button onClick={() => setShare('reminder')}>등록 재촉하기</Button>}
-        {!status.host && <Button onClick={() => setShare('notifyHost')}>방장에게 알리기</Button>}
-        {status.canMini && (
+        {status.host && isRegistration && !status.closed && (
           <Button
             variant="secondary"
             disabled={busy || state.loading}
-            onClick={() => openDeadline('MINI_TIMER')}
+            onClick={() => setDialog('PROGRESS')}
           >
-            미니 타이머 설정하기
+            등록 마감하고 투표 시작하기
           </Button>
         )}
-        {status.canClose && (
-          <Button disabled={busy || state.loading} onClick={() => setDialog('CLOSE')}>
-            등록 조기 마감하기
-          </Button>
+        {status.host && !isRegistration && !isVote && status.open && (
+          <>
+            <Button
+              disabled={!status.canClose || busy || state.loading}
+              onClick={() => void run('CLOSE')}
+            >
+              등록 마감하고 투표 시작
+            </Button>
+            {!status.canClose && (
+              <p>절반 이상이 등록을 완료하고 필수 카테고리 후보가 있어야 마감할 수 있어요.</p>
+            )}
+          </>
         )}
-        {status.canExtend && (
+        {status.host && !isRegistration && !isVote && status.closed && status.canVote && (
+          <Button onClick={() => navigate(link(PATHS.startVote))}>현재 후보로 투표 시작하기</Button>
+        )}
+        {status.host && !isRegistration && !isVote && (status.canMini || status.canExtend) && (
           <Button
             variant="secondary"
             disabled={busy || state.loading}
-            onClick={() => openDeadline('EXTEND')}
+            onClick={() => openDeadline(status.canExtend ? 'EXTEND' : 'MINI_TIMER')}
           >
             등록 마감시간 연장하기
           </Button>
         )}
-        {!isVote && status.canVote && (
-          <Link to={link(PATHS.startVote)}>투표 시작 화면으로 이동</Link>
+        {status.closed && isRegistration && status.canVote && (
+          <Button onClick={() => navigate(link(PATHS.startVote))}>현재 후보로 투표 시작하기</Button>
+        )}
+        {status.closed && isRegistration && status.canExtend && (
+          <Button variant="secondary" onClick={() => openDeadline('EXTEND')}>
+            등록 마감시간 연장하기
+          </Button>
         )}
         {isVote && status.canVote && (
           <Button
@@ -365,21 +412,67 @@ export default function ServerRegistrationFlow({
           </Button>
         )}
       </footer>
-      <Modal
-        open={dialog === 'CLOSE' && status.canClose}
-        onClose={() => setDialog(null)}
-        className="screen11-modal"
-        aria-labelledby="server-registration-close-title"
-      >
-        <h2 id="server-registration-close-title">장소 등록을 마감할까요?</h2>
-        <p>마감하면 현재 방의 후보로 다음 단계를 진행해요.</p>
-        <Button variant="secondary" onClick={() => setDialog(null)}>
-          더 기다리기
-        </Button>
-        <Button disabled={busy || state.loading} onClick={() => void run('CLOSE')}>
-          등록 마감하기
-        </Button>
-      </Modal>
+      {(prompt === 'PROGRESS' || prompt === 'EXPIRED') && status.host && (
+        <Modal
+          open
+          onClose={dismissPrompt}
+          closeOnBackdropClick={false}
+          closeOnEscape={false}
+          className={`registration-status-modal${prompt === 'EXPIRED' ? ' registration-status-modal--expired' : ''}`}
+          aria-labelledby="registration-prompt-title"
+        >
+          <h2 id="registration-prompt-title">
+            {prompt === 'EXPIRED'
+              ? '장소 등록 시간이 끝났어요.'
+              : `${status.completed} / ${status.capacity}명 등록 완료`}
+          </h2>
+          <RegistrationParticipantList
+            participants={
+              prompt === 'PROGRESS'
+                ? participants.filter((p) => p.status === 'completed')
+                : participants
+            }
+          />
+          {prompt === 'PROGRESS' ? (
+            <div className="registration-status-modal__actions">
+              <Button className="registration-status-modal__wait" onClick={dismissPrompt}>
+                조금 더 기다리기
+              </Button>
+              <Button
+                onClick={() => {
+                  dismissPrompt();
+                  navigate(link(PATHS.closeRegistration));
+                }}
+              >
+                다음 단계로 이동
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Button
+                disabled={!status.canVote || busy || state.loading}
+                onClick={() => {
+                  dismissPrompt();
+                  navigate(link(PATHS.startVote));
+                }}
+              >
+                현재 후보로 투표 시작하기
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={!status.canExtend || busy || state.loading}
+                onClick={() => {
+                  dismissPrompt();
+                  openDeadline('EXTEND');
+                }}
+              >
+                등록 마감시간 연장하기
+              </Button>
+              {!status.canVote && <p>필수 후보와 서버의 투표 시작 가능 여부를 확인하고 있어요.</p>}
+            </>
+          )}
+        </Modal>
+      )}
       {activeDeadline && initialDeadline !== null && (
         <VoteDeadlineModal
           deadline={
