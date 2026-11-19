@@ -22,9 +22,17 @@ export default function FlowLayout() {
     }
     if (pathname === PATHS.created) return <ServerRoomCreated key={id} roomId={id} />;
     if (
-      [PATHS.recruitment, PATHS.participation, PATHS.schedule, PATHS.candidates].some(
-        (path) => path === pathname,
-      )
+      [
+        PATHS.recruitment,
+        PATHS.participation,
+        PATHS.schedule,
+        PATHS.candidates,
+        PATHS.confirmed,
+        PATHS.info,
+        PATHS.setup,
+        PATHS.places,
+        PATHS.registration,
+      ].some((path) => path === pathname)
     ) {
       return <ServerRoomHandoff roomId={id} path={pathname} />;
     }

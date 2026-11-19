@@ -1,6 +1,7 @@
 import type { CreateRoomResponse, RoomState } from '../../api/types';
 import { isServerRoomId } from '../../api/rooms';
 import { PATHS } from '../../router/paths';
+import { meetingActions } from './meeting';
 
 export function serverRoomUrl(roomId: string) {
   if (!isServerRoomId(roomId)) throw new TypeError('Invalid server room ID');
@@ -24,7 +25,9 @@ export function roomScreen(room: RoomState) {
     case 'REGION_CONFIRMED':
       return room.me.role === 'HOST' ? PATHS.confirmed : PATHS.info;
     case 'PLACE_SUBMISSION_OPEN':
-      return PATHS.registration;
+      return room.me.role === 'MEMBER' && meetingActions(room).canRegister
+        ? PATHS.info
+        : PATHS.registration;
     case 'PLACE_SUBMISSION_CLOSED':
       return room.allowedActions.includes('START_VOTING')
         ? PATHS.startVote
@@ -46,6 +49,20 @@ export function roomScreen(room: RoomState) {
 }
 
 export function roomScreenForEntry(room: RoomState, requested?: string) {
+  if (room.meeting) {
+    const actions = meetingActions(room);
+    if (requested === PATHS.info) return requested;
+    if (requested === PATHS.confirmed) {
+      return actions.beforeRegistration && room.me.role === 'HOST' ? requested : PATHS.info;
+    }
+    if (requested === PATHS.setup && actions.canSetup) return requested;
+    if (requested === PATHS.candidates && actions.canReselect) return requested;
+    if (requested === PATHS.places && actions.canRegister) return requested;
+    if (requested === PATHS.registration && room.phase === 'PLACE_SUBMISSION_OPEN')
+      return requested;
+    if (requested === PATHS.places && room.phase === 'PLACE_SUBMISSION_OPEN')
+      return PATHS.registration;
+  }
   if (room.phase === 'WAITING_FOR_DEPARTURE') {
     if (requested === PATHS.participation) return requested;
     if (requested === PATHS.schedule && room.allowedActions.includes('EDIT_INPUT'))
@@ -60,12 +77,14 @@ export function shouldPollRoom(room: RoomState) {
   return (
     (room.phase === 'WAITING_FOR_DEPARTURE' &&
       (screen === PATHS.recruitment || screen === PATHS.participation)) ||
-    screen === PATHS.registration ||
+    room.phase === 'PLACE_SUBMISSION_OPEN' ||
     screen === PATHS.voteStatus
   );
 }
 
-export function serverScreenUrl(path: string, roomId: string) {
+export function serverScreenUrl(path: string, roomId: string, selectionId?: string) {
   serverRoomUrl(roomId);
-  return `${path}?${new URLSearchParams({ mode: 'api', roomId })}`;
+  const params = new URLSearchParams({ mode: 'api', roomId });
+  if (selectionId) params.set('selectionId', selectionId);
+  return `${path}?${params}`;
 }

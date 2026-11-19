@@ -1,5 +1,14 @@
 # Meetdle API 연동 계획
 
+## SCREEN 06·07 서버 연동
+
+- SCREEN 05가 A08의 options를 읽고 A12를 실행한다. 성공 후 `serverRoomUrl(roomId)`로 이동하면 A08을 재조회해 확정 전후 상태를 복원한다. REGION_CONFIRMED에서는 HOST가 SCREEN 06, MEMBER가 SCREEN 07을 본다. 직접 접근은 `serverScreenUrl(PATHS.confirmed, roomId)` 또는 `serverScreenUrl(PATHS.info, roomId)`를 사용한다.
+- 카드의 시각과 역은 A08의 meeting, 참여자는 members와 joinedCount를 사용한다. 매칭되는 options의 역·시간 후보가 있을 때 그 요약을 표시한다. 날짜·시간은 Asia/Seoul로 변환한다.
+- HOST는 REGION_CONFIRMED의 SELECT_MEETING일 때 SCREEN 05로 돌아가 재선택한다. 기존 A12 호출 소유권은 SCREEN 05에 있으며 최신 A08 meeting.selectionId를 expectedSelectionId로 전달한다. A30은 방 초기화 전용이다.
+- OPEN_COLLECTION을 받은 HOST는 SCREEN 08 경로로 이동한다. SCREEN 08이 최신 A08과 A28을 확인한 후 A13에 현재 selectionId를 사용한다. SCREEN 07에서 등록 가능한 회차 회원은 SCREEN 09로 이동한다. SCREEN 09가 최신 A08 round·allowedActions로 A14·A34·A35·A16을 처리한다. 이동 URL의 selectionId는 전달 힌트이며 쓰기의 기준 값은 최신 A08이다.
+- SCREEN 07은 마감·카테고리·본인 등록 상태를 A08에서 표시한다. 완료 또는 마감 후에는 진행 현황으로 유도한다. SCREEN 08·09의 서버 URL에 현재 브랜치에서는 공통 상태 화면을 표시한다.
+- A33에는 일시·지역 확정 공유 전용 purpose가 없다. SCREEN 06은 A08 shareUrl과 확정 제목·시각·역으로 카카오 공유를 열며 A33 RESULT는 최종 결과 확정 이후에만 사용한다.
+
 ## SCREEN 04 서버 연동
 
 - 홈은 `serverRoomUrl(roomId)`로 이동한다. A08의 `WAITING_FOR_DEPARTURE`와 시작 전 상태에서 모집 화면을 렌더링한다. 모집 수치는 `joinedCount / capacity`, 입력 수치는 `inputProgress.completedCount / inputProgress.capacity`다. 두 화면은 같은 A08 스토어를 사용한다.
@@ -16,7 +25,7 @@
 - A06·A25가 `MEMBER`를 반환하거나 A07이 성공하면 `/rooms/<서버 UUID>`에서 A08을 읽는다. 홈의 코드 입력은 홈 담당자가 A25·A07을 완료한 후 `serverRoomUrl(roomId)`로 이동한다. `joinProof`·CSRF·역할은 URL에 넣지 않는다.
 - `useRoomState(roomId)`는 방별 외부 스토어로 A08, 현재 역할·허용 동작·버전, 서버 시각 보정을 제공한다. `mutate(action, execute)`는 허용된 동작만 시작하고, 성공 또는 409 뒤 A08을 다시 조회한다. 읽기 교체·이탈 시 AbortSignal을 정리하며 세션 무효화 알림에서 방 데이터를 즉시 제거한다.
 - 서버 진입은 `/rooms/:roomId`와 명시적 `mode=api`로 구분한다. 기존 목 라우트와 scenario는 기존 경로에서 유지한다. 서버 진입에서는 phase·me.role·allowedActions로 목적 화면을 결정하고, 이번 범위 밖 화면은 공통 서버 상태를 표시한다. 진행 현황만 가시 상태에서 15초마다 다시 읽고, 화면 복귀 시에는 별도 재조회한다.
-- SCREEN 04의 후속 작업은 모집 화면에 같은 스토어를 연결하고 `START_ROOM`·`CALCULATE_OPTIONS`를 각각 A31·A11에 매핑하는 것이다. 요청에 스토어의 최신 `revision`·`inputVersion`을 사용한다. 기존 SCREEN 03·05의 담당 화면으로 연결할 때 동일한 서버 roomId를 유지한다.
+- SCREEN 04의 모집 화면은 같은 스토어에서 `START_ROOM`·`CALCULATE_OPTIONS`를 각각 A31·A11에 매핑한다. SCREEN 03·05로 이동할 때 동일한 서버 roomId를 유지한다.
 
 ### localhost에서 실제 인증 확인
 
@@ -33,7 +42,7 @@ fetch('https://api.meetdle.co.kr/api/me', { credentials: 'include' }).then((r) =
 );
 ```
 
-공통 API 모듈과 SCREEN 02 서버 연동을 적용했다. 화면 번호는 Figma 1118 기준이며 1115 API 명세의 SC 번호와 별개다.
+공통 API 모듈과 SCREEN 02·04·06·07 서버 연동을 적용했다. 화면 번호는 Figma 1118 기준이며 1115 API 명세의 SC 번호와 별개다.
 
 ## 11월 19일 계약과 배포 차이
 

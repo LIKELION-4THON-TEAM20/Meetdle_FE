@@ -9,6 +9,8 @@ import { roomScreenForEntry, serverRoomUrl, serverScreenUrl, shouldPollRoom } fr
 import { useRoomState } from './useRoomState';
 import { getCreatedRoom } from '../createdRoom/model';
 import ServerParticipation from '../../pages/ParticipationStatus/ServerParticipation';
+import ServerMeeting from '../../pages/MeetingConfirmed/ServerMeeting';
+import { meetingDetails } from './meeting';
 
 function serverErrorMessage(error: unknown) {
   if (error instanceof ApiRequestError) {
@@ -69,6 +71,8 @@ const screenTitles: Partial<Record<string, string>> = {
   [PATHS.candidates]: '일시·지역 후보',
   [PATHS.confirmed]: '일시·지역 확정',
   [PATHS.info]: '확정 약속 정보',
+  [PATHS.setup]: '장소 등록 설정',
+  [PATHS.places]: '장소 후보 등록',
   [PATHS.registration]: '장소 등록 현황',
   [PATHS.closeRegistration]: '장소 등록 종료',
   [PATHS.startVote]: '장소 투표 시작',
@@ -91,6 +95,25 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
 
   const room = state.room;
   const screen = roomScreenForEntry(room, requested);
+  if (screen === PATHS.confirmed || screen === PATHS.info) {
+    if (!meetingDetails(room)) {
+      return (
+        <RoomRequestStatus
+          roomId={roomId}
+          error={new Error('Meeting data unavailable')}
+          retry={() => void state.refresh()}
+        />
+      );
+    }
+    return (
+      <ServerMeeting
+        key={room.me.participantId + screen + room.meeting?.selectionId}
+        room={room}
+        now={state.serverNow ?? Date.parse(room.serverNow)}
+        confirmation={screen === PATHS.confirmed}
+      />
+    );
+  }
   if (screen === PATHS.recruitment || screen === PATHS.participation) {
     return (
       <ServerParticipation
