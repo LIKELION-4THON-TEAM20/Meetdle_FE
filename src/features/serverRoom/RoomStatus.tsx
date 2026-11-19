@@ -123,7 +123,9 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
     (!requested && screen === PATHS.result) ||
     (requested &&
       requested !== screen &&
-      (requestedVoteScreen || registrationScreens.includes(requested)) &&
+      (requestedVoteScreen ||
+        registrationScreens.includes(requested) ||
+        requested === PATHS.setup) &&
       !keepReceipt &&
       !state.error)
   ) {
@@ -185,14 +187,6 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
         onAccepted={(revision) => setAccepted({ revision, participantId: room.me.participantId })}
       />
     );
-  }
-  if (requested === PATHS.setup && screen !== requested) {
-    const destination = (
-      [PATHS.places, PATHS.registration, PATHS.info, PATHS.confirmed] as string[]
-    ).includes(screen)
-      ? serverScreenUrl(screen, roomId, room.meeting?.selectionId)
-      : serverRoomUrl(roomId);
-    return <Navigate to={destination} replace />;
   }
   if (screen === PATHS.setup) {
     if (

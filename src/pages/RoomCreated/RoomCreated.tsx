@@ -10,6 +10,7 @@ import MeetingInfoCard from './components/MeetingInfoCard';
 import InviteCodeCopy from './components/InviteCodeCopy';
 import type { MeetingInfo } from './types';
 import { useRoomState } from '../../features/serverRoom/useRoomState';
+import { serverRoomUrl } from '../../features/serverRoom/routing';
 import { RoomRequestStatus } from '../../features/serverRoom/RoomStatus';
 import { prepareKakaoShare, shareKakaoInvite } from '../../features/serverRoom/kakaoInviteShare';
 import type { CreateRoomResponse } from '../../api/types';
@@ -66,6 +67,7 @@ function CreatedView({
   message,
   dismiss,
   onBack,
+  roomUrl,
 }: {
   meeting: MeetingInfo;
   inviteCode?: string;
@@ -75,6 +77,7 @@ function CreatedView({
   message?: ToastMessage | null;
   dismiss?: () => void;
   onBack?: () => void;
+  roomUrl?: string;
 }) {
   const goBack = useRoomBack(PATHS.create);
   return (
@@ -102,6 +105,11 @@ function CreatedView({
         >
           링크 복사하기
         </Button>
+        {roomUrl && (
+          <Link className="room-created__home-link" to={roomUrl}>
+            약속방으로 이동<span aria-hidden="true">↗</span>
+          </Link>
+        )}
         <Link className="room-created__home-link" to={PATHS.home}>
           홈으로 돌아가기<span aria-hidden="true">↗</span>
         </Link>
@@ -154,6 +162,7 @@ export function ServerRoomCreated({ roomId }: { roomId: string }) {
       meeting={meeting}
       inviteCode={available ? invite.code : undefined}
       inviteUrl={available ? invite.inviteUrl : undefined}
+      roomUrl={serverRoomUrl(roomId)}
       onBack={() => navigate(PATHS.create)}
       share={() => {
         if (!available) return;
