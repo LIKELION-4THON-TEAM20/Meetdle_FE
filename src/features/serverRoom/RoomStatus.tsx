@@ -8,6 +8,7 @@ import Button from '../../components/common/Button/Button';
 import { PATHS } from '../../router/paths';
 import { roomScreenForEntry, serverRoomUrl, serverScreenUrl, shouldPollRoom } from './routing';
 import { ServerSchedule } from '../../router/ScheduleApiRoutes';
+import { ServerCandidates } from '../planning/PlanningRoutes';
 import { useRoomState } from './useRoomState';
 import { getCreatedRoom } from '../createdRoom/model';
 import ServerParticipation from '../../pages/ParticipationStatus/ServerParticipation';
@@ -241,8 +242,23 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
     );
   }
   if (screen === PATHS.schedule) return <ServerSchedule key={roomId} roomId={roomId} />;
-  if (requested !== screen && screen === PATHS.candidates) {
-    return <Navigate to={serverScreenUrl(screen, roomId)} replace />;
+  if (screen === PATHS.candidates) {
+    if (requested !== screen) return <Navigate to={serverScreenUrl(screen, roomId)} replace />;
+    if (room.me.role !== 'HOST')
+      return (
+        <RoomRequestStatus
+          roomId={roomId}
+          error={new ApiRequestError(403, { code: 'FORBIDDEN', message: 'Host only' })}
+          retry={() => void state.refresh()}
+        />
+      );
+    return (
+      <ServerCandidates
+        key={`${room.roomId}:${room.me.participantId}:${room.options?.optionsId}:${room.meeting?.selectionId}:${state.receivedAt}`}
+        state={room}
+        reload={() => void state.refresh()}
+      />
+    );
   }
   const deadline =
     room.voting?.closesAt ??

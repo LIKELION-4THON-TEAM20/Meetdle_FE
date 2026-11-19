@@ -53,6 +53,12 @@ export function roomScreenForEntry(room: RoomState, requested?: string) {
   if (requested === PATHS.voteStatus && room.phase === 'VOTING_OPEN') return requested;
   if (requested === PATHS.closeRegistration && room.phase === 'PLACE_SUBMISSION_CLOSED')
     return requested;
+  if (
+    requested === PATHS.candidates &&
+    ['WAITING_FOR_DEPARTURE', 'OPTIONS_READY'].includes(room.phase) &&
+    room.me.role === 'HOST'
+  )
+    return requested;
   if (room.meeting) {
     const actions = meetingActions(room);
     if (requested === PATHS.info) return requested;

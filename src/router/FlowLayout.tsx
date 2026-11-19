@@ -19,7 +19,8 @@ export default function FlowLayout() {
   const id = params.get('roomId');
   if (id && isServerRoomId(id) && !getCreatedRoom(id)) {
     if (pathname === PATHS.schedule) return <ServerSchedule key={id} roomId={id} />;
-    if (pathname === PATHS.participation) return <ServerRoomHandoff roomId={id} path={pathname} />;
+    if ([PATHS.participation, PATHS.candidates, PATHS.confirmed].some((path) => path === pathname))
+      return <ServerRoomHandoff key={id + pathname} roomId={id} path={pathname} />;
   }
   if (params.get('mode') === 'api' && pathname.startsWith('/rooms/')) {
     if (!id || !isServerRoomId(id) || getCreatedRoom(id)) {
@@ -72,6 +73,12 @@ export function CreatedRoomLayout() {
   const { search, pathname } = useLocation();
   const params = new URLSearchParams(search);
   const id = params.get('roomId');
+  if (
+    id &&
+    isServerRoomId(id) &&
+    (pathname === PATHS.participation || pathname === PATHS.candidates)
+  )
+    return <Outlet />;
   const code = params.get('code');
   // #26의 실제 서버 입력·현황만 통과시키고, 목 방 복구는 기존 경로를 유지한다.
   if (id && isServerRoomId(id) && (pathname === PATHS.schedule || pathname === PATHS.participation))

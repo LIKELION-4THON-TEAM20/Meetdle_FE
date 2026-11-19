@@ -346,3 +346,19 @@ fetch('https://api.meetdle.co.kr/api/me', { credentials: 'include' }).then(({ st
 ## #26 일정 입력 연결 (2026-11-19)
 
 A08/A09/A10을 실제 UUID 일정 입력·참여 현황 경로에 연결했다. 공통 API 코드 변경 없이 기존 함수·DTO·CSRF 처리를 사용한다. 기존 목 경로를 유지하고 실제 요청 실패 시 목 응답으로 대체하지 않는다. 복원·전체 교체·revision 충돌·PUT 응답 유실 후 재조회 정책과 CORS 검증은 [SCREEN03_API.md](./SCREEN03_API.md)에 정리했다. 이 브랜치에는 #25/#27/#28의 화면 연동을 포함하지 않는다.
+
+백엔드에 `http://localhost:5173` Origin 허용, credentialed GET·POST·PUT·OPTIONS와 요청 헤더 허용, 로그인·초대 복귀 허용 URL을 확인한다. localhost와 API는 교차 사이트이므로 세션 쿠키의 SameSite/Secure 및 브라우저의 타사 쿠키 설정으로 실제 전송이 되는지도 확인해야 한다. 이 단계의 서버 검증은 GET과 OPTIONS로 수행했다.
+
+## #27 구현 경계 (2026-11-19)
+
+참여 현황 CTA가 A11을 소유하고 후보 화면은 A08 조회만 수행한다. A12 후 서버 meeting을 A08로 확인해 서버용 확정 화면에 전달한다. `features/planning/`에 요청 작업·표시 어댑터·UUID 전용 라우트를 추가했으며 기존 공통 클라이언트/DTO, #25·#26 미병합 작업, #28 화면은 변경하지 않았다. 목 미리보기는 기존 경로로 유지한다. 매핑·재시도·검증 및 후속 등록 화면 연결 경계는 [SCREEN05.md](./SCREEN05.md)를 따른다.
+
+Notion 개별 A11/A12 페이지는 이번 작업에서 연결된 계정으로 조회할 수 있었다. 배포 Swagger와 필드는 일치하며, required/nullable와 일부 오류 정의 누락은 기존 계약을 따른다. 실서버에는 GET·OPTIONS만 보냈다. 2026-11-19의 이전 관측은 localhost 403이었으나, 2026-11-20 재확인에서는 비인증 GET 401·사전 요청 200이다. 실제 인증 세션과 POST/PUT 성공 검증은 남아 있다.
+
+## #27 최신 develop 연결 보완 (2026-11-20)
+
+- A11 호출은 공통 ServerParticipation·createParticipationCommands가 소유한다. 같은 사용자 동작의 POST 핸들을 유지해 재시도 시 inputVersion과 Idempotency-Key를 재사용한다.
+- 후보 화면은 A08 options를 사용하고 서버의 시각·지역 순서, 참여자별 이동 시간·환승을 표시한다. mode=api 및 기존 UUID 진입을 공통 RoomState 분기로 통합했다.
+- A12에는 optionsId·slotId·candidateId와 최초 null/재선택 시 현재 expectedSelectionId만 전송한다. 성공 후 A08의 meeting을 확인하고 기존 서버 확정 화면으로 이동한다.
+- A12 응답 유실·5xx·성공 후 GET 실패는 PUT 반복 없이 결과를 재조회한다. 명시적 4xx 거절은 성공으로 처리하지 않는다. 최신 상태 재조회 뒤에는 새 후보·기대 버전을 사용자가 확인한 후 다시 제출한다.
+- 임시 참여 현황·확정 UI를 제거하고 develop의 실제 담당 화면을 재사용한다. #25·#26·#28 미병합 브랜치는 포함하지 않는다. 상세 검증·실서버 미검증 범위는 SCREEN05.md를 참고한다.
