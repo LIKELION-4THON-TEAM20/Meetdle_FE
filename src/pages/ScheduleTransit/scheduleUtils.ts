@@ -11,7 +11,10 @@ import type {
 const SUPPORTED_LINE_IDS = new Set(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
 
 export function isSupportedStation(station: Station): boolean {
-  return station.lines.some((line) => SUPPORTED_LINE_IDS.has(line.id));
+  return (
+    station.serverSelectable === true ||
+    station.lines.some((line) => SUPPORTED_LINE_IDS.has(line.id))
+  );
 }
 
 export function normalizeStationQuery(query: string): string {

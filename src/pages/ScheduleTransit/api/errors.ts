@@ -9,7 +9,7 @@ export function scheduleErrorMessage(error: unknown): string {
     if (error.code === 'INPUT_LOCKED' || error.code === 'WRONG_PHASE')
       return '이미 입력을 완료했거나 입력 가능한 단계가 아니에요. 최신 상태를 확인해주세요.';
     if (error.code === 'UNSUPPORTED_STATION')
-      return '지원하지 않는 역이에요. 서울 지하철 1~9호선 역을 다시 선택해주세요.';
+      return '지원하지 않는 역이에요. 역을 다시 검색해 선택해주세요.';
     if (error.code === 'INPUT_INCOMPLETE')
       return '가능 시간과 출발역·이후 목적지를 모두 선택해주세요.';
     if (error.code === 'INVALID_SLOT')

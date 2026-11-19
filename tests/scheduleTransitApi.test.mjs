@@ -75,7 +75,11 @@ test('역 UUID와 실제 노선을 보존하고 숫자/호선 문자열 및 환�
     { id: '7', name: '7호선' },
   ]);
   assert.equal(isSupportedStation(ui), true);
-  assert.equal(isSupportedStation(toUiStation({ ...station, lines: ['경춘선'] })), false);
+  assert.equal(isSupportedStation(toUiStation({ ...station, lines: ['경춘선'] })), true);
+  assert.equal(
+    isSupportedStation({ id: 'mock', name: '목 역', lines: [{ id: '경춘선', name: '경춘선' }] }),
+    false,
+  );
   assert.throws(() => toUiStation({ ...station, stationId: 'nowon' }), {
     code: 'INVALID_RESPONSE',
   });

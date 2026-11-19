@@ -5,14 +5,26 @@ import type { ResultCategory, ResultRole } from '../types';
 import { moveVisitOrder } from '../resultUtils';
 
 interface Props {
-  categories: ResultCategory[];
+  categories: Array<{ id: string; name: string; place: Pick<ResultCategory['place'], 'name'> }>;
   order: string[];
   role: ResultRole;
   onClose: () => void;
   onSave: (order: string[]) => void;
+  busy?: boolean;
+  error?: string;
+  onRetry?: () => void;
 }
 
-export default function VisitOrderSheet({ categories, order, role, onClose, onSave }: Props) {
+export default function VisitOrderSheet({
+  categories,
+  order,
+  role,
+  onClose,
+  onSave,
+  busy,
+  error,
+  onRetry,
+}: Props) {
   const [draft, setDraft] = useState(() => [...order]);
   const [dragging, setDragging] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
@@ -21,7 +33,7 @@ export default function VisitOrderSheet({ categories, order, role, onClose, onSa
   const drag = useRef<{ id: string; pointerId: number; original: string[] } | null>(null);
   const host = role === 'host';
   const move = (id: string, target: number) => {
-    if (!host) return;
+    if (!host || busy) return;
     setDraft((previous) => moveVisitOrder(previous, id, target));
     setAnnouncement(`${target + 1}번째 순서로 이동했어요.`);
   };
@@ -96,6 +108,7 @@ export default function VisitOrderSheet({ categories, order, role, onClose, onSa
                 {host && (
                   <button
                     type="button"
+                    disabled={busy}
                     className="visit-order-sheet__handle"
                     aria-label={`${category.place.name} 순서 변경, 위아래 방향키로 이동`}
                     onKeyDown={(event) => {
@@ -125,7 +138,7 @@ export default function VisitOrderSheet({ categories, order, role, onClose, onSa
       {host && (
         <>
           <Button
-            disabled={dragging !== null}
+            disabled={dragging !== null || busy}
             onClick={() => {
               if (host) onSave(draft);
             }}
@@ -133,6 +146,12 @@ export default function VisitOrderSheet({ categories, order, role, onClose, onSa
             순서 저장하기
           </Button>
         </>
+      )}
+      {error && <p role="alert">{error}</p>}
+      {onRetry && (
+        <Button variant="secondary" onClick={onRetry}>
+          결과 상태 다시 확인
+        </Button>
       )}
     </Modal>
   );

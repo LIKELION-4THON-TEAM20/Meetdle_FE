@@ -1,8 +1,9 @@
-import { createBrowserRouter, Link } from 'react-router';
+import { createBrowserRouter, Link, Navigate } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
 import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
-import { ScheduleTransitEntryRoute, ScheduleParticipationEntryRoute } from './ScheduleApiRoutes';
+import { ScheduleTransitEntryRoute } from './ScheduleApiRoutes';
+import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatus';
 import RoomRecruitment from '../pages/ParticipationStatus/RoomRecruitment';
 import TimeRegionCandidates from '../pages/TimeRegionCandidates/TimeRegionCandidates';
 import MeetingConfirmed from '../pages/MeetingConfirmed/MeetingConfirmed';
@@ -21,11 +22,16 @@ import LoginRoute from './LoginRoute';
 import HomeRoute from './HomeRoute';
 import { PATHS } from './paths';
 import PlaceExplorationRoute from './PlaceExplorationRoute';
+import ServerRoomRoute from '../features/serverRoom/RoomStatus';
+import ServerRoomInvitation from '../pages/RoomInvitation/ServerRoomInvitation';
 
 export const router = createBrowserRouter([
   {
     element: <FlowLayout />,
     children: [
+      { path: '/rooms', element: <Navigate to={PATHS.home} replace /> },
+      { path: '/rooms/:roomId', element: <ServerRoomRoute /> },
+      { path: '/invite/:inviteToken', element: <ServerRoomInvitation /> },
       {
         element: <MockRoomLayout />,
         children: [
@@ -75,7 +81,7 @@ export const router = createBrowserRouter([
           },
           {
             path: PATHS.participation,
-            element: <ScheduleParticipationEntryRoute />,
+            element: <ParticipationStatus />,
           },
           {
             path: PATHS.candidates,

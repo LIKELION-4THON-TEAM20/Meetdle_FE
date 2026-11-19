@@ -112,6 +112,14 @@ function sdkFixture() {
       this.center = new LatLng(0, 0);
       this.level = 6;
     }
+    getProjection() {
+      return {
+        containerPointFromCoords: (coords) => ({
+          x: 167.5 + ((coords.getLng() - this.center.getLng()) * 10000) / 2 ** (this.level - 6),
+          y: 209.5 - ((coords.getLat() - this.center.getLat()) * 10000) / 2 ** (this.level - 6),
+        }),
+      };
+    }
     getCenter() {
       return this.center;
     }
@@ -138,7 +146,13 @@ function sdkFixture() {
   class Circle {
     constructor(options) {
       this.options = options;
-      this.bounds = { circle: this };
+      this.bounds = {
+        circle: this,
+        getSouthWest: () =>
+          new LatLng(options.center.getLat() - 0.025, options.center.getLng() - 0.025),
+        getNorthEast: () =>
+          new LatLng(options.center.getLat() + 0.025, options.center.getLng() + 0.025),
+      };
       log.circles.push(this);
     }
     getBounds() {
@@ -222,7 +236,23 @@ test('SDK contract: Circle uses backend coordinates/meters; reset fits bounds an
   const { log, maps } = sdkFixture();
   const snapshot = createExplorationMock(now);
   let selected = null;
+  const makeElement = () => ({
+    style: {},
+    children: [],
+    setAttribute() {},
+    append(child) {
+      this.children.push(child);
+    },
+    remove() {
+      this.removed = true;
+    },
+  });
+  const parent = makeElement();
   const node = {
+    clientWidth: 335,
+    clientHeight: 430,
+    parentElement: parent,
+    ownerDocument: { createElement: makeElement },
     replaceChildren() {
       this.cleared = true;
     },
@@ -232,7 +262,7 @@ test('SDK contract: Circle uses backend coordinates/meters; reset fits bounds an
   assert.equal(log.circles[0].options.radius, 2500);
   assert.equal(log.circles[0].options.center.getLat(), snapshot.area.center.latitude);
   assert.equal(log.bounds[0].bounds, log.circles[0].getBounds());
-  assert.deepEqual(log.bounds[0].padding, [36, 36, 36, 36]);
+  assert.deepEqual(log.bounds[0].padding, [12, 12, 12, 12]);
   controller.update(snapshot.recommendations, null);
   const first = log.markers[0];
   log.listeners.get(first).get('click')();
@@ -244,15 +274,42 @@ test('SDK contract: Circle uses backend coordinates/meters; reset fits bounds an
   assert.equal(log.maps.length, 1);
   assert.equal(log.bounds.length, before);
   assert.equal(first.z, 10);
+  assert.match(decodeURIComponent(first.image.url), /#ABA9B2/i);
+  assert.equal(first.image.size.width, 30);
+  assert.equal(first.image.options.offset.y, first.image.size.height);
+  controller.update(snapshot.recommendations, selected, [selected]);
+  assert.match(decodeURIComponent(first.image.url), /#7C5CFF/i);
+  assert.equal(first.image.size.width, 30);
+  controller.update(snapshot.recommendations, null, [selected]);
+  assert.equal(first.image.size.width, 20);
+  assert.match(decodeURIComponent(first.image.url), /#7C5CFF/i);
+  const cafe = snapshot.recommendations.find((place) => place.categoryId === 'cafe');
+  controller.update(snapshot.recommendations, cafe.id, [selected]);
+  const cafeMarker = log.markers.find((entry) => entry.options.title === cafe.name);
+  assert.match(decodeURIComponent(cafeMarker.image.url), /#ABA9B2/i);
+  assert.equal(cafeMarker.image.size.width, 30);
+  controller.update(snapshot.recommendations, cafe.id, [cafe.id]);
+  assert.match(decodeURIComponent(cafeMarker.image.url), /#7C5CFF/i);
+  const shade = parent.children[0];
+  const tile = shade.children[0];
+  assert.match(decodeURIComponent(tile.children[0].src), /#EEEEF0/);
+  const beforeTransform = tile.style.transform;
+  log.maps[0].setLevel(8);
+  assert.equal(log.listeners.get(log.maps[0])?.has('bounds_changed') ?? false, false);
+  assert.equal(tile.style.transform, beforeTransform);
+  log.maps[0].setLevel(10);
+  assert.equal(log.circles[0].options.fillOpacity, 0);
   controller.resize();
   assert.equal(log.maps[0].getCenter().getLng(), 128);
   assert.equal(log.maps[0].getLevel(), 10);
+  assert.equal(tile.style.transform, beforeTransform);
   controller.fit();
   assert.equal(log.bounds.at(-1).bounds, log.circles[0].getBounds());
   assert.equal(log.circles[0].options.radius, 2500);
   controller.dispose();
   assert.equal(log.circles[0].map, null);
   assert.equal(node.cleared, true);
+  assert.equal(shade.removed, true);
   assert.equal(log.removed, 1);
   assert(log.markers.every((m) => m.map === null));
   assert([...log.listeners.values()].every((m) => m.size === 0));

@@ -44,6 +44,7 @@ export function toUiStation(station: ApiStation): Station {
   )
     invalidScheduleResponse('Invalid station');
   return {
+    serverSelectable: true,
     id: station.stationId,
     name: station.name,
     lines: station.lines.map((name) => {

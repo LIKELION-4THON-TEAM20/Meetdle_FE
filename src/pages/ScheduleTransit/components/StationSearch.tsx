@@ -152,7 +152,13 @@ function StationSearch({
           <p>현재 Meetdle은 서울 지하철 1~9호선 역만 지원해요.</p>
         ) : (
           !isDestination &&
-          (!hasQuery || results.length > 0) && <p>* 서울 지하철 1~9호선 역을 검색할 수 있어요.</p>
+          (!hasQuery || results.length > 0) && (
+            <p>
+              {serverResults
+                ? '* 검색 결과에서 출발역을 선택해주세요.'
+                : '* 서울 지하철 1~9호선 역을 검색할 수 있어요.'}
+            </p>
+          )
         )}
         {isDestination && (
           <>

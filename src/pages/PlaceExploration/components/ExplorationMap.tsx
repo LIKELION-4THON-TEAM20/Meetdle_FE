@@ -9,6 +9,7 @@ interface ExplorationMapProps {
   area: ExplorationArea;
   places: readonly RecommendedPlace[];
   selectedId: string | null;
+  registeredIds?: readonly string[];
   onSelect: (id: string) => void;
   appKey?: string;
 }
@@ -17,6 +18,7 @@ function ExplorationMap({
   area,
   places,
   selectedId,
+  registeredIds = [],
   onSelect,
   appKey = import.meta.env.VITE_KAKAO_MAP_APP_KEY,
 }: ExplorationMapProps) {
@@ -79,8 +81,8 @@ function ExplorationMap({
     };
   }, [appKey, latitude, longitude, radius, attempt]);
   useEffect(() => {
-    if (status === 'ready') controllerRef.current?.update(places, selectedId);
-  }, [status, places, selectedId, generation]);
+    if (status === 'ready') controllerRef.current?.update(places, selectedId, registeredIds);
+  }, [status, places, selectedId, registeredIds, generation]);
 
   return (
     <section className="exploration-map" aria-label="추천 장소 지도">

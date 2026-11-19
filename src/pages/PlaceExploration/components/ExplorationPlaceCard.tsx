@@ -3,7 +3,7 @@ import Button from '../../../components/common/Button/Button';
 import PlaceDetailLink from './PlaceDetailLink';
 import restaurantThumbnail from '../../../assets/place-exploration/restaurant-thumbnail.svg';
 import cafeThumbnail from '../../../assets/place-exploration/cafe-thumbnail.svg';
-import pubThumbnail from '../../../assets/place-exploration/pub-thumbnail.png';
+import pubThumbnail from '../../../assets/place-exploration/pub-thumbnail.svg';
 import cultureThumbnail from '../../../assets/place-exploration/culture-thumbnail.svg';
 import { formatDistance } from '../placeUtils';
 import type { RecommendedPlace } from '../types';
@@ -38,23 +38,24 @@ function ExplorationPlaceCard({
 }: ExplorationPlaceCardProps) {
   const descriptionId = useId();
   const [failedImage, setFailedImage] = useState<string | null>(null);
-  const thumbnail =
-    place.imageUrl?.trim() && place.imageUrl !== failedImage
-      ? place.imageUrl
-      : CATEGORY_THUMBNAILS[place.categoryId];
+  const hasImage = !!place.imageUrl?.trim() && place.imageUrl !== failedImage;
+  const thumbnail = hasImage ? place.imageUrl : CATEGORY_THUMBNAILS[place.categoryId];
   return (
     <article
       className={`exploration-place-card${selected ? ' exploration-place-card--selected' : ''}`}
       aria-label={`${place.name}, ${categoryLabel}`}
     >
-      <img
-        className="exploration-place-card__thumb"
-        src={thumbnail}
-        alt=""
-        onError={() => {
-          if (place.imageUrl && thumbnail === place.imageUrl) setFailedImage(place.imageUrl);
-        }}
-      />
+      <div className="exploration-place-card__thumb-frame">
+        <img
+          className="exploration-place-card__thumb"
+          data-fallback={!hasImage}
+          src={thumbnail}
+          alt=""
+          onError={() => {
+            if (place.imageUrl && thumbnail === place.imageUrl) setFailedImage(place.imageUrl);
+          }}
+        />
+      </div>
       <div className="exploration-place-card__info">
         <h3 title={place.name}>{place.name}</h3>
         <p className="exploration-place-card__distance">
@@ -68,6 +69,7 @@ function ExplorationPlaceCard({
         {showRegister && (
           <Button
             className="exploration-place-card__register"
+            data-registered={registered}
             disabled={registered || !!blocked || pending}
             aria-label={`${place.name} ${registered ? '이미 등록한 장소' : '등록하기'}`}
             aria-describedby={blocked ? descriptionId : undefined}

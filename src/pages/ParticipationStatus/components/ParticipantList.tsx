@@ -45,7 +45,10 @@ function ParticipantList({ participants, mode = 'input' }: ParticipantListProps)
       {participants.map((participant) => (
         <li key={participant.id} className="participant-list__row">
           <ParticipantAvatar key={participant.profileImageUrl} url={participant.profileImageUrl} />
-          <span className="participant-list__name">{participant.name}</span>
+          <span className="participant-list__name">
+            {participant.name}
+            {participant.role === 'HOST' && <small> · 방장</small>}
+          </span>
           <span
             className={`participant-list__badge participant-list__badge--${waiting ? 'waiting' : participant.status}`}
           >
