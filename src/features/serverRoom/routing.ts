@@ -2,6 +2,7 @@ import type { CreateRoomResponse, RoomState } from '../../api/types';
 import { isServerRoomId } from '../../api/rooms';
 import { PATHS } from '../../router/paths';
 import { meetingActions } from './meeting';
+import { registrationWindow } from '../../pages/PlaceRegistrationSetup/serverSetupModel';
 
 export function serverRoomUrl(roomId: string) {
   if (!isServerRoomId(roomId)) throw new TypeError('Invalid server room ID');
@@ -55,7 +56,18 @@ export function roomScreenForEntry(room: RoomState, requested?: string) {
     if (requested === PATHS.confirmed) {
       return actions.beforeRegistration && room.me.role === 'HOST' ? requested : PATHS.info;
     }
-    if (requested === PATHS.setup && actions.canSetup) return requested;
+    if (requested === PATHS.setup) {
+      if (
+        room.me.role === 'HOST' &&
+        actions.beforeRegistration &&
+        !room.registration &&
+        (actions.canSetup || !registrationWindow(room, Date.parse(room.serverNow)).canOpen)
+      ) {
+        return requested;
+      }
+      if (room.phase === 'PLACE_SUBMISSION_OPEN')
+        return actions.canRegister ? PATHS.places : PATHS.registration;
+    }
     if (requested === PATHS.candidates && actions.canReselect) return requested;
     if (requested === PATHS.places && actions.canRegister) return requested;
     if (requested === PATHS.registration && room.phase === 'PLACE_SUBMISSION_OPEN')

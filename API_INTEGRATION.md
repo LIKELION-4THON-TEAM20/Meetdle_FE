@@ -1,5 +1,13 @@
 # Meetdle API 연동 계획
 
+## SCREEN 08 서버 연동
+
+- SCREEN 06·07에서 `serverScreenUrl(PATHS.setup, roomId, selectionId)`로 진입한다. A08의 HOST, REGION_CONFIRMED, 현재 selectionId와 OPEN_COLLECTION을 기준으로 시작 권한을 확인한다. URL의 selectionId는 전달 힌트다. 이미 등록이 시작됐으면 최신 A08 권한에 따라 SCREEN 09 또는 10 경로로 이동한다.
+- A28에서 카테고리의 기본 필수 여부, 가용성, 검색 반경을 읽는다. 응답의 selectionId가 현재 A08과 다르면 설정을 사용하지 않는다. A13에는 사용 가능한 FOOD·CAFE·BAR 중 한 개 이상의 필수 카테고리만 전송한다. CULTURE는 선택으로 유지하고 가용한 선택 카테고리의 활성 여부는 서버가 관리한다. SCREEN 08에서 A14를 호출하지 않는다.
+- 마감 설정은 A08의 serverNow와 deadlinePolicy를 사용한다. 정책 필드가 없으면 6시간 경계의 60분·30분 최소값과 약속 시작 3시간 30분 전 상한을 적용한다. 기본 마감 요청은 closesAt을 생략하며 직접 선택 및 프리셋은 서울 시각에서 변환한 Instant를 전송한다. 시간 부족 시 SELECT_MEETING이 허용되면 SCREEN 05에서 재선택할 수 있다. A30은 별도 설정 초기화 동선에서 사용자 확인 후 연결할 대상이다.
+- A13은 동일 본문의 재시도에 같은 Idempotency-Key를 사용한다. 성공 또는 409 후 A08을 재조회한다. 쓰기 성공 뒤 읽기가 실패하면 상태 조회를 재시도한다. SCREEN 09는 같은 roomId의 최신 A08에서 meeting.station·selectionId, registration.round·categories·radiusMeters·closesAt과 allowedActions를 읽고 A14·A34·A35·A16을 연결한다. 본인 후보 한 곳이면 완료 가능하며 필수 충족은 방 전체 기준이다.
+- SCREEN 10·11은 같은 A08의 round·마감·등록 상태와 방장 허용 동작으로 연동한다. SCREEN 09·10의 서버 URL은 현재 공통 상태 화면까지 제공한다.
+
 ## SCREEN 06·07 서버 연동
 
 - SCREEN 05가 A08의 options를 읽고 A12를 실행한다. 성공 후 `serverRoomUrl(roomId)`로 이동하면 A08을 재조회해 확정 전후 상태를 복원한다. REGION_CONFIRMED에서는 HOST가 SCREEN 06, MEMBER가 SCREEN 07을 본다. 직접 접근은 `serverScreenUrl(PATHS.confirmed, roomId)` 또는 `serverScreenUrl(PATHS.info, roomId)`를 사용한다.

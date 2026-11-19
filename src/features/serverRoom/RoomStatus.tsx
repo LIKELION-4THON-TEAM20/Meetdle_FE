@@ -1,4 +1,5 @@
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
+import { useState } from 'react';
 import { startKakaoLogin } from '../../api/auth';
 import { ApiRequestError } from '../../api/client';
 import { isServerRoomId } from '../../api/rooms';
@@ -11,6 +12,7 @@ import { getCreatedRoom } from '../createdRoom/model';
 import ServerParticipation from '../../pages/ParticipationStatus/ServerParticipation';
 import ServerMeeting from '../../pages/MeetingConfirmed/ServerMeeting';
 import { meetingDetails } from './meeting';
+import ServerRegistrationSetup from '../../pages/PlaceRegistrationSetup/ServerRegistrationSetup';
 
 function serverErrorMessage(error: unknown) {
   if (error instanceof ApiRequestError) {
@@ -87,6 +89,7 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
     return screen === PATHS.recruitment || screen === PATHS.participation || shouldPollRoom(room);
   });
   const navigate = useNavigate();
+  const [opened, setOpened] = useState<{ selectionId: string; participantId: string } | null>(null);
   if (!state.room || state.error) {
     return (
       <RoomRequestStatus roomId={roomId} error={state.error} retry={() => void state.refresh()} />
@@ -95,6 +98,36 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
 
   const room = state.room;
   const screen = roomScreenForEntry(room, requested);
+  if (requested === PATHS.setup && screen !== requested) {
+    const destination = (
+      [PATHS.places, PATHS.registration, PATHS.info, PATHS.confirmed] as string[]
+    ).includes(screen)
+      ? serverScreenUrl(screen, roomId, room.meeting?.selectionId)
+      : serverRoomUrl(roomId);
+    return <Navigate to={destination} replace />;
+  }
+  if (screen === PATHS.setup) {
+    if (
+      opened?.selectionId === room.meeting?.selectionId &&
+      opened?.participantId === room.me.participantId
+    ) {
+      return (
+        <RoomRequestStatus
+          roomId={roomId}
+          error={state.loading ? null : new Error('Registration state has not updated yet')}
+          retry={() => void state.refresh()}
+        />
+      );
+    }
+    return (
+      <ServerRegistrationSetup
+        key={room.me.participantId + room.meeting?.selectionId}
+        room={room}
+        state={state}
+        onOpened={(selectionId) => setOpened({ selectionId, participantId: room.me.participantId })}
+      />
+    );
+  }
   if (screen === PATHS.confirmed || screen === PATHS.info) {
     if (!meetingDetails(room)) {
       return (
