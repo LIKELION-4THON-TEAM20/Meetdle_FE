@@ -6,17 +6,47 @@ const roomId = '01234567-89ab-4cde-8f01-23456789abcd';
 const deadline = '2026-11-20T09:00:00Z';
 const requests = [];
 let stateRoomId = roomId;
+let detailResponse = false;
+const registeredCandidate = {
+  candidateId: 'abcdef01-2345-4cde-8f01-23456789abcd',
+  place: {
+    name: 'Test cafe',
+    address: 'Test address',
+    lat: 37.5,
+    lng: 127,
+    category: 'CAFE',
+    detailUrl: null,
+    imageUrl: null,
+  },
+};
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (url, options) => {
   const path = url.pathname;
-  requests.push({ path, options });
+  requests.push({ path, options, query: Object.fromEntries(url.searchParams) });
   if (path === '/api/me') {
     return Response.json({
       user: { userId: roomId, nickname: '테스트' },
       csrfToken: 'test-csrf',
     });
   }
-  if (path.endsWith('/state')) return Response.json({ roomId: stateRoomId, revision: 3 });
+  if (path.endsWith('/state')) {
+    return Response.json(
+      detailResponse
+        ? {
+            roomId,
+            registration: { round: 2, myCandidates: [registeredCandidate] },
+            allowedActions: ['EDIT_NOMINATION'],
+          }
+        : { roomId: stateRoomId, revision: 3 },
+    );
+  }
+  if (path.endsWith('/share')) return Response.json({ purpose: 'RESULT', recipients: [] });
+  if (path.endsWith('/candidates')) return Response.json({ candidateId: roomId });
+  if (detailResponse) return new Response(null, { status: 204 });
+  if (path.endsWith('/settings')) return new Response('OK');
+  if (options.method === 'DELETE' || path.endsWith('/start') || path.endsWith('/confirmation')) {
+    return new Response(null, { status: 200 });
+  }
   return new Response(null, { status: 204 });
 };
 
@@ -30,7 +60,9 @@ after(async () => {
   globalThis.fetch = realFetch;
   await server.close();
 });
-const { getRoomState, roomMutations } = await server.ssrLoadModule('/src/api/rooms.ts');
+const { getRoomShare, getRoomState, roomMutations } =
+  await server.ssrLoadModule('/src/api/rooms.ts');
+const { getKakaoStartUrl } = await server.ssrLoadModule('/src/api/auth.ts');
 const { toApiCategory, toUiCategory, toApiRole, toUiRole, toApiVote, toUiVote } =
   await server.ssrLoadModule('/src/api/mappers.ts');
 
@@ -98,4 +130,91 @@ test('카테고리, 역할과 선호도는 wire 값과 UI 값 사이를 왕복�
   assert.equal(toApiCategory.pub, 'BAR');
   assert.equal(toApiRole.PARTICIPANT, 'MEMBER');
   assert.equal(toApiVote.neutral, 'NEUTRAL');
+});
+
+test('new room operations preserve methods, round query, and CSRF', async () => {
+  const round = 2;
+  const start = { expectedRevision: 3 };
+  const update = { ...start, dates: { from: '2026-11-20', through: '2026-11-21' } };
+  const confirm = { round, resultRevision: 4 };
+  const candidate = { round, category: 'FOOD', pickToken: 'test-token' };
+  const operations = [
+    [roomMutations.start(roomId, start), 'POST', '/start', start],
+    [roomMutations.updateSettings(roomId, update), 'PUT', '/settings', update],
+    [roomMutations.confirmResult(roomId, confirm), 'PUT', '/result/confirmation', confirm],
+    [
+      roomMutations.addCandidate(roomId, candidate),
+      'POST',
+      '/place-submission/me/candidates',
+      candidate,
+    ],
+    [
+      roomMutations.removeCandidate(roomId, roomId, round),
+      'DELETE',
+      '/place-submission/me/candidates/' + roomId,
+    ],
+    [roomMutations.hidePastRoom(roomId), 'DELETE', ''],
+  ];
+  assert.throws(
+    () => roomMutations.removeCandidate(roomId, '../completion', round),
+    /candidate UUID/,
+  );
+  for (const [mutation, method, suffix, body] of operations) {
+    const response = await mutation.execute();
+    const { path, query, options } = requests.at(-1);
+    assert.equal(path, '/api/rooms/' + roomId + suffix);
+    assert.equal(options.method, method);
+    assert.equal(options.body, JSON.stringify(body));
+    assert.equal(options.headers['X-CSRF-TOKEN'], 'test-csrf');
+    assert.equal(options.credentials, 'include');
+    assert.equal(Boolean(options.headers['Idempotency-Key']), suffix === '/settings');
+    assert.deepEqual(query, method === 'DELETE' && suffix ? { round: '2' } : {});
+    assert.deepEqual(response, body === candidate ? { candidateId: roomId } : undefined);
+  }
+});
+
+test('share purpose and OAuth return parameters are encoded as query values', async () => {
+  const signal = new AbortController().signal;
+  assert.deepEqual(await getRoomShare(roomId, 'RESULT', signal), {
+    purpose: 'RESULT',
+    recipients: [],
+  });
+  assert.deepEqual(requests.at(-1).query, { purpose: 'RESULT' });
+  assert.equal(requests.at(-1).options.signal, signal);
+  const returnTo = '/rooms/' + roomId;
+  const returnOrigin = 'http://localhost:5173';
+  const url = getKakaoStartUrl({ returnTo, returnOrigin });
+  assert.equal(url.pathname, '/api/auth/kakao/start');
+  assert.deepEqual(Object.fromEntries(url.searchParams), { returnTo, returnOrigin });
+  assert.equal(getKakaoStartUrl({ inviteToken: 'token' }).searchParams.get('inviteToken'), 'token');
+});
+
+test('detailed contract empty 204 responses work with existing room mutation handles', async () => {
+  detailResponse = true;
+  try {
+    const { allowedActions, registration } = await getRoomState(roomId);
+    assert.ok(allowedActions.includes('EDIT_NOMINATION'));
+    assert.deepEqual(registration.myCandidates, [registeredCandidate]);
+    const [{ candidateId }] = registration.myCandidates;
+    await roomMutations.removeCandidate(roomId, candidateId, registration.round).execute();
+    assert.equal(
+      requests.at(-1).path,
+      `/api/rooms/${roomId}/place-submission/me/candidates/${candidateId}`,
+    );
+    assert.deepEqual(requests.at(-1).query, { round: '2' });
+    const operations = [
+      roomMutations.start(roomId, { expectedRevision: 3 }),
+      roomMutations.updateSettings(roomId, {
+        title: null,
+        dates: { from: '2026-11-20', through: '2026-11-21' },
+        capacity: 4,
+        expectedRevision: 4,
+      }),
+      roomMutations.hidePastRoom(roomId),
+      roomMutations.confirmResult(roomId, { round: 2, resultRevision: 4 }),
+    ];
+    for (const operation of operations) assert.equal(await operation.execute(), undefined);
+  } finally {
+    detailResponse = false;
+  }
 });

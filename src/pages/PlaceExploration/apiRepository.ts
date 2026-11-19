@@ -28,6 +28,7 @@ export function displayPlace(place: Place, item?: PlaceSearchItem): RecommendedP
     categoryId: toUiCategory[place.category],
     coordinates: { latitude: place.lat, longitude: place.lng },
     distanceMeters: item?.distanceMeters,
+    ...(typeof place.imageUrl === 'string' ? { imageUrl: place.imageUrl } : {}),
     kakaoPlaceId: null,
     kakaoMapUrl: place.detailUrl,
     eligible: !!item?.registrable && !!item.pickToken,
@@ -44,24 +45,43 @@ export function registrationEditable(state: RoomState, now: number) {
     now < Date.parse(r.closesAt)
   );
 }
-export function missingNominations(state: RoomState) {
-  return (
-    state.registration?.categories.filter(
-      (category) =>
-        category.required &&
-        !state.registration!.myNominations.some((place) => place.category === category.category),
-    ) ?? []
-  );
+export function registeredCandidates(state: RoomState) {
+  const candidates = state.registration?.myCandidates;
+  if (
+    !Array.isArray(candidates) ||
+    candidates.some(
+      (c) => !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(c.candidateId) || !c.place,
+    )
+  )
+    throw new TypeError('Expected registration.myCandidates with server candidate IDs');
+  return candidates;
+}
+export function canCompleteRegistration(state: RoomState) {
+  return !!state.registration && registeredCandidates(state).length > 0;
 }
 
 export function createApiExplorationRepository(roomId: string) {
   if (!isServerRoomId(roomId)) throw new TypeError('Expected a server room UUID');
   let current: RoomState | undefined;
   let searchGeneration = 0;
+  let owner: Awaited<ReturnType<typeof getSession>> | undefined;
+  async function assertOwner() {
+    const session = await getSession();
+    if (
+      !owner ||
+      session.user.userId !== owner.user.userId ||
+      session.csrfToken !== owner.csrfToken
+    )
+      throw new ApiRequestError(null, { code: 'SESSION_CHANGED', message: 'Session changed' });
+  }
   const picks = new Map<string, PlaceSearchItem>();
   let mutation: { execute(): Promise<RoomState> } | undefined;
   async function load(signal?: AbortSignal) {
     const state = await getRoomState(roomId, signal);
+    signal?.throwIfAborted();
+    if (state.roomId !== roomId) throw new TypeError('Room response mismatch');
+    if (state.registration) registeredCandidates(state);
+    await assertOwner();
     signal?.throwIfAborted();
     current = state;
     searchGeneration++;
@@ -80,8 +100,9 @@ export function createApiExplorationRepository(roomId: string) {
   }
   function makeMutation(
     state: RoomState,
-    handle: { execute(): Promise<void> },
+    handle: { execute(): Promise<unknown> },
     matches: (fresh: RoomState) => boolean,
+    accepted?: (response: unknown) => void,
   ) {
     if (mutation) throw new Error('이전 요청의 결과를 먼저 확인해주세요.');
     let attempted = false;
@@ -91,14 +112,16 @@ export function createApiExplorationRepository(roomId: string) {
       execute() {
         if (pending) return pending;
         pending = (async () => {
+          await assertOwner();
           if (!attempted) {
             attempted = true;
             try {
-              await handle.execute();
+              const response = await handle.execute();
+              accepted?.(response);
             } catch (error) {
               if (
                 !(error instanceof ApiRequestError) ||
-                (error.status !== null && error.status >= 400)
+                (error.status !== null && error.status >= 400 && error.status < 500)
               )
                 rejected = error;
               throw error;
@@ -121,7 +144,7 @@ export function createApiExplorationRepository(roomId: string) {
   }
   return {
     async open(signal?: AbortSignal) {
-      await getSession({ refresh: true });
+      owner = await getSession({ refresh: true });
       signal?.throwIfAborted();
       const fresh = await load(signal);
       mutation = undefined;
@@ -146,6 +169,8 @@ export function createApiExplorationRepository(roomId: string) {
         throw new Error('현재 회차의 카테고리가 아니에요.');
       const query = q.trim();
       if (query.length > 60) throw new Error('검색어는 60자 이내로 입력해주세요.');
+      if (!Number.isInteger(page) || page < 1 || page > 3)
+        throw new TypeError('Invalid search page');
       if (page === 1) {
         searchGeneration++;
         picks.clear();
@@ -162,6 +187,11 @@ export function createApiExplorationRepository(roomId: string) {
       if (
         !Number.isFinite(result.radiusMeters) ||
         result.radiusMeters <= 0 ||
+        !Array.isArray(result.items) ||
+        !(
+          result.nextPage === null ||
+          (Number.isInteger(result.nextPage) && result.nextPage! > page && result.nextPage! <= 3)
+        ) ||
         result.items.some((item) => item.place.category !== category)
       )
         throw new TypeError('Invalid place search response');
@@ -180,32 +210,39 @@ export function createApiExplorationRepository(roomId: string) {
       ) {
         throw new Error('등록 가능한 검색 결과를 다시 선택해주세요.');
       }
+      let candidateId: string | undefined;
       return makeMutation(
         state,
-        roomMutations.setNomination(roomId, category, {
+        roomMutations.addCandidate(roomId, {
           round: state.registration!.round,
+          category,
           pickToken: item.pickToken,
         }),
-        (fresh) => !!fresh.registration?.myNominations.some((p) => placeKey(p) === key),
+        (fresh) =>
+          registeredCandidates(fresh).some(
+            (c) => placeKey(c.place) === key && (!candidateId || c.candidateId === candidateId),
+          ),
+        (response) => {
+          const id = (response as { candidateId?: unknown })?.candidateId;
+          if (typeof id !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id))
+            throw new TypeError('Expected added candidate ID');
+          candidateId = id;
+        },
       );
     },
-    withdraw(category: Category, now: number) {
+    withdraw(candidateId: string, now: number) {
       const state = stateForEdit('EDIT_NOMINATION', now);
-      if (!state.registration!.myNominations.some((p) => p.category === category))
-        throw new Error('철회할 등록 장소가 없어요.');
+      if (!registeredCandidates(state).some((c) => c.candidateId === candidateId))
+        throw new Error('철회할 본인 후보가 없어요.');
       return makeMutation(
         state,
-        roomMutations.setNomination(roomId, category, {
-          round: state.registration!.round,
-          pickToken: null,
-        }),
-        (fresh) => !fresh.registration?.myNominations.some((p) => p.category === category),
+        roomMutations.removeCandidate(roomId, candidateId, state.registration!.round),
+        (fresh) => !registeredCandidates(fresh).some((c) => c.candidateId === candidateId),
       );
     },
     complete(now: number) {
       const state = stateForEdit('COMPLETE_COLLECTION', now);
-      if (missingNominations(state).length)
-        throw new Error('필수 카테고리의 장소를 먼저 등록해주세요.');
+      if (!canCompleteRegistration(state)) throw new Error('장소 후보를 한 곳 이상 등록해주세요.');
       return makeMutation(
         state,
         roomMutations.completeRegistration(roomId, { round: state.registration!.round }),

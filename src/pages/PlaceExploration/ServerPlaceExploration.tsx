@@ -1,21 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router';
-import { ApiRequestError } from '../../api/client';
-import { isServerRoomId } from '../../api/rooms';
+import { Link, useNavigate } from 'react-router';
+import { api, ApiRequestError } from '../../api/client';
 import type { Category, PlaceSearchResponse, RoomState } from '../../api/types';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
-import MockRoomLayout from '../../features/mockRoom/MockRoomLayout';
-import PlaceRegistrationStatus from '../PlaceRegistrationStatus/PlaceRegistrationStatus';
 import RegistrationParticipantList from '../PlaceRegistrationStatus/components/RegistrationParticipantList';
 import { PATHS } from '../../router/paths';
+import { serverScreenUrl } from '../../features/serverRoom/routing';
 import ExplorationMap from './components/ExplorationMap';
 import ExplorationPlaceCard from './components/ExplorationPlaceCard';
 import {
   createApiExplorationRepository,
   categoryLabels,
   displayPlace,
-  missingNominations,
+  canCompleteRegistration,
+  registeredCandidates,
   placeKey,
   registrationEditable,
   type ApiExplorationRepository,
@@ -76,7 +75,8 @@ export default function ServerPlaceExploration({
   const read = useRef<AbortController | null>(null);
   const operation = useRef<{ execute(): Promise<RoomState> } | null>(null);
   const completionIntent = useRef(false);
-  const path = (target: string) => `${target}?roomId=${encodeURIComponent(roomId)}`;
+  const sessionObserved = useRef(false);
+  const path = (target: string) => serverScreenUrl(target, roomId);
   const refresh = useCallback(
     async (initial = false) => {
       if (lock.current) return;
@@ -94,6 +94,7 @@ export default function ServerPlaceExploration({
           operation.current = null;
           completionIntent.current = false;
           setFailedIntent(false);
+          sessionObserved.current = true;
           setSnapshot({ state, receivedAt: Date.now() });
         }
       } catch (cause) {
@@ -106,12 +107,24 @@ export default function ServerPlaceExploration({
   );
   useEffect(() => {
     alive.current = true;
+    const unsubscribe = api.subscribeSession(() => {
+      if (!sessionObserved.current) return;
+      sessionObserved.current = false;
+      read.current?.abort();
+      operation.current = null;
+      setSnapshot(undefined);
+      setLoading(false);
+      setError(new ApiRequestError(null, { code: 'SESSION_CHANGED', message: 'Session changed' }));
+    });
     const initialRead = new AbortController();
     read.current = initialRead;
     void repository
       .open(initialRead.signal)
       .then((state) => {
-        if (!initialRead.signal.aborted) setSnapshot({ state, receivedAt: Date.now() });
+        if (!initialRead.signal.aborted) {
+          sessionObserved.current = true;
+          setSnapshot({ state, receivedAt: Date.now() });
+        }
       })
       .catch((cause: unknown) => {
         if (!initialRead.signal.aborted) setError(cause);
@@ -126,6 +139,8 @@ export default function ServerPlaceExploration({
     window.addEventListener('focus', focus);
     return () => {
       alive.current = false;
+      unsubscribe();
+      sessionObserved.current = false;
       read.current?.abort();
       clearInterval(timer);
       window.removeEventListener('focus', focus);
@@ -148,7 +163,7 @@ export default function ServerPlaceExploration({
         completionIntent.current = complete;
       }
       const fresh = await operation.current.execute();
-      if (!alive.current) return;
+      if (!alive.current || !sessionObserved.current) return;
       setSnapshot({ state: fresh, receivedAt: Date.now() });
       setFailedIntent(false);
       operation.current = null;
@@ -167,6 +182,7 @@ export default function ServerPlaceExploration({
   };
   const blocked = busy || loading || !!error || failedIntent;
   const registration = state?.registration;
+  const candidates = state?.registration ? registeredCandidates(state) : [];
   const editable = !!state && registrationEditable(state, now) && !blocked;
   const status = () => navigate(path(PATHS.registration));
   return (
@@ -225,9 +241,7 @@ export default function ServerPlaceExploration({
               <>
                 <section className="exploration-summary" aria-label="내 등록 현황">
                   <div>
-                    <h3>
-                      내 등록 {registration.myNominations.length} / {registration.categories.length}
-                    </h3>
+                    <h3>내 등록 {candidates.length}곳</h3>
                     <p>
                       장소 {registration.uniqueCandidateCount}곳 ·{' '}
                       {registration.progress.completedCount} / {registration.progress.capacity}명
@@ -243,7 +257,7 @@ export default function ServerPlaceExploration({
                       <li
                         key={c.category}
                         className={
-                          registration.myNominations.some((p) => p.category === c.category)
+                          candidates.some(({ place }) => place.category === c.category)
                             ? 'exploration-summary__registered'
                             : ''
                         }
@@ -276,9 +290,9 @@ export default function ServerPlaceExploration({
                   <>
                     <section className="exploration-place-list" aria-label="내가 등록한 장소">
                       <h3>내가 등록한 장소</h3>
-                      {!registration.myNominations.length && <p>아직 등록한 장소가 없어요.</p>}
-                      {registration.myNominations.map((p) => (
-                        <div key={p.category}>
+                      {!candidates.length && <p>아직 등록한 장소가 없어요.</p>}
+                      {candidates.map(({ candidateId, place: p }) => (
+                        <div key={candidateId}>
                           <ExplorationPlaceCard
                             place={displayPlace(p)}
                             categoryLabel={categoryLabels[p.category]}
@@ -292,9 +306,9 @@ export default function ServerPlaceExploration({
                             disabled={
                               !editable || !state.allowedActions.includes('EDIT_NOMINATION')
                             }
-                            onClick={() => void run(() => repository.withdraw(p.category, now))}
+                            onClick={() => void run(() => repository.withdraw(candidateId, now))}
                           >
-                            {categoryLabels[p.category]} 등록 철회
+                            {p.name} 등록 철회
                           </Button>
                         </div>
                       ))}
@@ -318,32 +332,16 @@ export default function ServerPlaceExploration({
       </main>
       {!statusOnly && (
         <footer className="place-exploration__footer">
-          {state && missingNominations(state).length > 0 && (
-            <p>
-              필수 카테고리{' '}
-              {missingNominations(state)
-                .map((c) => categoryLabels[c.category])
-                .join('·')}
-              의 장소를 등록해주세요.
-            </p>
+          {state?.registration && !canCompleteRegistration(state) && (
+            <p>장소 후보를 한 곳 이상 등록하면 완료할 수 있어요.</p>
           )}
           <Button
             disabled={
               !editable ||
               !state?.allowedActions.includes('COMPLETE_COLLECTION') ||
-              (!!state && missingNominations(state).length > 0)
+              (!!state?.registration && !canCompleteRegistration(state))
             }
             onClick={() => {
-              if (state && missingNominations(state).length) {
-                setError(
-                  new Error(
-                    `필수 카테고리 ${missingNominations(state)
-                      .map((c) => categoryLabels[c.category])
-                      .join('·')}의 장소를 등록해주세요.`,
-                  ),
-                );
-                return;
-              }
               void run(() => repository.complete(now), true);
             }}
           >
@@ -446,7 +444,7 @@ function ServerSearch({
     }
   }
   const card = (place: RecommendedPlace) => {
-    const registered = state.registration!.myNominations.some((p) => placeKey(p) === place.id);
+    const registered = registeredCandidates(state).some(({ place: p }) => placeKey(p) === place.id);
     const blocked =
       !place.eligible || !response?.available || !categoryAvailable
         ? '서버에서 등록할 수 없는 장소로 판정했어요.'
@@ -498,6 +496,29 @@ function ServerSearch({
           }}
         />
       </label>
+      {state.meeting && category && (
+        <ExplorationMap
+          area={{
+            center: { latitude: state.meeting.station.lat, longitude: state.meeting.station.lng },
+            radiusMeters:
+              response?.radiusMeters ??
+              categories.find((c) => c.category === category)!.radiusMeters,
+          }}
+          places={[
+            ...new Map(
+              [
+                ...registeredCandidates(state)
+                  .filter(({ place }) => place.category === category)
+                  .map(({ place }) => displayPlace(place)),
+                ...places,
+              ].map((place) => [place.id, place]),
+            ).values(),
+          ]}
+          registeredIds={registeredCandidates(state).map(({ place }) => placeKey(place))}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
+      )}
       {!canSearch ? (
         <p>현재 방 상태에서는 장소를 검색할 수 없어요.</p>
       ) : (
@@ -548,38 +569,6 @@ function ServerSearch({
           )}
         </>
       )}
-      {state.meeting && category && (
-        <ExplorationMap
-          area={{
-            center: { latitude: state.meeting.station.lat, longitude: state.meeting.station.lng },
-            radiusMeters:
-              response?.radiusMeters ??
-              categories.find((c) => c.category === category)!.radiusMeters,
-          }}
-          places={places}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-        />
-      )}
     </>
-  );
-}
-
-export function ExplorationStatusLayout() {
-  const { pathname, search } = useLocation();
-  const id = new URLSearchParams(search).get('roomId');
-  return pathname === PATHS.registration && id && isServerRoomId(id) ? (
-    <Outlet />
-  ) : (
-    <MockRoomLayout />
-  );
-}
-export function ExplorationStatusRoute() {
-  const { search } = useLocation();
-  const id = new URLSearchParams(search).get('roomId');
-  return id && isServerRoomId(id) ? (
-    <ServerPlaceExploration key={id} roomId={id} statusOnly />
-  ) : (
-    <PlaceRegistrationStatus />
   );
 }

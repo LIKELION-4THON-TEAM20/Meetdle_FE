@@ -7,8 +7,49 @@ import {
   hasFullRecruitment,
 } from '../features/createdRoom/model';
 import { PATHS, roomPath } from './paths';
+import { isServerRoomId } from '../api/rooms';
+import { ServerRoomCreated } from '../pages/RoomCreated/RoomCreated';
+import { serverRoomUrl } from '../features/serverRoom/routing';
+import { ServerRoomHandoff } from '../features/serverRoom/RoomStatus';
 
 export default function FlowLayout() {
+  const { pathname, search } = useLocation();
+  const params = new URLSearchParams(search);
+  const id = params.get('roomId');
+  if (
+    id &&
+    isServerRoomId(id) &&
+    !getCreatedRoom(id) &&
+    [PATHS.places, PATHS.registration].some((path) => path === pathname)
+  )
+    return <ServerRoomHandoff key={id + pathname} roomId={id} path={pathname} />;
+  if (params.get('mode') === 'api' && pathname.startsWith('/rooms/')) {
+    if (!id || !isServerRoomId(id) || getCreatedRoom(id)) {
+      return <RoomRecovery message="서버 약속방 주소가 올바르지 않아요." />;
+    }
+    if (pathname === PATHS.created) return <ServerRoomCreated key={id} roomId={id} />;
+    if (
+      [
+        PATHS.recruitment,
+        PATHS.participation,
+        PATHS.schedule,
+        PATHS.candidates,
+        PATHS.confirmed,
+        PATHS.info,
+        PATHS.setup,
+        PATHS.places,
+        PATHS.registration,
+        PATHS.closeRegistration,
+        PATHS.startVote,
+        PATHS.vote,
+        PATHS.voteStatus,
+        PATHS.result,
+      ].some((path) => path === pathname)
+    ) {
+      return <ServerRoomHandoff roomId={id} path={pathname} />;
+    }
+    return <Navigate to={serverRoomUrl(id)} replace />;
+  }
   return (
     <>
       <Outlet />

@@ -4,10 +4,10 @@ import './MeetingConfirmationCard.scss';
 export interface MeetingConfirmation {
   dateTime: string;
   area: string;
-  averageTravelMinutes: number;
-  maximumTravelMinutes: number;
-  averageTransfers: number;
-  availableCount: number;
+  averageTravelMinutes?: number;
+  maximumTravelMinutes?: number;
+  averageTransfers?: number;
+  availableCount?: number;
   totalCount: number;
 }
 
@@ -21,11 +21,28 @@ function MeetingConfirmationCard({
   showTravelSummary = true,
 }: MeetingConfirmationCardProps) {
   const summary = [
-    { label: '평균 이동시간', value: `${meeting.averageTravelMinutes}분` },
-    { label: '최대 이동시간', value: `${meeting.maximumTravelMinutes}분` },
-    { label: '평균 환승', value: `${meeting.averageTransfers}회` },
-    { label: '참여 가능 인원', value: `${meeting.availableCount} / ${meeting.totalCount}명` },
-  ];
+    {
+      label: '평균 이동시간',
+      value:
+        meeting.averageTravelMinutes === undefined ? null : `${meeting.averageTravelMinutes}분`,
+    },
+    {
+      label: '최대 이동시간',
+      value:
+        meeting.maximumTravelMinutes === undefined ? null : `${meeting.maximumTravelMinutes}분`,
+    },
+    {
+      label: '평균 환승',
+      value: meeting.averageTransfers === undefined ? null : `${meeting.averageTransfers}회`,
+    },
+    {
+      label: '참여 가능 인원',
+      value:
+        meeting.availableCount === undefined
+          ? null
+          : `${meeting.availableCount} / ${meeting.totalCount}명`,
+    },
+  ].filter(({ value }) => value !== null);
 
   return (
     <section className="meeting-confirmation-card" aria-label="확정된 약속 정보">
@@ -34,7 +51,7 @@ function MeetingConfirmationCard({
         <img src={pinIcon} width={18} height={18} alt="" />
         <p>{meeting.area}</p>
       </div>
-      {showTravelSummary && (
+      {showTravelSummary && summary.length > 0 && (
         <div className="meeting-confirmation-card__summary">
           <h4>이동시간 요약</h4>
           <dl>

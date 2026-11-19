@@ -20,7 +20,7 @@ const place = {
 const second = { ...place, name: '변경 카페', lng: 127.039 };
 const categories = [
   { category: 'CAFE', required: true, available: true, radiusMeters: 2500 },
-  { category: 'FOOD', required: false, available: true, radiusMeters: 2500 },
+  { category: 'FOOD', required: true, available: true, radiusMeters: 2500 },
 ];
 const base = {
   roomId,
@@ -45,13 +45,27 @@ const base = {
     uniqueCandidateCount: 8,
     myCompleted: false,
     myNominations: [],
+    myCandidates: [],
     categoryCounts: null,
   },
   allowedActions: ['SEARCH_PLACES', 'EDIT_NOMINATION', 'COMPLETE_COLLECTION'],
 };
+const candidateId = '11234567-89ab-4cde-8f01-23456789abcd';
+const secondId = '21234567-89ab-4cde-8f01-23456789abcd';
 const now = Date.parse(base.serverNow);
+function setCandidates(places) {
+  state.registration.myNominations = places;
+  state.registration.myCandidates = places.map((p) => ({
+    candidateId: p.name === second.name ? secondId : candidateId,
+    place: p,
+  }));
+}
 let state, search, requests, failGet, failPut, putStatus;
+let sessionUser = 'user';
+let deleteStatus = 204;
 function reset() {
+  sessionUser = 'user';
+  deleteStatus = 204;
   state = structuredClone(base);
   search = {
     items: [{ place, distanceMeters: 450, registrable: true, pickToken: 'wire-token' }],
@@ -70,7 +84,10 @@ const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, init) => {
   requests.push({ path: url.pathname, query: Object.fromEntries(url.searchParams), ...init });
   if (url.pathname === '/api/me')
-    return Response.json({ user: { userId: 'user', nickname: '세진' }, csrfToken: 'csrf-test' });
+    return Response.json({
+      user: { userId: sessionUser, nickname: '세진' },
+      csrfToken: 'csrf-test',
+    });
   if (url.pathname.endsWith('/state')) {
     if (failGet) throw new Error('GET failed');
     return Response.json(state);
@@ -78,20 +95,29 @@ globalThis.fetch = async (url, init) => {
   if (url.pathname.endsWith('/places/search')) return Response.json(search);
   if (putStatus !== 204)
     return Response.json({ code: 'STALE_ROUND', message: 'stale' }, { status: putStatus });
-  const body = JSON.parse(init.body);
-  const category = url.pathname.split('/').at(-1);
+  const body = init.body === undefined ? undefined : JSON.parse(init.body);
+  const action = url.pathname.split('/').at(-1);
   state = { ...state, revision: state.revision + 1, registration: { ...state.registration } };
-  if (category === 'completion') state.registration.myCompleted = true;
-  else
-    state.registration.myNominations =
-      body.pickToken === null
-        ? state.registration.myNominations.filter((p) => p.category !== category)
-        : [
-            ...state.registration.myNominations.filter((p) => p.category !== category),
-            body.pickToken === 'second-token' ? second : place,
-          ];
-  if (failPut) throw new Error('PUT response lost');
-  return new Response(null, { status: 204 });
+  let addedId;
+  if (action === 'completion') state.registration.myCompleted = true;
+  else if (init.method === 'POST') {
+    const p = body.pickToken === 'second-token' ? second : place;
+    addedId = p.name === second.name ? secondId : candidateId;
+    if (!state.registration.myCandidates.some((c) => c.candidateId === addedId))
+      state.registration.myCandidates = [
+        ...state.registration.myCandidates,
+        { candidateId: addedId, place: p },
+      ];
+  } else if (init.method === 'DELETE') {
+    state.registration.myCandidates = state.registration.myCandidates.filter(
+      (c) => c.candidateId !== action,
+    );
+  }
+  state.registration.myNominations = state.registration.myCandidates.map((c) => c.place);
+  if (failPut) throw new Error('Write response lost');
+  return addedId
+    ? Response.json({ candidateId: addedId })
+    : new Response(null, { status: init.method === 'DELETE' ? deleteStatus : 204 });
 };
 const vite = await createServer({
   envDir: false,
@@ -104,13 +130,15 @@ const {
   displayPlace,
   placeKey,
   registrationEditable,
-  missingNominations,
+  canCompleteRegistration,
+  registeredCandidates,
 } = await vite.ssrLoadModule('/src/pages/PlaceExploration/apiRepository.ts');
+const { api } = await vite.ssrLoadModule('/src/api/client.ts');
 after(async () => {
   globalThis.fetch = originalFetch;
   await vite.close();
 });
-const writes = () => requests.filter((r) => r.method === 'PUT');
+const writes = () => requests.filter((r) => ['PUT', 'POST', 'DELETE'].includes(r.method));
 async function open() {
   const repo = createApiExplorationRepository(roomId);
   await repo.open();
@@ -133,7 +161,7 @@ test('표시 키는 payload가 아니며 없는 이미지·카카오 ID·URL·�
 test('실제 UUID만 조회하며 회차·내 장소·완료 및 서버 좌표를 그대로 복원한다', async () => {
   reset();
   assert.throws(() => createApiExplorationRepository('exploration-preview'));
-  state.registration.myNominations = [place];
+  setCandidates([place]);
   state.registration.myCompleted = true;
   const repo = await open();
   const restored = await repo.reload();
@@ -151,11 +179,12 @@ test('검색 카테고리·trim한 검색어·페이지를 전달하며 범위�
   assert.deepEqual(requests.at(-1).query, { category: 'CAFE', q: '디저트', page: '1' });
   assert.equal(response.radiusMeters, 3000);
   assert.equal(response.available, false);
+  search.nextPage = null;
   await repo.search('CAFE', '디저트', 2);
   assert.equal(requests.at(-1).query.page, '2');
   await assert.rejects(repo.search('CAFE', 'x'.repeat(61)));
 });
-test('등록·변경·철회는 현재 round와 pickToken/null만 보내고 변경 후 GET한다', async () => {
+test('복수 후보 추가는 category·round·pickToken을 보내고 단건 삭제는 복원된 ID와 round만 보낸다', async () => {
   reset();
   const repo = await open();
   await repo.search('CAFE', '');
@@ -163,7 +192,11 @@ test('등록·변경·철회는 현재 round와 pickToken/null만 보내고 변�
   const first = op.execute();
   assert.equal(first, op.execute());
   let fresh = await first;
-  assert.deepEqual(JSON.parse(writes()[0].body), { round: 3, pickToken: 'wire-token' });
+  assert.deepEqual(JSON.parse(writes()[0].body), {
+    round: 3,
+    category: 'CAFE',
+    pickToken: 'wire-token',
+  });
   assert.equal(writes()[0].headers['X-CSRF-TOKEN'], 'csrf-test');
   assert.equal(writes()[0].headers['Idempotency-Key'], undefined);
   assert.equal(requests.at(-1).path, `/api/rooms/${roomId}/state`);
@@ -173,10 +206,19 @@ test('등록·변경·철회는 현재 round와 pickToken/null만 보내고 변�
   ];
   await repo.search('CAFE', '');
   fresh = await repo.nominate('CAFE', placeKey(second), now).execute();
-  assert.deepEqual(fresh.registration.myNominations, [second]);
-  fresh = await repo.withdraw('CAFE', now).execute();
-  assert.deepEqual(JSON.parse(writes().at(-1).body), { round: 3, pickToken: null });
-  assert.equal(fresh.registration.myNominations.length, 0);
+  assert.deepEqual(fresh.registration.myNominations, [place, second]);
+  fresh = await repo.withdraw(candidateId, now).execute();
+  assert.equal(writes().at(-1).method, 'DELETE');
+  assert.equal(
+    writes().at(-1).path,
+    `/api/rooms/${roomId}/place-submission/me/candidates/${candidateId}`,
+  );
+  assert.deepEqual(writes().at(-1).query, { round: '3' });
+  assert.equal(writes().at(-1).body, undefined);
+  assert.deepEqual(
+    fresh.registration.myCandidates.map((c) => c.candidateId),
+    [secondId],
+  );
 });
 test('검색 증표가 없거나 등록 불가·카테고리 불일치인 결과는 PUT하지 않는다', async () => {
   reset();
@@ -207,13 +249,14 @@ test('본인 완료·회차 마감·액션·자격을 서버 값으로 제한한
   }
   assert.equal(registrationEditable(base, Date.parse(base.registration.closesAt)), false);
 });
-test('필수 등록이 있어야 round로 완료 요청하고 서버 myCompleted를 확인한다', async () => {
+test('필수 카테고리가 남아 있어도 본인 후보 한 곳이면 완료하고 빈 목록은 차단한다', async () => {
   reset();
   const repo = await open();
-  assert.equal(missingNominations(state).length, 1);
+  assert.equal(canCompleteRegistration(state), false);
   assert.throws(() => repo.complete(now));
-  state.registration.myNominations = [place];
+  setCandidates([place]);
   await repo.reload();
+  assert.equal(canCompleteRegistration(state), true);
   const fresh = await repo.complete(now).execute();
   assert.deepEqual(JSON.parse(writes()[0].body), { round: 3 });
   assert.ok(writes()[0].path.endsWith('/completion'));
@@ -248,7 +291,7 @@ test('다른 회차·불일치 결과와 명시적 409 거절은 성공으로 �
   const op = repo.nominate('CAFE', placeKey(place), now);
   putStatus = 409;
   await assert.rejects(op.execute());
-  state.registration.myNominations = [place];
+  setCandidates([place]);
   await assert.rejects(op.execute());
   assert.equal(writes().length, 1);
   await repo.open();
@@ -282,5 +325,74 @@ test('검색 available=false면 개별 결과에 증표가 있어도 등록하�
   search.available = false;
   await repo.search('CAFE', '');
   assert.throws(() => repo.nominate('CAFE', placeKey(place), now));
+  assert.equal(writes().length, 0);
+});
+
+test('새 repository는 A08의 candidateId를 복원해 한 곳만 삭제한다', async () => {
+  reset();
+  setCandidates([place, second]);
+  const repo = await open();
+  const loaded = await repo.reload();
+  assert.equal(registeredCandidates(loaded)[0].candidateId, candidateId);
+  const fresh = await repo.withdraw(candidateId, now).execute();
+  assert.deepEqual(
+    fresh.registration.myCandidates.map((c) => c.candidateId),
+    [secondId],
+  );
+  assert.equal(writes().length, 1);
+  assert.throws(() => repo.withdraw('mock-id', now));
+});
+
+test('candidateId 누락을 목 ID나 장소 키로 대체하지 않는다', async () => {
+  reset();
+  delete state.registration.myCandidates;
+  await assert.rejects(open(), /myCandidates/);
+  assert.equal(writes().length, 0);
+});
+
+test('서버에서 제공한 이미지만 사용하고 3페이지 밖 요청은 차단한다', async () => {
+  reset();
+  const repo = await open();
+  assert.equal(
+    displayPlace({ ...place, imageUrl: 'https://example.test/photo.jpg' }).imageUrl,
+    'https://example.test/photo.jpg',
+  );
+  await assert.rejects(repo.search('CAFE', '', 4));
+});
+
+test('A35의 빈 200도 처리하고 다른 본인 후보는 보존한다', async () => {
+  reset();
+  setCandidates([place, second]);
+  deleteStatus = 200;
+  const repo = await open();
+  const fresh = await repo.withdraw(candidateId, now).execute();
+  assert.deepEqual(
+    fresh.registration.myCandidates.map((c) => c.candidateId),
+    [secondId],
+  );
+  assert.equal(writes().length, 1);
+});
+
+test('후보 추가 503 뒤 반영된 결과는 GET으로 복원하고 POST를 반복하지 않는다', async () => {
+  reset();
+  const repo = await open();
+  await repo.search('CAFE', '');
+  const op = repo.nominate('CAFE', placeKey(place), now);
+  putStatus = 503;
+  await assert.rejects(op.execute());
+  putStatus = 204;
+  setCandidates([place]);
+  assert.equal((await op.execute()).registration.myCandidates[0].candidateId, candidateId);
+  assert.equal(writes().length, 1);
+});
+
+test('가입 사용자 변경 뒤 이전 검색 증표로 쓰기를 실행하지 않는다', async () => {
+  reset();
+  const repo = await open();
+  await repo.search('CAFE', '');
+  const op = repo.nominate('CAFE', placeKey(place), now);
+  sessionUser = 'another-user';
+  await api.getSession({ refresh: true });
+  await assert.rejects(op.execute(), (error) => error.code === 'SESSION_CHANGED');
   assert.equal(writes().length, 0);
 });

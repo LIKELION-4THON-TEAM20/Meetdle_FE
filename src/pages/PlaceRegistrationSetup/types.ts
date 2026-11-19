@@ -4,4 +4,4 @@ export interface Category {
   label: string;
   required: boolean;
 }
-export type DeadlineMode = 'oneHour' | 'threeHours' | 'custom';
+export type DeadlineMode = 'oneHour' | 'threeHours' | 'custom' | 'serverDefault';

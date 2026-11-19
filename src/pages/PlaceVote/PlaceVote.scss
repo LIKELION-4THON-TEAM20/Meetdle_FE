@@ -149,3 +149,13 @@
     text-decoration: none;
   }
 }
+
+.server-ballot-confirm {
+  display: grid;
+  gap: 12px;
+
+  h2,
+  p {
+    margin: 0;
+  }
+}

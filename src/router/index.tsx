@@ -1,8 +1,6 @@
-import {
-  ExplorationStatusLayout,
-  ExplorationStatusRoute,
-} from '../pages/PlaceExploration/ServerPlaceExploration';
-import { createBrowserRouter, Link } from 'react-router';
+import MockRoomLayout from '../features/mockRoom/MockRoomLayout';
+import PlaceRegistrationStatus from '../pages/PlaceRegistrationStatus/PlaceRegistrationStatus';
+import { createBrowserRouter, Link, Navigate } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
 import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
@@ -24,13 +22,18 @@ import LoginRoute from './LoginRoute';
 import HomeRoute from './HomeRoute';
 import { PATHS } from './paths';
 import PlaceExplorationRoute from './PlaceExplorationRoute';
+import ServerRoomRoute from '../features/serverRoom/RoomStatus';
+import ServerRoomInvitation from '../pages/RoomInvitation/ServerRoomInvitation';
 
 export const router = createBrowserRouter([
   {
     element: <FlowLayout />,
     children: [
+      { path: '/rooms', element: <Navigate to={PATHS.home} replace /> },
+      { path: '/rooms/:roomId', element: <ServerRoomRoute /> },
+      { path: '/invite/:inviteToken', element: <ServerRoomInvitation /> },
       {
-        element: <ExplorationStatusLayout />,
+        element: <MockRoomLayout />,
         children: [
           { path: PATHS.confirmed, element: <MeetingConfirmed /> },
           { path: PATHS.info, element: <MeetingInfo /> },
@@ -40,7 +43,7 @@ export const router = createBrowserRouter([
           { path: PATHS.vote, element: <PlaceVote /> },
           { path: PATHS.closeRegistration, element: <RegistrationClose /> },
           { path: PATHS.startVote, element: <VoteStart /> },
-          { path: PATHS.registration, element: <ExplorationStatusRoute /> },
+          { path: PATHS.registration, element: <PlaceRegistrationStatus /> },
         ],
       },
       {
