@@ -300,26 +300,11 @@ function ExplorationScreen({
                   <p className="exploration-place-list__empty">검색 결과가 없어요.</p>
                 )}
               </section>
-            ) : selected ? (
-              <section className="exploration-place-list" aria-label="선택한 장소">
-                <h3>선택한 장소</h3>
-                <ExplorationPlaceCard
-                  place={selected}
-                  selected
-                  categoryLabel={
-                    snapshot.categories.find((item) => item.id === selected.categoryId)?.label ?? ''
-                  }
-                  blocked={registrationBlock(snapshot, selected, now)}
-                  registered={mine.some((entry) => entry.placeId === selected.id)}
-                  pending={pending}
-                  onRegister={(submittedAt) => void registerPlace(selected, submittedAt)}
-                />
-              </section>
             ) : (
               <div className="place-exploration__hint">
                 <h3>장소를 검색하거나 지도에서 찾아보세요</h3>
                 <p>
-                  지도에서 핀을 누르면 이 자리에 장소 정보가 표시돼요.
+                  지도에서 핀을 누르면 지도 아래에 장소 정보가 표시돼요.
                   <br />한 번에 1곳만 보여줘요.
                 </p>
               </div>
@@ -341,8 +326,28 @@ function ExplorationScreen({
               area={snapshot.area}
               places={places}
               selectedId={selectedId}
+              registeredIds={mine.map((entry) => entry.placeId)}
               onSelect={select}
             />
+            {!query.trim() && selected && (
+              <section
+                className="exploration-place-list exploration-place-list--selected"
+                aria-label="선택한 장소"
+              >
+                <h3>선택한 장소</h3>
+                <ExplorationPlaceCard
+                  place={selected}
+                  selected
+                  categoryLabel={
+                    snapshot.categories.find((item) => item.id === selected.categoryId)?.label ?? ''
+                  }
+                  blocked={registrationBlock(snapshot, selected, now)}
+                  registered={mine.some((entry) => entry.placeId === selected.id)}
+                  pending={pending}
+                  onRegister={(submittedAt) => void registerPlace(selected, submittedAt)}
+                />
+              </section>
+            )}
             {snapshot.source === 'mock' && (
               <p className="place-exploration__mock">
                 목 데이터 미리보기예요. 실제 추천·등록 API는 연결되지 않았어요.

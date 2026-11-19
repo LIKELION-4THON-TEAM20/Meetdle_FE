@@ -13,6 +13,17 @@ export function getKakaoLoginUrl(value: string | undefined): string | null {
 export const getSession = api.getSession;
 export const logout = api.logout;
 
-export function startKakaoLogin(inviteToken?: string) {
-  window.location.assign(api.url('/api/auth/kakao/start', { inviteToken }).href);
+type KakaoLoginOptions = (
+  { inviteToken?: string; returnTo?: never } | { inviteToken?: never; returnTo: string }
+) & {
+  returnOrigin?: string;
+};
+
+export function getKakaoStartUrl(options: KakaoLoginOptions = {}): URL {
+  return api.url('/api/auth/kakao/start', options);
+}
+
+export function startKakaoLogin(invite?: string | KakaoLoginOptions) {
+  const options = typeof invite === 'string' ? { inviteToken: invite } : invite;
+  window.location.assign(getKakaoStartUrl(options).href);
 }

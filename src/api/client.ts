@@ -16,7 +16,7 @@ export class ApiRequestError extends Error {
 
 type Query = Record<string, string | number | undefined>;
 type ReadOptions = { query?: Query; signal?: AbortSignal };
-type MutationMethod = 'POST' | 'PUT';
+type MutationMethod = 'POST' | 'PUT' | 'DELETE';
 
 function errorBody(value: unknown): value is ApiError {
   return (
@@ -77,7 +77,7 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
     }
   }
 
-  async function request<T>(target: URL, init: RequestInit): Promise<T> {
+  async function request<T>(target: URL, init: RequestInit, discardResponse = false): Promise<T> {
     const start = generation;
     let response: Response;
     let body: unknown;
@@ -89,7 +89,7 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
         redirect: 'error',
       });
       if (response.status === 401 && start === generation) clearSession();
-      if (response.status !== 204) {
+      if (response.status !== 204 && (!response.ok || !discardResponse)) {
         const text = await response.text();
         if (text) {
           try {
@@ -121,7 +121,7 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
       );
     }
     assertSessionGeneration(start);
-    if (response.status !== 204 && body === undefined) {
+    if (response.status !== 204 && !discardResponse && body === undefined) {
       throw new ApiRequestError(response.status, {
         code: 'INVALID_RESPONSE',
         message: 'Expected a JSON response.',
@@ -169,9 +169,17 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
     method: MutationMethod,
     path: string,
     body?: unknown,
-    { idempotent = false } = {},
+    {
+      idempotent = false,
+      query,
+      discardResponse = false,
+    }: {
+      idempotent?: boolean;
+      query?: Query;
+      discardResponse?: boolean;
+    } = {},
   ) {
-    const target = url(path);
+    const target = url(path, query);
     const payload = JSON.stringify(body);
     const start = generation;
     const key = idempotent ? crypto.randomUUID() : undefined;
@@ -189,15 +197,19 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
       pending = (async () => {
         const current = await getSession();
         assertSessionGeneration(start);
-        return request<T>(target, {
-          method,
-          body: payload,
-          headers: {
-            'X-CSRF-TOKEN': current.csrfToken,
-            ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
-            ...(key ? { 'Idempotency-Key': key } : {}),
+        return request<T>(
+          target,
+          {
+            method,
+            body: payload,
+            headers: {
+              'X-CSRF-TOKEN': current.csrfToken,
+              ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
+              ...(key ? { 'Idempotency-Key': key } : {}),
+            },
           },
-        });
+          discardResponse,
+        );
       })()
         .then((value) => {
           completed = Promise.resolve(value);
