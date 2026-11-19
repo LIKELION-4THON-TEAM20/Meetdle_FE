@@ -14,7 +14,7 @@
 
 ## 범위와 연결 지점
 
-홈 카드 및 참여 성공은 실제 UUID의 `/rooms/:roomId`로 이동해 A08 상태를 조회한다. 이 경로는 서버 방 정보 확인까지 담당하며 #26~#28의 미병합 화면 연결을 임의로 가져오지 않는다. 목 미리보기 경로와 실서버 경로를 구분하고 API 실패를 목 성공으로 대체하지 않는다.
+홈 카드 및 참여 성공은 실제 UUID의 `/rooms/:roomId`로 이동해 A08 상태를 조회한다. develop 병합 후 이 경로는 공통 ServerRoomStatus의 phase·역할·allowedActions 분기로 연결한다. #26~#28의 미병합 화면 연결을 임의로 가져오지 않는다. 목 미리보기 경로와 실서버 경로를 구분하고 API 실패를 목 성공으로 대체하지 않는다.
 
 ## 명세 확인과 차이
 
@@ -29,7 +29,7 @@
 
 ## 검증
 
-- `npm run build`, `npm run lint`, `node --test tests/*.test.mjs`: 통과, 전체 84개 테스트.
+- `npm run build`, `npm run lint`, `node --test tests/*.test.mjs`: 통과, develop 병합 후 전체 107개 테스트.
 - 단위·모의 HTTP: 세션 전환, 지연 응답, 코드 확인과 가입 분리, 중복 제출, 증표 만료, 서버 DTO, 안전한 OAuth 복귀, RESULT_READY, 지난 약속 판정, 숨김 200/204·409·재시도·소유 세션 변경을 확인했다.
 - 실제 Chrome + 모의 API: 홈 복원, 숨김 실패·재시도·목록 재조회·새로고침, 로그아웃, OAuth 방/초대 복귀 쿼리, 로그인 취소, 기존 회원 바로 입장, 코드 확인 후 가입, 목록 실패·재시도·서버 scope를 확인했다.
 - 실제 배포 서버: 인증 없이 GET `/api/me`, GET `/api/rooms`는 401이며 localhost:5173의 Allow-Origin과 Allow-Credentials가 있다. 로그아웃 POST·초대 확인 POST·방 DELETE에 대한 OPTIONS는 200이다. 과거 로컬 CORS 403 관측은 현재 재현되지 않았다.

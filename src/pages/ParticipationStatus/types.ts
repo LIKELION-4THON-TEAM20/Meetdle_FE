@@ -5,4 +5,5 @@ export interface Participant {
   name: string;
   profileImageUrl?: string;
   status: ParticipantStatus;
+  role?: 'HOST' | 'MEMBER';
 }

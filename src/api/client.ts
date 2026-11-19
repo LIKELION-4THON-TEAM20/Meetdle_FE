@@ -61,11 +61,15 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
     return target;
   }
 
-  function clearSession() {
+  function resetSession() {
     generation++;
     session = undefined;
     pendingSession = undefined;
     publishSession();
+  }
+
+  function clearSession() {
+    resetSession();
   }
 
   function assertSessionGeneration(start: number) {
@@ -148,12 +152,10 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
             message: 'Expected an authenticated session and CSRF token.',
           });
         }
-        if (
+        const changed =
           session &&
-          (session.user.userId !== value.user.userId || session.csrfToken !== value.csrfToken)
-        ) {
-          clearSession();
-        }
+          (session.user.userId !== value.user.userId || session.csrfToken !== value.csrfToken);
+        if (changed) resetSession();
         session = value;
         publishSession();
         return value;
