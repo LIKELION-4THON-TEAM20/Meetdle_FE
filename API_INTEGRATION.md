@@ -1,6 +1,104 @@
 # Meetdle API 연동 계획
 
-첫 단계는 공통 API 모듈과 계약 정의까지다. 현재 화면과 라우터는 기존 목 모드로 동작한다. 화면 번호는 Figma 1118 기준이며 1115 API 명세의 SC 번호와 별개다.
+## 담당 화면 1차 통합 QA와 배포 인계
+
+1차 QA 범위는 SCREEN 02·04·06·07·08·10·11·12·13·14, 공통 API·RoomState 및 화면 간 연결 계약이다. SCREEN 01·03·05·09와 홈·로그인의 API 연동 완료 여부는 확인 전이다. 해당 작업이 develop에 병합되면 같은 방의 생성부터 최종 확정까지 2차 전체 서비스 통합 QA를 진행한다.
+
+| 화면 경계       | 현재 브랜치의 연결 계약                                                                                                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01 → 02         | SCREEN 01은 목 생성 화면이다. A05 연동 시 응답을 `createdRoomDestination(response)`으로 전달한다. SCREEN 02는 A08로 같은 방의 권한·초대를 검증하고 약속방 링크로 모집·현재 단계에 진입한다.                                                 |
+| 초대 → 약속방   | `/invite/:inviteToken`은 A06 → A25 → A07을 사용해 가입 후 `serverRoomUrl(roomId)`로 이동한다. 홈 코드 입력의 `/rooms/invite?code=…`는 별도로 남아 있다.                                                                                     |
+| 03 → 04         | SCREEN 03의 서버 경로는 공통 상태 화면이다. A10에 입력 리비전과 완료 값을 보낸 뒤 같은 방의 SCREEN 04 또는 A08 진입 경로를 사용한다.                                                                                                        |
+| 04 → 05 → 06·07 | SCREEN 04는 현재 `inputVersion`으로 A11을 실행한다. SCREEN 05의 서버 경로는 공통 상태 화면이다. A08 `options`를 재사용하고 A12 완료 뒤 같은 방의 최신 `meeting.selectionId`를 읽어 06·07에 전달한다.                                        |
+| 08 → 09 → 10    | A13 이후 A08의 권한에 따라 SCREEN 09 또는 10 주소로 이동한다. SCREEN 09의 서버 경로는 공통 상태 화면이다. 카카오 지도 탐색 UI는 목 흐름에 있으며 A14·A34·A35·A16 연결은 해당 화면 담당 범위다. A16 뒤 같은 방의 SCREEN 10에서 A08을 읽는다. |
+| 홈·로그인       | 홈 목록은 목·로컬 데이터를 사용한다. 홈 담당 경로에서 방 목록 API와 `serverRoomUrl(roomId)`를 연결한다. 로그인 화면은 설정된 로그인 URL로 이동한다. 서비스 Origin의 OAuth 복귀와 홈의 인증·로그아웃 연결을 배포 전 확인한다.                |
+
+통합 Chrome QA는 한 방 UUID와 누적 서버 상태를 사용하는 로컬 fixture에서 실행했다. A05·A10·A12·SCREEN 09 등록 요청은 fixture에서 연결했고, 초대·입장·모집 마감·후보 계산·등록 시작·등록 조기 마감·투표 시작·두 역할의 제출·최종 확정은 현재 브랜치 UI에서 실행했다. 공통 상태 화면인 03·05·09는 연결 주소까지만 확인했다.
+
+### 실제 HOST/MEMBER 검증 순서
+
+1. 서비스 Origin을 CORS·쿠키·카카오 OAuth 복귀 설정에 등록한 환경에서 두 계정으로 로그인한다. 서로 다른 브라우저 프로필에서 방장과 일반 회원 세션이 유지되고 새로고침·로그아웃·복귀가 맞게 동작하는지 확인한다.
+2. 방을 생성하고 링크·코드 초대로 참가한다. 방장이 모집을 마감한 뒤 각 계정에서 입력을 완료한다. 방장이 후보를 계산·선택하고 두 계정에서 같은 확정 일시·지역을 확인한다.
+3. 방장이 장소 등록을 시작하고 각 계정이 카카오 지도에서 후보를 등록한다. 과반 조건, 타이머 0초 조회, 미니 타이머와 연장 기회, 조기 마감, 자동 선정으로 결과에 바로 가는 분기를 확인한다.
+4. 투표 분기에서는 초안의 새로고침 복원, 투표 제출, 양 역할의 현황, 연장 후 제출 유지, 제출표가 있는 상태의 마감 후 결과 진행을 확인한다.
+5. 복수 동률 해결과 선정 실패 시 새 회차 복구를 별도 방에서 확인한다. 방문 순서 저장과 최종 확정을 하고, 양 계정에서 확정 결과 및 카카오톡 공유·복귀 링크를 확인한다.
+6. 홈에서 같은 방과 다른 방에 다시 들어간다. 직접 URL·새로고침·포커스 복귀에서 상태를 확인하고, 요청 차단이나 연결 끊김을 통해 오류 안내와 재시도가 중복 쓰기를 일으키지 않는지 확인한다.
+
+### 배포 설정 확인
+
+- `.env.example`에 API Origin, 카카오 로그인 URL, Maps SDK와 공유 SDK의 공개 JavaScript 키 항목이 있다. 운영 Origin을 카카오 SDK 허용 도메인에 등록하고 공유 복귀 URL을 확인한다. 세션·CSRF·Client Secret은 빌드 환경에 주입하는 `VITE_*` 값에서 제외한다.
+- 프론트 서비스 Origin을 백엔드의 credentialed CORS와 OAuth 복귀 허용 목록에서 확인한다. 프론트 호스트는 `/rooms/:roomId`, 화면별 경로와 `/invite/:inviteToken` 직접 접근을 SPA 진입 문서로 처리해야 한다.
+- 로컬 개발에서 배포 API의 비인증 A03은 401, localhost CORS preflight는 200을 반환했다. 운영 Origin과 인증된 쓰기, 카카오 공유 발송은 별도 실서버 QA 항목이다. 홈과 생성 기본 화면이 현재 목 데이터를 사용하므로 운영 진입점 연결은 서비스 배포 판단에 포함한다.
+
+## SCREEN 14 최종 결과 및 일정 확정
+
+- SCREEN 10·11의 자동 선정과 SCREEN 12·13의 투표 완료는 같은 방의 `/rooms/vote/result?mode=api&roomId=…`로 이동한다. 직접 진입, 홈의 방 재진입 및 포커스 복귀에서도 A08을 읽는다. 동률·복구 대기와 일반 회원의 확정 대기는 공통 polling을 사용한다.
+- 선정 장소와 방문 순서는 A08 `result.selected`와 `result.visitOrder`가 기준이다. HOST와 MEMBER 모두 `RESULT_READY`의 결과를 확인한다. `FINAL_PLACE_CONFIRMED`에서 확정 UI와 A33 RESULT를 사용한다. 집계는 서버가 공개한 숫자를 표시한다.
+- `RESOLVE_TIES`가 있는 방장은 A21에 `tieDecision.round`, `resultRevision`, 모든 동률 카테고리의 후보 한 곳씩을 보낸다. `REORDER_VISIT`가 있으면 A22에 결과 버전과 선정 후보 ID 전체 순서를 보낸다. 동률 대기의 부분 결과와 최종 확정 뒤에도 서버가 허용한 순서는 편집할 수 있다.
+- A36은 방장이 `RESULT_READY`에서 결과 버전과 저장된 방문 순서를 확인한 뒤 별도로 호출한다. A22가 성공하면 A08에서 새 버전이 확인될 때까지 확정 버튼을 잠근다. A21·A22·A36은 Idempotency-Key를 사용하지 않는다.
+- `NO_ELIGIBLE_RESULT`와 `RECOLLECT`에서 A20으로 새 등록 회차를 연다. 사용자에게 서울 시각으로 새 마감을 받고 동일 요청 재시도에 키를 재사용한다. 재등록 가능 여부·횟수·새 단계는 서버에서 확인한다. 배포 Recovery DTO가 제공하는 실패 정보는 회차와 원인이다.
+- 쓰기 성공 뒤 A08 실패 시 조회만 재시도한다. 409는 공통 RoomState가 재조회한다. 결과 공유 모달은 A33 RESULT의 문구·복귀 링크·대상을 읽고 카카오톡 공유는 별도로 연다.
+
+## SCREEN 10·11 서버 연동
+
+- SCREEN 09의 A16 성공 뒤 같은 방의 `serverScreenUrl(PATHS.registration, roomId)`로 이동한다. SCREEN 10은 A08 registration의 round·completion·progress를 읽는다. 정원과 회차 참여자 수를 구분하고 후보 수를 완료 인원에 포함하지 않는다. 타이머는 serverNow 보정 시각을 사용한다. 0초에는 A08만 다시 조회하고, 평소에는 공통 15초 polling과 포커스 복귀 조회를 사용한다.
+- 열린 회차의 방장은 `START_MINI_TIMER`와 정원 엄격한 과반·미완료자가 있을 때 A23 MINI_TIMER를 실행할 수 있다. 마감된 회차에서는 `EXTEND_COLLECTION`으로 A23 EXTEND를 실행한다. MINI_TIMER는 기존 마감 이후, EXTEND는 현재 이후이며 둘 다 등록 상한을 적용한다. 종류별 1회와 재개 시 완료 상태는 서버가 관리한다. 전원이 완료했지만 필수 후보가 비어 재개하면 서버는 완료 표시를 초기화할 수 있다.
+- A26은 `CLOSE_COLLECTION`과 정원 절반 이상(올림)을 확인하고 사용자가 마감 모달에 동의할 때 실행한다. 방 전체 필수 후보 충족은 공개된 카테고리 집계와 서버 권한을 따른다. A26 이후 자동 선정·복구·마감 등 A08이 반환한 단계로 이동한다.
+- SCREEN 11은 카테고리별 집계를 읽는다. 필수·선택 모두 후보 1곳은 자동 선정, 2곳 이상은 투표 대상이며 선택 후보 0곳은 제외한다. 집계가 비공개이면 개수를 표시하지 않는다. 별도 투표 시작 버튼에서 방장이 `START_VOTING`을 가진 닫힌 회차에만 A17을 실행한다. 마감은 Seoul 입력에서 Instant로 변환하며 서버 정책이 없으면 최소 30분·약속 3시간 전 상한이다.
+- A23·A17은 동일 요청 재시도에서 같은 키를 사용한다. A23·A26·A17 성공 또는 409 뒤 A08을 재조회한다. 쓰기 성공 뒤 읽기가 실패하면 A08만 재시도한다. VOTING_OPEN은 canVote와 allowedActions에 따라 SCREEN 12·13으로, 결과 단계는 SCREEN 14로 연결한다. 각 후속 화면은 최신 A08의 voting 또는 result DTO를 읽는다.
+- A33 REGISTRATION·HOST에서 서버 메시지·복귀 링크·대상 정보를 읽고, 사용자가 카카오톡 공유 창에서 최종 수신자를 선택한다.
+
+## SCREEN 08 서버 연동
+
+- SCREEN 06·07에서 `serverScreenUrl(PATHS.setup, roomId, selectionId)`로 진입한다. A08의 HOST, REGION_CONFIRMED, 현재 selectionId와 OPEN_COLLECTION을 기준으로 시작 권한을 확인한다. URL의 selectionId는 전달 힌트다. 이미 등록이 시작됐으면 최신 A08 권한에 따라 SCREEN 09 또는 10 경로로 이동한다.
+- A28에서 카테고리의 기본 필수 여부, 가용성, 검색 반경을 읽는다. 응답의 selectionId가 현재 A08과 다르면 설정을 사용하지 않는다. A13에는 사용 가능한 FOOD·CAFE·BAR 중 한 개 이상의 필수 카테고리만 전송한다. CULTURE는 선택으로 유지하고 가용한 선택 카테고리의 활성 여부는 서버가 관리한다. SCREEN 08에서 A14를 호출하지 않는다.
+- 마감 설정은 A08의 serverNow와 deadlinePolicy를 사용한다. 정책 필드가 없으면 6시간 경계의 60분·30분 최소값과 약속 시작 3시간 30분 전 상한을 적용한다. 기본 마감 요청은 closesAt을 생략하며 직접 선택 및 프리셋은 서울 시각에서 변환한 Instant를 전송한다. 시간 부족 시 SELECT_MEETING이 허용되면 SCREEN 05에서 재선택할 수 있다. A30은 별도 설정 초기화 동선에서 사용자 확인 후 연결할 대상이다.
+- A13은 동일 본문의 재시도에 같은 Idempotency-Key를 사용한다. 성공 또는 409 후 A08을 재조회한다. 쓰기 성공 뒤 읽기가 실패하면 상태 조회를 재시도한다. SCREEN 09는 같은 roomId의 최신 A08에서 meeting.station·selectionId, registration.round·categories·radiusMeters·closesAt과 allowedActions를 읽고 A14·A34·A35·A16을 연결한다. 본인 후보 한 곳이면 완료 가능하며 필수 충족은 방 전체 기준이다.
+- SCREEN 10·11은 같은 A08의 round·마감·등록 상태와 방장 허용 동작으로 연동한다. SCREEN 09·10의 서버 URL은 현재 공통 상태 화면까지 제공한다.
+
+## SCREEN 06·07 서버 연동
+
+- SCREEN 05가 A08의 options를 읽고 A12를 실행한다. 성공 후 `serverRoomUrl(roomId)`로 이동하면 A08을 재조회해 확정 전후 상태를 복원한다. REGION_CONFIRMED에서는 HOST가 SCREEN 06, MEMBER가 SCREEN 07을 본다. 직접 접근은 `serverScreenUrl(PATHS.confirmed, roomId)` 또는 `serverScreenUrl(PATHS.info, roomId)`를 사용한다.
+- 카드의 시각과 역은 A08의 meeting, 참여자는 members와 joinedCount를 사용한다. 매칭되는 options의 역·시간 후보가 있을 때 그 요약을 표시한다. 날짜·시간은 Asia/Seoul로 변환한다.
+- HOST는 REGION_CONFIRMED의 SELECT_MEETING일 때 SCREEN 05로 돌아가 재선택한다. 기존 A12 호출 소유권은 SCREEN 05에 있으며 최신 A08 meeting.selectionId를 expectedSelectionId로 전달한다. A30은 방 초기화 전용이다.
+- OPEN_COLLECTION을 받은 HOST는 SCREEN 08 경로로 이동한다. SCREEN 08이 최신 A08과 A28을 확인한 후 A13에 현재 selectionId를 사용한다. SCREEN 07에서 등록 가능한 회차 회원은 SCREEN 09로 이동한다. SCREEN 09가 최신 A08 round·allowedActions로 A14·A34·A35·A16을 처리한다. 이동 URL의 selectionId는 전달 힌트이며 쓰기의 기준 값은 최신 A08이다.
+- SCREEN 07은 마감·카테고리·본인 등록 상태를 A08에서 표시한다. 완료 또는 마감 후에는 진행 현황으로 유도한다. SCREEN 08·09의 서버 URL에 현재 브랜치에서는 공통 상태 화면을 표시한다.
+- A33에는 일시·지역 확정 공유 전용 purpose가 없다. SCREEN 06은 A08 shareUrl과 확정 제목·시각·역으로 카카오 공유를 열며 A33 RESULT는 최종 결과 확정 이후에만 사용한다.
+
+## SCREEN 04 서버 연동
+
+- 홈은 `serverRoomUrl(roomId)`로 이동한다. A08의 `WAITING_FOR_DEPARTURE`와 시작 전 상태에서 모집 화면을 렌더링한다. 모집 수치는 `joinedCount / capacity`, 입력 수치는 `inputProgress.completedCount / inputProgress.capacity`다. 두 화면은 같은 A08 스토어를 사용한다.
+- 방장이 `START_ROOM`을 가지고 가입자가 2명 이상이면 모달 확인 후 A31에 최신 `expectedRevision`을 보낸다. A08 재조회 후 `EDIT_INPUT`이 있으면 `serverScreenUrl(PATHS.schedule, roomId)`로 이동하고, 입력을 완료했으면 입력 현황을 표시한다. A31의 Phase 자체는 유지된다.
+- SCREEN 03은 A10 성공 후 `serverScreenUrl(PATHS.participation, roomId)`로 이동한다. 이 경로가 A08을 다시 읽는다. URL의 role이나 화면 전환 state에서 입력 완료 여부를 복원하지 않는다.
+- SCREEN 04만 A11을 실행한다. 방장과 `CALCULATE_OPTIONS`, 입력 완료 2명 이상을 확인하고 미완료자가 있을 때 기존 모달을 표시한다. 서버가 계산 시점 완료자 스냅샷을 고정한다. 동일 roomId·inputVersion 재시도에는 같은 요청 핸들과 키를 사용한다. A08이 `OPTIONS_READY`를 반환하면 `serverScreenUrl(PATHS.candidates, roomId)`로 이동한다.
+- SCREEN 05는 URL의 서버 UUID로 A08의 `options`를 읽고 기존 결과를 재사용한다. A11을 다시 호출하지 않는다. A12 성공 후에도 같은 roomId를 유지하고 A08의 `meeting`과 `selectionId`를 SCREEN 06·07에서 사용한다. SCREEN 03·05는 이번 브랜치에서 실제 URL의 공통 상태 화면까지 제공하며 각 담당 화면은 팀원 브랜치에서 연결한다.
+- 모집 초대는 방장에게 내려온 A08 `invite`를 SCREEN 02에서 공유한다. 입력 재촉은 A33 `INPUT`, 일반 회원의 방장 진행 요청은 A33 `HOST`로 요청한다. 서버 문구·링크·수신 대상을 모달에서 확인한 뒤 별도로 카카오 공유를 연다. SDK 구성 누락 또는 실패는 오류로 표시한다. A30은 방 설정 담당 화면에서 별도로 연결한다.
+
+## SCREEN 02 서버 연동과 화면 간 계약
+
+- SCREEN 01의 A05 성공 처리에서 `createdRoomDestination(response)`를 사용한다. 반환하는 `{ to, state }`를 `navigate(to, { state })`에 전달한다. 주소는 `/rooms/create/complete?mode=api&roomId=<서버 UUID>`이고 state는 `{ createdRoom: A05 응답 }`이다. 02는 A08에서 인증·방 ID·방장 권한과 현재 초대를 확인한 다음 일치하는 A05 초대 데이터를 사용한다. 새로고침과 직접 진입은 A08만으로 복원한다.
+- 공개 초대는 `/invite/:inviteToken`이다. A03으로 세션을 확인하고 A06 미리보기를 조회한다. 비로그인 CTA는 A01에 `inviteToken`과 현재 `returnOrigin`을 전달한다. A02 복귀 후 A03을 다시 조회한다. 로그인 사용자는 A25로 코드를 검증한 뒤 별도 버튼에서 A07을 호출한다. 증표는 메모리에서만 보관한다.
+- A06·A25가 `MEMBER`를 반환하거나 A07이 성공하면 `/rooms/<서버 UUID>`에서 A08을 읽는다. 홈의 코드 입력은 홈 담당자가 A25·A07을 완료한 후 `serverRoomUrl(roomId)`로 이동한다. `joinProof`·CSRF·역할은 URL에 넣지 않는다.
+- `useRoomState(roomId)`는 방별 외부 스토어로 A08, 현재 역할·허용 동작·버전, 서버 시각 보정을 제공한다. `mutate(action, execute)`는 허용된 동작만 시작하고, 성공 또는 409 뒤 A08을 다시 조회한다. 읽기 교체·이탈 시 AbortSignal을 정리하며 세션 무효화 알림에서 방 데이터를 즉시 제거한다.
+- 서버 진입은 `/rooms/:roomId`와 명시적 `mode=api`로 구분한다. 기존 목 라우트와 scenario는 기존 경로에서 유지한다. 서버 진입에서는 phase·me.role·allowedActions로 목적 화면을 결정하고, 이번 범위 밖 화면은 공통 서버 상태를 표시한다. 진행 현황만 가시 상태에서 15초마다 다시 읽고, 화면 복귀 시에는 별도 재조회한다.
+- SCREEN 04의 모집 화면은 같은 스토어에서 `START_ROOM`·`CALCULATE_OPTIONS`를 각각 A31·A11에 매핑한다. SCREEN 03·05로 이동할 때 동일한 서버 roomId를 유지한다.
+
+### localhost에서 실제 인증 확인
+
+`.env.local`에 `VITE_API_BASE_URL=https://api.meetdle.co.kr`을 설정한 뒤 `npm run dev -- --port 5173 --strictPort`로 실행한다.
+
+- 로그인만 확인하려면 [localhost 복귀용 A01](https://api.meetdle.co.kr/api/auth/kakao/start?returnOrigin=http%3A%2F%2Flocalhost%3A5173)에서 직접 카카오 인증한다. 기본 콜백 경로 `/rooms`는 기존 홈으로 이동한다. 돌아온 localhost의 DevTools에서 아래 GET의 상태를 확인한다. 200이면 세션이 전달됐으며, 쿠키와 CSRF 값은 출력하지 않는다.
+- HOST는 본인이 만든 테스트 방 UUID로 `http://localhost:5173/rooms/create/complete?mode=api&roomId=<UUID>`에서 새로고침, 서버 초대 코드·링크 복사 및 카카오 공유를 확인한다. 공유에는 `VITE_KAKAO_SHARE_APP_KEY`와 카카오 앱의 Web 도메인·제품 링크 도메인 등록이 필요하다.
+- MEMBER는 별도 Chrome 프로필에서 테스트 방의 토큰으로 `http://localhost:5173/invite/<TOKEN>`에 접속한다. 로그인 복귀, 틀린 코드, 올바른 코드 확인, 가입을 순서대로 검증한다. 같은 링크를 다시 열었을 때 A08로 이동하고 A07이 재호출되지 않는지 확인한다.
+- 인증된 A03·A08 payload 및 실제 A25·A07은 테스트 계정과 테스트 방에서 확인해야 한다. A08의 상세 명세와 Swagger 차이 및 쓰기 성공 코드 차이는 아래 배포 비교에 정리되어 있다.
+
+```js
+fetch('https://api.meetdle.co.kr/api/me', { credentials: 'include' }).then((r) =>
+  console.log(r.status),
+);
+```
+
+공통 API 모듈과 SCREEN 02·04·06·07 서버 연동을 적용했다. 화면 번호는 Figma 1118 기준이며 1115 API 명세의 SC 번호와 별개다.
 
 ## 11월 19일 계약과 배포 차이
 
@@ -223,3 +321,12 @@ fetch('https://api.meetdle.co.kr/api/me', { credentials: 'include' }).then(({ st
 - A34 400 INVALID_REQUEST, 400 INVALID_PICK, 400 CATEGORY_MISMATCH, 400 OUT_OF_RADIUS, 401 UNAUTHENTICATED, 403 FORBIDDEN, 404 NOT_FOUND, 409 STALE_ROUND, 409 WRONG_PHASE, 409 DEADLINE_PASSED, 409 CATEGORY_DISABLED, 409 ALREADY_COMPLETED, 409 PICK_EXPIRED
 - A35 400 INVALID_REQUEST, 401 UNAUTHENTICATED, 403 FORBIDDEN, 404 NOT_FOUND, 409 STALE_ROUND, 409 WRONG_PHASE, 409 DEADLINE_PASSED, 409 ALREADY_COMPLETED
 - A36 400 INVALID_REQUEST, 401 UNAUTHENTICATED, 403 FORBIDDEN, 404 NOT_FOUND, 409 STALE_RESULT, 409 WRONG_PHASE, 409 DEADLINE_PASSED
+
+## SCREEN 12·13 투표 연동
+
+- A17 성공 뒤 A08이 `VOTING_OPEN`을 반환하면 투표 권한이 있는 미제출 회원은 SCREEN 12로 진입한다. `/rooms/vote/status?mode=api&roomId=…`는 열린 투표의 진행 현황도 표시한다. 기제출 회원의 직접 재진입과 `VOTE_REVIEW_REQUIRED`는 SCREEN 13으로 연결한다.
+- SCREEN 12는 같은 방·회원·회차의 A08 `voting.myDraft`를 복원하고 미저장 선택을 그 위에 적용한다. 후보 유형은 A08의 `VOTE`와 `AUTO_SELECTED`를 따르며 선택 카테고리에서도 투표 대상 후보별로 선호도를 하나씩 지정한다. `NEUTRAL`은 유효한 선호도다.
+- 초안 저장 버튼 또는 미저장 선택이 있는 제출 확인에서 A18을 호출한다. 최초 초안 버전은 0이며 이후 요청은 최신 초안 버전으로 전체 선호도 목록을 교체한다. A18 성공과 A08 갱신을 확인한 뒤 A19에 저장 버전을 보낸다. A18·A19는 Idempotency-Key를 사용하지 않는다. A19의 204는 화면에서 쓰기를 잠그고, A08에서 제출 여부 또는 결과 단계가 확인될 때까지 조회만 재시도한다.
+- SCREEN 13의 진행률과 회원별 제출 상태는 A08 `voting` 또는 `voteReview`에서 가져온다. 기존 15초 polling과 포커스 재조회를 사용한다. 타이머 만료는 A08 재조회만 요청한다. `VOTE_REVIEW_REQUIRED`에서 방장은 서버의 결정 권한으로 A27을 실행한다. EXTEND는 회차당 1회이며 동일 요청의 재시도에 키를 재사용한다. 새 마감은 현재·기존 마감 이후의 서울 시각으로 선택하고 서버 상한을 적용한다. PROCEED는 제출표가 한 건 이상일 때만 열리며 이 구현은 선택 헤더를 생략한다. A27 성공 뒤 A08 읽기가 실패하면 읽기만 재시도한다.
+- A33 VOTING과 HOST는 공유 모달을 열 때 호출한다. 서버 문구·링크·대상을 확인한 뒤 사용자가 카카오톡에서 수신자를 선택한다.
+- `WAITING_FOR_HOST_DECISION`, `RESULT_READY`, `FINAL_PLACE_CONFIRMED`, `RECOVERY_REQUIRED`, `ENDED`는 같은 방의 `/rooms/vote/result?mode=api&roomId=…`로 연결한다. SCREEN 14는 최신 A08의 `tieDecision`, `result`, `recovery`, `allowedActions`에 따라 화면을 표시하고 결과 동작을 연다.

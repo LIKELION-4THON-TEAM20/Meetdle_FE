@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ResultPlace } from '../types';
+import type { ResultPlace, VoteCounts } from '../types';
 import { getVotePercentages } from '../resultUtils';
 
 export interface BreakdownCategory {
@@ -9,9 +9,19 @@ export interface BreakdownCategory {
   autoSelected?: boolean;
 }
 
-export default function VoteBreakdown({ categories }: { categories: BreakdownCategory[] }) {
+export default function VoteBreakdown({
+  categories,
+  countsOnly,
+}: {
+  categories: Array<
+    Omit<BreakdownCategory, 'places'> & {
+      places: Array<Pick<ResultPlace, 'id' | 'name'> & { votes?: VoteCounts }>;
+    }
+  >;
+  countsOnly?: boolean;
+}) {
   const [selected, setSelected] = useState(categories[0]?.id);
-  const category = categories.find(({ id }) => id === selected);
+  const category = categories.find(({ id }) => id === selected) ?? categories[0];
   return (
     <section className="vote-breakdown" id="vote-breakdown" aria-labelledby="vote-breakdown-title">
       <h2 id="vote-breakdown-title">카테고리별 투표 결과</h2>
@@ -20,7 +30,7 @@ export default function VoteBreakdown({ categories }: { categories: BreakdownCat
           <button
             type="button"
             key={id}
-            aria-pressed={id === selected}
+            aria-pressed={id === category?.id}
             onClick={() => setSelected(id)}
           >
             {name}
@@ -29,7 +39,8 @@ export default function VoteBreakdown({ categories }: { categories: BreakdownCat
       </div>
       {!category?.places.length && <p>후보가 없어요.</p>}
       {category?.places.map((place) => {
-        const percentages = getVotePercentages(place.votes);
+        const percentages =
+          place.votes && !countsOnly ? getVotePercentages(place.votes) : undefined;
         return (
           <div className="vote-breakdown__item" key={place.id}>
             <h3>
@@ -37,7 +48,7 @@ export default function VoteBreakdown({ categories }: { categories: BreakdownCat
             </h3>
             {category.autoSelected ? (
               <p>후보가 1곳이라 투표 없이 자동 선정됐어요.</p>
-            ) : (
+            ) : percentages ? (
               <>
                 <div
                   className="vote-breakdown__bar"
@@ -56,7 +67,12 @@ export default function VoteBreakdown({ categories }: { categories: BreakdownCat
                 </div>
                 {percentages.total === 0 && <p>아직 집계된 응답이 없어요.</p>}
               </>
-            )}
+            ) : place.votes ? (
+              <p>
+                좋아요 {place.votes.like} · 상관없어요 {place.votes.neutral} · 싫어요{' '}
+                {place.votes.dislike}
+              </p>
+            ) : null}
           </div>
         );
       })}

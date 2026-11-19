@@ -8,6 +8,7 @@ interface Props {
   final: boolean;
   participants: VoteParticipant[];
   completed: number;
+  confirmDisabled?: boolean;
   onClose: () => void;
   onConfirm: () => void;
 }
@@ -16,6 +17,7 @@ export default function VoteCloseModal({
   final,
   participants,
   completed,
+  confirmDisabled,
   onClose,
   onConfirm,
 }: Props) {
@@ -36,7 +38,9 @@ export default function VoteCloseModal({
         <Button className="vote-close-modal__wait" onClick={onClose}>
           마감까지 기다리기
         </Button>
-        <Button onClick={onConfirm}>{final ? '투표 마감하기' : '다음 단계로 이동'}</Button>
+        <Button disabled={confirmDisabled} onClick={onConfirm}>
+          {final ? '투표 마감하기' : '다음 단계로 이동'}
+        </Button>
       </div>
     </Modal>
   );

@@ -1,4 +1,5 @@
 import { getKakaoMapUrl } from '../../PlaceVote/voteUtils';
+import { safeKakaoMapUrl } from '../../../lib/kakaoMaps/placeLink';
 import type { ResultPlace } from '../types';
 import restaurant from '../../../assets/vote-result/restaurant.svg';
 import cafe from '../../../assets/vote-result/cafe.svg';
@@ -12,13 +13,20 @@ export default function ResultPlaceCard({
   categoryId,
   selected,
   onSelect,
+  serverProvided,
 }: {
-  place: ResultPlace;
+  place: Pick<ResultPlace, 'name' | 'address' | 'kakaoMapUrl'> & {
+    distanceMeters?: number;
+    imageUrl?: string;
+  };
   categoryId: string;
   selected?: boolean;
   onSelect?: () => void;
+  serverProvided?: boolean;
 }) {
-  const mapUrl = getKakaoMapUrl(place.kakaoMapUrl);
+  const mapUrl = serverProvided
+    ? safeKakaoMapUrl(place.kakaoMapUrl ?? null)
+    : getKakaoMapUrl(place.kakaoMapUrl);
   const icon = icons[categoryId];
   const distance = place.distanceMeters;
   return (
@@ -27,9 +35,9 @@ export default function ResultPlaceCard({
       aria-label={place.name}
     >
       <span className="result-place-card__image" aria-hidden="true">
-        {icon && (
+        {(place.imageUrl || icon) && (
           <img
-            src={icon}
+            src={place.imageUrl ?? icon}
             alt=""
             className={
               categoryId === 'restaurant' || categoryId === 'cafe' ? 'fills-tile' : undefined
@@ -52,7 +60,7 @@ export default function ResultPlaceCard({
             </button>
           )}
         </div>
-        {Number.isFinite(distance) && distance > 0 && (
+        {distance !== undefined && Number.isFinite(distance) && distance > 0 && (
           <p>
             역에서 {distance >= 1000 ? `${Number((distance / 1000).toFixed(1))}km` : `${distance}m`}
           </p>

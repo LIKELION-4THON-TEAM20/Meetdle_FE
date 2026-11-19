@@ -9,6 +9,7 @@ interface MeetingConfirmationLayoutProps {
   children: ReactNode;
   title?: string;
   showTravelSummary?: boolean;
+  details?: ReactNode;
 }
 
 function MeetingConfirmationLayout({
@@ -17,6 +18,7 @@ function MeetingConfirmationLayout({
   children,
   title = '우리 여기서 만나요',
   showTravelSummary,
+  details,
 }: MeetingConfirmationLayoutProps) {
   return (
     <div className="page meeting-confirmed">
@@ -30,6 +32,7 @@ function MeetingConfirmationLayout({
           <p>확정된 일시와 지역을 친구들에게 알려주세요.</p>
         </div>
         <MeetingConfirmationCard meeting={meeting} showTravelSummary={showTravelSummary} />
+        {details}
       </main>
       {children}
     </div>
