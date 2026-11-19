@@ -1,7 +1,10 @@
 import { api } from './client';
 import type {
+  AddCandidateRequest,
+  AddedCandidate,
   Category,
   CategoryAvailability,
+  ConfirmResultRequest,
   CreateRoomRequest,
   CreateRoomResponse,
   Draft,
@@ -24,14 +27,18 @@ import type {
   ResolveTiesRequest,
   ReorderVisitRequest,
   RoomRef,
+  RoomShare,
   RoomState,
   RoundDeadline,
   SaveMyInputRequest,
   SavePreferencesRequest,
   SelectMeetingRequest,
+  SharePurpose,
+  StartRoomRequest,
   StartVotingRequest,
   StationsResponse,
   SubmitVoteRequest,
+  UpdateRoomRequest,
   VoteDecisionRequest,
 } from './types';
 
@@ -39,9 +46,9 @@ export function isServerRoomId(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id);
 }
 
-function roomPath(roomId: string, resource: string) {
+function roomPath(roomId: string, resource?: string) {
   if (!isServerRoomId(roomId)) throw new TypeError('Expected a server room UUID');
-  return `/api/rooms/${roomId}/${resource}`;
+  return resource ? `/api/rooms/${roomId}/${resource}` : `/api/rooms/${roomId}`;
 }
 
 export async function getRoomState(roomId: string, signal?: AbortSignal): Promise<RoomState> {
@@ -80,10 +87,23 @@ export function getCategoryAvailability(roomId: string, signal?: AbortSignal) {
   return api.get<CategoryAvailability>(roomPath(roomId, 'place-submission/categories'), { signal });
 }
 
+export function getRoomShare(roomId: string, purpose: SharePurpose, signal?: AbortSignal) {
+  return api.get<RoomShare>(roomPath(roomId, 'share'), { query: { purpose }, signal });
+}
+
 // Create one handle per user intent, then reuse its execute() for duplicate clicks or retries.
 const withKey = { idempotent: true };
 
 export const roomMutations = {
+  start: (roomId: string, body: StartRoomRequest) =>
+    api.createMutation<void>('POST', roomPath(roomId, 'start'), body, { discardResponse: true }),
+  updateSettings: (roomId: string, body: UpdateRoomRequest) =>
+    api.createMutation<void>('PUT', roomPath(roomId, 'settings'), body, {
+      ...withKey,
+      discardResponse: true,
+    }),
+  hidePastRoom: (roomId: string) =>
+    api.createMutation<void>('DELETE', roomPath(roomId), undefined, { discardResponse: true }),
   create: (body: CreateRoomRequest) =>
     api.createMutation<CreateRoomResponse>('POST', '/api/rooms', body, withKey),
   resolveInvite: (body: ResolveInviteRequest) =>
@@ -110,6 +130,23 @@ export const roomMutations = {
     ),
   setNomination: (roomId: string, category: Category, body: NominationRequest) =>
     api.createMutation<void>('PUT', roomPath(roomId, `place-submission/me/${category}`), body),
+  addCandidate: (roomId: string, body: AddCandidateRequest) =>
+    api.createMutation<AddedCandidate>(
+      'POST',
+      roomPath(roomId, 'place-submission/me/candidates'),
+      body,
+    ),
+  removeCandidate: (roomId: string, candidateId: string, round: number) => {
+    if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(candidateId)) {
+      throw new TypeError('Expected a server candidate UUID');
+    }
+    return api.createMutation<void>(
+      'DELETE',
+      roomPath(roomId, `place-submission/me/candidates/${candidateId}`),
+      undefined,
+      { query: { round }, discardResponse: true },
+    );
+  },
   completeRegistration: (roomId: string, body: RegistrationRoundRequest) =>
     api.createMutation<void>('PUT', roomPath(roomId, 'place-submission/me/completion'), body),
   closeRegistration: (roomId: string, body: RegistrationRoundRequest) =>
@@ -135,6 +172,10 @@ export const roomMutations = {
     api.createMutation<RoundDeadline>('POST', roomPath(roomId, 'recovery'), body, withKey),
   resolveTies: (roomId: string, body: ResolveTiesRequest) =>
     api.createMutation<void>('PUT', roomPath(roomId, 'result/selections'), body),
+  confirmResult: (roomId: string, body: ConfirmResultRequest) =>
+    api.createMutation<void>('PUT', roomPath(roomId, 'result/confirmation'), body, {
+      discardResponse: true,
+    }),
   reorderVisit: (roomId: string, body: ReorderVisitRequest) =>
     api.createMutation<void>('PUT', roomPath(roomId, 'result/visit-order'), body),
 };
