@@ -1,0 +1,42 @@
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { createRoomStateStore, estimateServerNow } from './roomState';
+import { shouldPollRoom } from './routing';
+
+export function useRoomState(roomId: string, poll = false) {
+  const store = useMemo(() => createRoomStateStore(roomId), [roomId]);
+  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const polling =
+    poll && !snapshot.error && snapshot.room !== null && shouldPollRoom(snapshot.room);
+
+  useEffect(() => {
+    const disconnect = store.connect();
+    const refresh = () => {
+      if (!document.hidden) void store.refresh();
+    };
+    void store.refresh();
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+      disconnect();
+    };
+  }, [store]);
+
+  useEffect(() => {
+    if (!polling) return;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void store.refresh();
+    }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [polling, store]);
+
+  return {
+    ...snapshot,
+    refresh: store.refresh,
+    mutate: store.mutate,
+    can: (action: Parameters<typeof store.mutate>[0]) =>
+      !snapshot.error && Boolean(snapshot.room?.allowedActions.includes(action)),
+    serverNow: snapshot.room ? estimateServerNow(snapshot.room, snapshot.receivedAt) : null,
+  };
+}

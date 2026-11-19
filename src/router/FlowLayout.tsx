@@ -7,8 +7,21 @@ import {
   hasFullRecruitment,
 } from '../features/createdRoom/model';
 import { PATHS, roomPath } from './paths';
+import { isServerRoomId } from '../api/rooms';
+import { ServerRoomCreated } from '../pages/RoomCreated/RoomCreated';
+import { serverRoomUrl } from '../features/serverRoom/routing';
 
 export default function FlowLayout() {
+  const { pathname, search } = useLocation();
+  const params = new URLSearchParams(search);
+  const id = params.get('roomId');
+  if (params.get('mode') === 'api' && pathname.startsWith('/rooms/')) {
+    if (!id || !isServerRoomId(id) || getCreatedRoom(id)) {
+      return <RoomRecovery message="서버 약속방 주소가 올바르지 않아요." />;
+    }
+    if (pathname === PATHS.created) return <ServerRoomCreated key={id} roomId={id} />;
+    return <Navigate to={serverRoomUrl(id)} replace />;
+  }
   return (
     <>
       <Outlet />

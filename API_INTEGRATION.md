@@ -1,6 +1,30 @@
 # Meetdle API 연동 계획
 
-첫 단계는 공통 API 모듈과 계약 정의까지다. 현재 화면과 라우터는 기존 목 모드로 동작한다. 화면 번호는 Figma 1118 기준이며 1115 API 명세의 SC 번호와 별개다.
+## SCREEN 02 서버 연동과 화면 간 계약
+
+- SCREEN 01의 A05 성공 처리에서 `createdRoomDestination(response)`를 사용한다. 반환하는 `{ to, state }`를 `navigate(to, { state })`에 전달한다. 주소는 `/rooms/create/complete?mode=api&roomId=<서버 UUID>`이고 state는 `{ createdRoom: A05 응답 }`이다. 02는 A08에서 인증·방 ID·방장 권한과 현재 초대를 확인한 다음 일치하는 A05 초대 데이터를 사용한다. 새로고침과 직접 진입은 A08만으로 복원한다.
+- 공개 초대는 `/invite/:inviteToken`이다. A03으로 세션을 확인하고 A06 미리보기를 조회한다. 비로그인 CTA는 A01에 `inviteToken`과 현재 `returnOrigin`을 전달한다. A02 복귀 후 A03을 다시 조회한다. 로그인 사용자는 A25로 코드를 검증한 뒤 별도 버튼에서 A07을 호출한다. 증표는 메모리에서만 보관한다.
+- A06·A25가 `MEMBER`를 반환하거나 A07이 성공하면 `/rooms/<서버 UUID>`에서 A08을 읽는다. 홈의 코드 입력은 홈 담당자가 A25·A07을 완료한 후 `serverRoomUrl(roomId)`로 이동한다. `joinProof`·CSRF·역할은 URL에 넣지 않는다.
+- `useRoomState(roomId)`는 방별 외부 스토어로 A08, 현재 역할·허용 동작·버전, 서버 시각 보정을 제공한다. `mutate(action, execute)`는 허용된 동작만 시작하고, 성공 또는 409 뒤 A08을 다시 조회한다. 읽기 교체·이탈 시 AbortSignal을 정리하며 세션 무효화 알림에서 방 데이터를 즉시 제거한다.
+- 서버 진입은 `/rooms/:roomId`와 명시적 `mode=api`로 구분한다. 기존 목 라우트와 scenario는 기존 경로에서 유지한다. 서버 진입에서는 phase·me.role·allowedActions로 목적 화면을 결정하고, 이번 범위 밖 화면은 공통 서버 상태를 표시한다. 진행 현황만 가시 상태에서 15초마다 다시 읽고, 화면 복귀 시에는 별도 재조회한다.
+- SCREEN 04의 후속 작업은 모집 화면에 같은 스토어를 연결하고 `START_ROOM`·`CALCULATE_OPTIONS`를 각각 A31·A11에 매핑하는 것이다. 요청에 스토어의 최신 `revision`·`inputVersion`을 사용한다. 기존 SCREEN 03·05의 담당 화면으로 연결할 때 동일한 서버 roomId를 유지한다.
+
+### localhost에서 실제 인증 확인
+
+`.env.local`에 `VITE_API_BASE_URL=https://api.meetdle.co.kr`을 설정한 뒤 `npm run dev -- --port 5173 --strictPort`로 실행한다.
+
+- 로그인만 확인하려면 [localhost 복귀용 A01](https://api.meetdle.co.kr/api/auth/kakao/start?returnOrigin=http%3A%2F%2Flocalhost%3A5173)에서 직접 카카오 인증한다. 기본 콜백 경로 `/rooms`는 기존 홈으로 이동한다. 돌아온 localhost의 DevTools에서 아래 GET의 상태를 확인한다. 200이면 세션이 전달됐으며, 쿠키와 CSRF 값은 출력하지 않는다.
+- HOST는 본인이 만든 테스트 방 UUID로 `http://localhost:5173/rooms/create/complete?mode=api&roomId=<UUID>`에서 새로고침, 서버 초대 코드·링크 복사 및 카카오 공유를 확인한다. 공유에는 `VITE_KAKAO_SHARE_APP_KEY`와 카카오 앱의 Web 도메인·제품 링크 도메인 등록이 필요하다.
+- MEMBER는 별도 Chrome 프로필에서 테스트 방의 토큰으로 `http://localhost:5173/invite/<TOKEN>`에 접속한다. 로그인 복귀, 틀린 코드, 올바른 코드 확인, 가입을 순서대로 검증한다. 같은 링크를 다시 열었을 때 A08로 이동하고 A07이 재호출되지 않는지 확인한다.
+- 인증된 A03·A08 payload 및 실제 A25·A07은 테스트 계정과 테스트 방에서 확인해야 한다. A08의 상세 명세와 Swagger 차이 및 쓰기 성공 코드 차이는 아래 배포 비교에 정리되어 있다.
+
+```js
+fetch('https://api.meetdle.co.kr/api/me', { credentials: 'include' }).then((r) =>
+  console.log(r.status),
+);
+```
+
+공통 API 모듈과 SCREEN 02 서버 연동을 적용했다. 화면 번호는 Figma 1118 기준이며 1115 API 명세의 SC 번호와 별개다.
 
 ## 11월 19일 계약과 배포 차이
 
