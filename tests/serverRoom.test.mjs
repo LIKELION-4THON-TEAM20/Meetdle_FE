@@ -47,6 +47,9 @@ const { roomScreen, roomScreenForEntry, shouldPollRoom, createdRoomDestination, 
 const { ballotPermissions, ballotSelections, voteDecisionPermissions, voteExtensionRange } =
   await vite.ssrLoadModule('/src/features/serverRoom/voting.ts');
 const { roomMutations, getRoomShare } = await vite.ssrLoadModule('/src/api/rooms.ts');
+const { resultPermissions, tieChoices, validVisitOrder } = await vite.ssrLoadModule(
+  '/src/features/serverRoom/result.ts',
+);
 const { invitationError, loadInvitation, resolveInvitationCode, joinResolvedInvitation } =
   await vite.ssrLoadModule('/src/features/serverRoom/invitation.ts');
 
@@ -170,7 +173,8 @@ test('server routes use role and allowedActions and never route mock IDs through
     true,
   );
   assert.equal(shouldPollRoom({ ...room, phase: 'VOTING_OPEN', allowedActions: [] }), true);
-  assert.equal(shouldPollRoom({ ...room, phase: 'RESULT_READY' }), false);
+  assert.equal(shouldPollRoom({ ...room, phase: 'RESULT_READY', result: {} }), false);
+  assert.equal(shouldPollRoom({ ...room, phase: 'RESULT_READY', me: { role: 'MEMBER' } }), true);
   assert.throws(() => serverRoomUrl('mock-room-10-14'), /Invalid/);
   const response = { roomId: id, invite: { code: 'ABC123' } };
   assert.deepEqual(createdRoomDestination(response), {
@@ -319,6 +323,123 @@ test('voting writes use the saved draft revision and apply a reusable key only t
     calls.slice(5).map(({ purpose }) => purpose),
     ['VOTING', 'HOST'],
   );
+  api.clearSession();
+});
+
+test('result controls follow phase, role, server actions, time and complete candidate IDs', () => {
+  const room = {
+    ...dto(),
+    me: { role: 'HOST' },
+    phase: 'RESULT_READY',
+    allowedActions: ['REORDER_VISIT', 'CONFIRM_RESULT', 'RESOLVE_TIES', 'RECOLLECT'],
+    meeting: { meetingAt: '2026-11-20T12:00:00Z' },
+    result: {
+      round: 3,
+      resultRevision: 4,
+      confirmed: false,
+      meeting: { meetingAt: '2026-11-20T12:00:00Z' },
+      selected: [{ candidateId: 'a' }, { candidateId: 'b' }],
+      visitOrder: ['a', 'b'],
+    },
+  };
+  const now = Date.parse(room.serverNow);
+  assert.deepEqual(resultPermissions(room, now), {
+    finalized: false,
+    tie: false,
+    order: true,
+    confirm: true,
+    recover: false,
+  });
+  assert.equal(validVisitOrder(room, ['b', 'a']), true);
+  for (const invalid of [['a'], ['a', 'a'], ['a', 'c']])
+    assert.equal(validVisitOrder(room, invalid), false);
+  const member = { ...room, me: { role: 'MEMBER' } };
+  assert.equal(resultPermissions(member, now).confirm, false);
+  assert.equal(resultPermissions(member, now).order, false);
+  const tied = {
+    ...room,
+    phase: 'WAITING_FOR_HOST_DECISION',
+    tieDecision: {
+      groups: [
+        { category: 'FOOD', places: [{ candidateId: 'a' }] },
+        { category: 'CAFE', places: [{ candidateId: 'b' }] },
+      ],
+    },
+  };
+  assert.equal(tieChoices(tied, { FOOD: 'a' }), null);
+  assert.equal(tieChoices(tied, { FOOD: 'b', CAFE: 'a' }), null);
+  assert.deepEqual(tieChoices(tied, { FOOD: 'a', CAFE: 'b' }), [
+    { category: 'FOOD', candidateId: 'a' },
+    { category: 'CAFE', candidateId: 'b' },
+  ]);
+  assert.equal(resultPermissions(tied, now).confirm, false);
+  assert.equal(resultPermissions(tied, now).order, true);
+  const final = {
+    ...room,
+    phase: 'FINAL_PLACE_CONFIRMED',
+    result: { ...room.result, confirmed: true },
+  };
+  assert.equal(resultPermissions(final, now + 172800000).order, true);
+  assert.equal(resultPermissions(final, now).confirm, false);
+  const recovery = {
+    ...room,
+    phase: 'RECOVERY_REQUIRED',
+    recovery: { reason: 'NO_ELIGIBLE_RESULT' },
+  };
+  assert.equal(resultPermissions(recovery, now).recover, true);
+  assert.equal(resultPermissions(recovery, Date.parse(room.meeting.meetingAt)).recover, false);
+  assert.equal(
+    resultPermissions({ ...recovery, recovery: { reason: 'RETRY_EXHAUSTED' } }, now).recover,
+    false,
+  );
+});
+
+test('result mutations wire tie, order, confirmation and keyed recovery independently', async () => {
+  api.clearSession();
+  const calls = [];
+  let failRecovery = true;
+  responder = async (url, options) => {
+    if (url.pathname === '/api/me') return Response.json(session);
+    const path = url.pathname.split(id)[1];
+    const body = options.body && JSON.parse(options.body);
+    calls.push({ path, body, key: new Headers(options.headers).get('Idempotency-Key') });
+    if (path === '/recovery') {
+      if (failRecovery) {
+        failRecovery = false;
+        throw new TypeError('Connection interrupted');
+      }
+      return Response.json({ round: 4, closesAt: body.closesAt }, { status: 201 });
+    }
+    if (path === '/share') return Response.json({ purpose: url.searchParams.get('purpose') });
+    return new Response(null, { status: 204 });
+  };
+  const version = { round: 3, resultRevision: 4 };
+  await roomMutations
+    .resolveTies(id, { ...version, choices: [{ category: 'FOOD', candidateId: 'a' }] })
+    .execute();
+  await roomMutations
+    .reorderVisit(id, { ...version, resultRevision: 5, candidateIds: ['b', 'a'] })
+    .execute();
+  await roomMutations.confirmResult(id, { ...version, resultRevision: 6 }).execute();
+  assert.equal((await getRoomShare(id, 'RESULT')).purpose, 'RESULT');
+  const recovery = roomMutations.recollect(id, { round: 3, closesAt: '2026-11-19T17:00:00Z' });
+  await assert.rejects(recovery.execute(), { code: 'NETWORK_ERROR' });
+  assert.equal((await recovery.execute()).round, 4);
+  assert.deepEqual(
+    calls.map(({ path }) => path),
+    [
+      '/result/selections',
+      '/result/visit-order',
+      '/result/confirmation',
+      '/share',
+      '/recovery',
+      '/recovery',
+    ],
+  );
+  assert.deepEqual(calls[2].body, { round: 3, resultRevision: 6 });
+  assert.ok(calls.slice(0, 4).every(({ key }) => key === null));
+  assert.match(calls[4].key, /^[0-9a-f-]{36}$/);
+  assert.equal(calls[4].key, calls[5].key);
   api.clearSession();
 });
 

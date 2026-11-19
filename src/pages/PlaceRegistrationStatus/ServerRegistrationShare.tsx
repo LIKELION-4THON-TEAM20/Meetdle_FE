@@ -14,7 +14,7 @@ export default function ServerRegistrationShare({
   onClose,
 }: {
   roomId: string;
-  kind: 'reminder' | 'notifyHost';
+  kind: 'reminder' | 'notifyHost' | 'result';
   voting?: boolean;
   onClose: () => void;
 }) {
@@ -28,7 +28,14 @@ export default function ServerRegistrationShare({
 
   useEffect(() => {
     const request = new AbortController();
-    const purpose = kind === 'notifyHost' ? 'HOST' : voting ? 'VOTING' : 'REGISTRATION';
+    const purpose =
+      kind === 'result'
+        ? 'RESULT'
+        : kind === 'notifyHost'
+          ? 'HOST'
+          : voting
+            ? 'VOTING'
+            : 'REGISTRATION';
     void getRoomShare(roomId, purpose, request.signal)
       .then((result) => {
         if (request.signal.aborted) return;
@@ -85,7 +92,9 @@ export default function ServerRegistrationShare({
         title:
           kind === 'reminder'
             ? `${voting ? '투표' : '등록'} 안 한 친구 재촉하기`
-            : '방장에게 알리기',
+            : kind === 'result'
+              ? '최종 일정 공유하기'
+              : '방장에게 알리기',
         description: '공유 문구와 대상을 확인해주세요.',
       }}
     >

@@ -1,5 +1,14 @@
 # Meetdle API 연동 계획
 
+## SCREEN 14 최종 결과 및 일정 확정
+
+- SCREEN 10·11의 자동 선정과 SCREEN 12·13의 투표 완료는 같은 방의 `/rooms/vote/result?mode=api&roomId=…`로 이동한다. 직접 진입, 홈의 방 재진입 및 포커스 복귀에서도 A08을 읽는다. 동률·복구 대기와 일반 회원의 확정 대기는 공통 polling을 사용한다.
+- 선정 장소와 방문 순서는 A08 `result.selected`와 `result.visitOrder`가 기준이다. HOST와 MEMBER 모두 `RESULT_READY`의 결과를 확인한다. `FINAL_PLACE_CONFIRMED`에서 확정 UI와 A33 RESULT를 사용한다. 집계는 서버가 공개한 숫자를 표시한다.
+- `RESOLVE_TIES`가 있는 방장은 A21에 `tieDecision.round`, `resultRevision`, 모든 동률 카테고리의 후보 한 곳씩을 보낸다. `REORDER_VISIT`가 있으면 A22에 결과 버전과 선정 후보 ID 전체 순서를 보낸다. 동률 대기의 부분 결과와 최종 확정 뒤에도 서버가 허용한 순서는 편집할 수 있다.
+- A36은 방장이 `RESULT_READY`에서 결과 버전과 저장된 방문 순서를 확인한 뒤 별도로 호출한다. A22가 성공하면 A08에서 새 버전이 확인될 때까지 확정 버튼을 잠근다. A21·A22·A36은 Idempotency-Key를 사용하지 않는다.
+- `NO_ELIGIBLE_RESULT`와 `RECOLLECT`에서 A20으로 새 등록 회차를 연다. 사용자에게 서울 시각으로 새 마감을 받고 동일 요청 재시도에 키를 재사용한다. 재등록 가능 여부·횟수·새 단계는 서버에서 확인한다. 배포 Recovery DTO가 제공하는 실패 정보는 회차와 원인이다.
+- 쓰기 성공 뒤 A08 실패 시 조회만 재시도한다. 409는 공통 RoomState가 재조회한다. 결과 공유 모달은 A33 RESULT의 문구·복귀 링크·대상을 읽고 카카오톡 공유는 별도로 연다.
+
 ## SCREEN 10·11 서버 연동
 
 - SCREEN 09의 A16 성공 뒤 같은 방의 `serverScreenUrl(PATHS.registration, roomId)`로 이동한다. SCREEN 10은 A08 registration의 round·completion·progress를 읽는다. 정원과 회차 참여자 수를 구분하고 후보 수를 완료 인원에 포함하지 않는다. 타이머는 serverNow 보정 시각을 사용한다. 0초에는 A08만 다시 조회하고, 평소에는 공통 15초 polling과 포커스 복귀 조회를 사용한다.

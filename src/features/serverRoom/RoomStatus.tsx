@@ -16,6 +16,7 @@ import ServerRegistrationSetup from '../../pages/PlaceRegistrationSetup/ServerRe
 import ServerRegistrationFlow from '../../pages/PlaceRegistrationStatus/ServerRegistrationFlow';
 import ServerPlaceVote from '../../pages/PlaceVote/ServerPlaceVote';
 import ServerVoteStatus from '../../pages/VoteStatus/ServerVoteStatus';
+import ServerVoteResult from '../../pages/VoteResult/ServerVoteResult';
 
 function serverErrorMessage(error: unknown) {
   if (error instanceof ApiRequestError) {
@@ -139,6 +140,15 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
       />
     );
   }
+  if (screen === PATHS.result) {
+    return (
+      <ServerVoteResult
+        key={`${room.me.participantId}:${room.result?.round ?? room.tieDecision?.round ?? room.recovery?.round}`}
+        room={room}
+        state={state}
+      />
+    );
+  }
   if (state.error && screen !== PATHS.voteStatus) {
     return (
       <RoomRequestStatus roomId={roomId} error={state.error} retry={() => void state.refresh()} />
@@ -254,11 +264,6 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
         <p>
           {room.me.role === 'HOST' ? '방장' : '참여자'} · {room.joinedCount} / {room.capacity}명
         </p>
-        {room.phase === 'RESULT_READY' && <p>최종 확정을 기다리고 있어요.</p>}
-        {screen === PATHS.result && room.tieDecision && (
-          <p>방장의 동률 후보 선택을 기다리고 있어요.</p>
-        )}
-        {screen === PATHS.result && room.recovery && <p>장소 선정 상태를 확인 중이에요.</p>}
         {deadline && (
           <p>
             마감 {new Date(deadline).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}

@@ -95,6 +95,9 @@ export function shouldPollRoom(room: RoomState) {
     room.phase === 'PLACE_SUBMISSION_OPEN' ||
     room.phase === 'PLACE_SUBMISSION_CLOSED' ||
     room.phase === 'VOTING_OPEN' ||
+    room.phase === 'WAITING_FOR_HOST_DECISION' ||
+    room.phase === 'RECOVERY_REQUIRED' ||
+    (room.phase === 'RESULT_READY' && (room.me.role === 'MEMBER' || !room.result)) ||
     screen === PATHS.voteStatus
   );
 }
