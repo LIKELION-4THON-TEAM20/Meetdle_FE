@@ -6,6 +6,7 @@ import { useAuthSession, sessionStore } from '../features/auth/session';
 import { authErrorMessage } from '../features/auth/errors';
 import {
   consumeLoginReturn,
+  kakaoLoginOptions,
   inviteReturnPath,
   loginErrorMessage,
   rememberLoginReturn,
@@ -55,7 +56,7 @@ export default function LoginRoute() {
             /* The backend retains inviteToken. */
           }
           setStarting(true);
-          startKakaoLogin(token);
+          startKakaoLogin(kakaoLoginOptions(window.location.origin, returnTo, token));
         } catch {
           setStarting(false);
           setError('로그인 연결 설정을 확인하지 못했어요. 잠시 후 다시 시도해주세요.');

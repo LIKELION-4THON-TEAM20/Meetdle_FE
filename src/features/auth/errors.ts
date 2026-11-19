@@ -15,6 +15,10 @@ export function authErrorMessage(error: unknown): string {
       error.status === 404
     )
       return '초대 정보나 코드를 확인해주세요.';
+    if (error.code === 'UPCOMING_ROOM')
+      return '다가오는 약속은 숨길 수 없어요. 최신 목록을 확인해주세요.';
+    if (error.code === 'INVALID_CURSOR')
+      return '목록 조회 정보가 만료됐어요. 처음부터 다시 불러와주세요.';
     if (error.code === 'ROOM_FULL') return '방이 가득 찼어요. 더 이상 참여할 수 없어요.';
     if (error.code === 'JOIN_CLOSED') return '이미 진행 중이거나 참여가 마감된 약속이에요.';
     if (error.status === 403)

@@ -19,4 +19,5 @@ export interface Appointment {
   // 확인 가능한 진행 단계가 있는 개발용 목 약속에만 지정한다.
   entryPath?: string;
   badgeLabel?: string;
+  canHide?: boolean;
 }

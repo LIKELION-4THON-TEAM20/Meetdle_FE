@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import Home from '../pages/Home/Home';
 import { logout } from '../api/auth';
@@ -9,6 +9,7 @@ import { invitationFlow } from '../features/auth/invitations';
 import { authErrorMessage } from '../features/auth/errors';
 import { consumeLoginReturn, loginErrorMessage } from '../features/auth/loginReturn';
 import { toAppointment } from '../features/homeApi/model';
+import { createRoomHider } from '../features/homeApi/hideRoom';
 import { useRoomList } from '../features/homeApi/useRoomList';
 import type { AppointmentFilter } from '../pages/Home/appointment.types';
 import { PATHS } from './paths';
@@ -16,6 +17,7 @@ import AuthStatus from './AuthStatus';
 
 function AuthenticatedHome({ session, revision }: { session: SessionResponse; revision: number }) {
   const navigate = useNavigate();
+  const hider = useMemo(() => createRoomHider(session), [session]);
   const [params] = useSearchParams();
   const [filter, setFilter] = useState<AppointmentFilter>('all');
   const scope = { all: 'ALL', upcoming: 'UPCOMING', past: 'PAST' } as const;
@@ -48,10 +50,25 @@ function AuthenticatedHome({ session, revision }: { session: SessionResponse; re
       loading={rooms.loading}
       error={error || (rooms.error ? authErrorMessage(rooms.error) : '')}
       notice={loginErrorMessage(params.get('loginError'))}
-      onRetry={rooms.nextCursor && rooms.items.length ? rooms.loadMore : rooms.retry}
+      onRetry={
+        rooms.error instanceof ApiRequestError && rooms.error.code === 'INVALID_CURSOR'
+          ? rooms.retry
+          : rooms.nextCursor && rooms.items.length
+            ? rooms.loadMore
+            : rooms.retry
+      }
       hasMore={!!rooms.nextCursor}
       onLoadMore={rooms.loadMore}
-      allowDelete={false}
+      profileImageUrl={session.user.profileImageUrl}
+      allowDelete
+      onHideAppointment={async (appointment) => {
+        try {
+          await hider.hide(appointment.id);
+          if (mounted.current) rooms.retry();
+        } catch (cause) {
+          throw new Error(authErrorMessage(cause), { cause });
+        }
+      }}
       onLogout={() => {
         if (loggingOut) return;
         setLoggingOut(true);

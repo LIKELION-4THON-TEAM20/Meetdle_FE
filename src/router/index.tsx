@@ -51,6 +51,8 @@ export const router = createBrowserRouter([
         element: <LoginRoute />,
       },
       { path: PATHS.invitation, element: <InvitationRoute /> },
+      { path: '/rooms', element: <HomeRoute /> },
+      { path: '/invite/:token', element: <InvitationRoute /> },
       { path: '/invitations/:token', element: <InvitationRoute /> },
       { path: '/rooms/:roomId', element: <ServerRoomRoute /> },
       { path: PATHS.legacyJoin, element: <LegacyJoinRedirect /> },

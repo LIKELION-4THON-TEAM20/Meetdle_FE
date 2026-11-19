@@ -9,9 +9,11 @@ import './HomeHeader.scss';
 interface HomeHeaderProps {
   onProfileClick?: () => void;
   onLogout?: () => void;
+  profileImageUrl?: string | null;
 }
 
-function HomeHeader({ onProfileClick, onLogout }: HomeHeaderProps) {
+function HomeHeader({ onProfileClick, onLogout, profileImageUrl }: HomeHeaderProps) {
+  const [failedImage, setFailedImage] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -63,7 +65,15 @@ function HomeHeader({ onProfileClick, onLogout }: HomeHeaderProps) {
             onProfileClick?.();
           }}
         >
-          <img src={profile} alt="" draggable={false} />
+          <img
+            src={profileImageUrl && profileImageUrl !== failedImage ? profileImageUrl : profile}
+            alt=""
+            draggable={false}
+            onError={() => {
+              if (profileImageUrl) setFailedImage(profileImageUrl);
+            }}
+            style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: '50%' }}
+          />
         </button>
         {isOpen && (
           <div className="home-header__account-panel" id={panelId}>

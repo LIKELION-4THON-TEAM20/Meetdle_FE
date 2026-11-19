@@ -1,3 +1,4 @@
+import { getTodayKey } from '../../pages/Home/appointment.utils';
 import type { MyRoomSummary, Phase } from '../../api/types';
 import type { Appointment } from '../../pages/Home/appointment.types';
 import { ApiRequestError } from '../../api/client';
@@ -12,6 +13,7 @@ const PHASE_LABELS: Record<Phase, string> = {
   VOTING_OPEN: '투표 중',
   VOTE_REVIEW_REQUIRED: '투표 확인',
   WAITING_FOR_HOST_DECISION: '방장 선택 대기',
+  RESULT_READY: '최종 확정 대기',
   FINAL_PLACE_CONFIRMED: '약속 확정',
   RECOVERY_REQUIRED: '재등록 확인',
   ENDED: '종료',
@@ -49,6 +51,14 @@ export function toAppointment(room: MyRoomSummary): Appointment {
     participants: [],
     participantCount: room.joinedCount,
     badgeLabel: phaseLabel(room.phase),
+    canHide: isPastRoom(room),
     entryPath: roomEntryUrl(room.roomId),
   };
+}
+
+export function isPastRoom(room: MyRoomSummary, now = Date.now()): boolean {
+  if (room.phase === 'ENDED') return true;
+  if (room.endsAt)
+    return Number.isFinite(Date.parse(room.endsAt)) && Date.parse(room.endsAt) <= now;
+  return room.meetingAt === null && room.dates.through < getTodayKey(new Date(now));
 }

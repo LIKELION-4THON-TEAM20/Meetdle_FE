@@ -5,7 +5,11 @@ import type { InvitePreview } from '../api/types';
 import { useAuthSession, sessionStore, type AuthState } from '../features/auth/session';
 import { assertInvitePreview, invitationFlow } from '../features/auth/invitations';
 import { authErrorMessage } from '../features/auth/errors';
-import { inviteReturnPath, loginErrorMessage } from '../features/auth/loginReturn';
+import {
+  clearMatchingLoginReturn,
+  inviteReturnPath,
+  loginErrorMessage,
+} from '../features/auth/loginReturn';
 import { roomEntryUrl } from '../features/homeApi/model';
 import Header from '../components/common/Header/Header';
 import Button from '../components/common/Button/Button';
@@ -40,6 +44,13 @@ function InvitationContent({ auth }: { auth: AuthState }) {
   }, []);
   useEffect(() => {
     if (!token) return;
+    if (auth.status === 'authenticated') {
+      try {
+        clearMatchingLoginReturn(sessionStorage, inviteReturnPath(token));
+      } catch {
+        /* Storage can be unavailable. */
+      }
+    }
     const controller = new AbortController();
     getInvitePreview(token, controller.signal).then(
       (value) => {
@@ -63,7 +74,7 @@ function InvitationContent({ auth }: { auth: AuthState }) {
       },
     );
     return () => controller.abort();
-  }, [token, attempt]);
+  }, [token, attempt, auth.status]);
   if (auth.status === 'checking') return <AuthStatus message="로그인 상태를 확인하고 있어요." />;
   if (auth.status === 'error')
     return (
@@ -85,6 +96,10 @@ function InvitationContent({ auth }: { auth: AuthState }) {
   const join = async () => {
     if (auth.status !== 'authenticated') {
       login();
+      return;
+    }
+    if (preview?.entryStatus === 'MEMBER') {
+      navigate(roomEntryUrl(preview.roomId), { replace: true });
       return;
     }
     if (!verified) {
@@ -175,11 +190,11 @@ function InvitationContent({ auth }: { auth: AuthState }) {
             ? '참여 확인 중…'
             : auth.status === 'anonymous'
               ? '카카오 로그인하기'
-              : verified
-                ? preview?.entryStatus === 'MEMBER'
-                  ? '약속방으로 이동'
-                  : '참여하기'
-                : '초대 코드 확인하기'}
+              : preview?.entryStatus === 'MEMBER'
+                ? '약속방으로 이동'
+                : verified
+                  ? '참여하기'
+                  : '초대 코드 확인하기'}
         </Button>
       </footer>
       {codeOpen && (

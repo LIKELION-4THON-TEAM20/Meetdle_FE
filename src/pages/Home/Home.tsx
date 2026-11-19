@@ -30,6 +30,8 @@ interface HomeProps {
   hasMore?: boolean;
   onLoadMore?: () => void;
   allowDelete?: boolean;
+  onHideAppointment?: (appointment: Appointment) => Promise<void>;
+  profileImageUrl?: string | null;
 }
 
 function Home({
@@ -46,6 +48,8 @@ function Home({
   hasMore = false,
   onLoadMore,
   allowDelete = true,
+  onHideAppointment,
+  profileImageUrl,
 }: HomeProps) {
   const [localFilter, setLocalFilter] = useState<AppointmentFilter>('all');
   const filter = controlledFilter ?? localFilter;
@@ -57,6 +61,9 @@ function Home({
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [deleteModeId, setDeleteModeId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Appointment | null>(null);
+  const hiding = useRef(false);
+  const [hidePending, setHidePending] = useState(false);
+  const [hideError, setHideError] = useState('');
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const visibleAppointments = filterAppointments(
@@ -83,7 +90,11 @@ function Home({
 
   return (
     <div className="page home-page">
-      <HomeHeader onProfileClick={onProfileClick} onLogout={onLogout} />
+      <HomeHeader
+        onProfileClick={onProfileClick}
+        onLogout={onLogout}
+        profileImageUrl={profileImageUrl}
+      />
       <main className="home-page__content">
         <h1>내 약속</h1>
         <div className="home-page__filters" role="tablist" aria-label="약속 기간">
@@ -148,7 +159,14 @@ function Home({
                 deleteMode={deleteModeId === appointment.id}
                 onRevealDelete={() => setDeleteModeId(appointment.id)}
                 onHideDelete={() => setDeleteModeId(null)}
-                onDelete={allowDelete ? () => setDeleteTarget(appointment) : undefined}
+                onDelete={
+                  allowDelete
+                    ? () => {
+                        setHideError('');
+                        setDeleteTarget(appointment);
+                      }
+                    : undefined
+                }
               />
             ))
           ) : !loading && !error ? (
@@ -175,9 +193,39 @@ function Home({
       </div>
       {deleteTarget && (
         <AppointmentDeleteModal
-          canDelete={deleteTarget.date < today}
-          onClose={() => setDeleteTarget(null)}
+          canDelete={deleteTarget.canHide ?? deleteTarget.date < today}
+          serverHide={!!onHideAppointment}
+          pending={hidePending}
+          error={hideError}
+          onClose={() => {
+            if (!hiding.current) setDeleteTarget(null);
+          }}
           onConfirm={() => {
+            if (onHideAppointment) {
+              if (hiding.current || !deleteTarget.canHide) return;
+              hiding.current = true;
+              setHidePending(true);
+              setHideError('');
+              void onHideAppointment(deleteTarget)
+                .then(
+                  () => {
+                    setDeleteTarget(null);
+                    setDeleteModeId(null);
+                  },
+                  (cause: unknown) => {
+                    setHideError(
+                      cause instanceof Error
+                        ? cause.message
+                        : '목록에서 숨기지 못했어요. 다시 시도해주세요.',
+                    );
+                  },
+                )
+                .finally(() => {
+                  hiding.current = false;
+                  setHidePending(false);
+                });
+              return;
+            }
             // API 연결 전에는 현재 홈 목록에서만 제거한다.
             if (deleteTarget.date >= getTodayKey()) return;
             setDeletedIds((ids) => [...ids, deleteTarget.id]);

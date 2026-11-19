@@ -1,3 +1,4 @@
+import { clearMatchingLoginReturn } from '../features/auth/loginReturn';
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { getRoomState, isServerRoomId } from '../api/rooms';
@@ -14,6 +15,11 @@ function ServerRoom({ roomId, revision }: { roomId: string; revision: number }) 
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
+    try {
+      clearMatchingLoginReturn(sessionStorage, `/rooms/${roomId}`);
+    } catch {
+      /* Storage can be unavailable. */
+    }
     const controller = new AbortController();
     getRoomState(roomId, controller.signal).then(
       (value) => {

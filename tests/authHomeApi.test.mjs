@@ -38,6 +38,13 @@ const flowFor = (client, now) =>
     now,
   });
 
+const { isPastRoom } = await server.ssrLoadModule('/src/features/homeApi/model.ts');
+const { kakaoLoginOptions, clearMatchingLoginReturn } = await server.ssrLoadModule(
+  '/src/features/auth/loginReturn.ts',
+);
+const { safeReturnTo } = await server.ssrLoadModule('/src/router/paths.ts');
+const { createRoomHider } = await server.ssrLoadModule('/src/features/homeApi/hideRoom.ts');
+
 test('세션 조회를 합치고 비로그인·연결 오류를 구분하며 성공한 로그아웃은 사용자 데이터를 폐기한다', async () => {
   let reads = 0;
   let result = json(session);
@@ -240,4 +247,133 @@ test('API 기본 주소가 없어도 앱을 중단하지 않고 세션 조회 �
   const store = createSessionStore(client);
   await store.refresh();
   assert.equal(store.getSnapshot().status, 'error');
+});
+
+test('RESULT_READY와 지난 방 판정은 서버 단계·종료시각·후보 마지막 날짜를 사용한다', () => {
+  const now = Date.parse('2026-11-19T12:00:00Z');
+  const room = {
+    ...preview,
+    phase: 'RESULT_READY',
+    meetingAt: '2026-11-19T09:00:00Z',
+    endsAt: '2026-11-19T10:00:00Z',
+  };
+  assert.equal(toAppointment(room).badgeLabel, '최종 확정 대기');
+  assert.equal(isPastRoom(room, now), true);
+  assert.equal(isPastRoom({ ...room, endsAt: '2026-11-20T10:00:00Z' }, now), false);
+  assert.equal(isPastRoom({ ...room, phase: 'ENDED', endsAt: '2027-01-01T00:00:00Z' }, now), true);
+  assert.equal(
+    isPastRoom(
+      {
+        ...room,
+        meetingAt: null,
+        endsAt: null,
+        dates: { from: '2026-11-17', through: '2026-11-18' },
+      },
+      now,
+    ),
+    true,
+  );
+  assert.equal(
+    isPastRoom(
+      {
+        ...room,
+        meetingAt: null,
+        endsAt: null,
+        dates: { from: '2026-11-17', through: '2026-11-20' },
+      },
+      now,
+    ),
+    false,
+  );
+});
+
+test('OAuth는 현재 Origin을 전달하고 서버 허용 경로와 초대 토큰을 함께 보내지 않는다', () => {
+  const origin = 'http://localhost:5173';
+  const token = 'a'.repeat(43);
+  assert.deepEqual(kakaoLoginOptions(origin, `/rooms/${id}`), {
+    returnTo: `/rooms/${id}`,
+    returnOrigin: origin,
+  });
+  assert.deepEqual(kakaoLoginOptions(origin, '/'), { returnOrigin: origin });
+  assert.deepEqual(kakaoLoginOptions(origin, '/rooms/schedule-transit?roomId=' + id), {
+    returnOrigin: origin,
+  });
+  assert.deepEqual(kakaoLoginOptions(origin, `/rooms/${id}`, token), {
+    inviteToken: token,
+    returnOrigin: origin,
+  });
+  assert.throws(() => kakaoLoginOptions(origin, '/', 'invalid'));
+  assert.equal(safeReturnTo('/rooms?loginError=CANCELLED'), '/rooms?loginError=CANCELLED');
+  assert.equal(safeReturnTo('/invite/' + token), '/invite/' + token);
+  assert.equal(safeReturnTo('//evil.test/rooms'), '/');
+  assert.match(loginErrorMessage('CANCELLED'), /취소/);
+  assert.match(loginErrorMessage('PROVIDER_UNAVAILABLE'), /완료하지 못/);
+});
+
+test('서버가 직접 방·초대로 복귀하면 같은 탭의 복귀 경로만 폐기한다', () => {
+  const data = new Map();
+  const storage = {
+    setItem: (k, v) => data.set(k, v),
+    getItem: (k) => data.get(k) ?? null,
+    removeItem: (k) => data.delete(k),
+  };
+  rememberLoginReturn(storage, `/rooms/${id}`);
+  clearMatchingLoginReturn(storage, '/rooms');
+  assert.equal(data.size, 1);
+  clearMatchingLoginReturn(storage, `/rooms/${id}`);
+  assert.equal(data.size, 0);
+});
+
+test('지난 약속 숨김은 CSRF를 포함한 DELETE를 중복 방지하며 빈 200·204를 처리한다', async () => {
+  for (const status of [200, 204]) {
+    const writes = [];
+    const client = createApiClient('https://example.test', async (url, options) => {
+      if (url.pathname === '/api/me') return json(session);
+      writes.push({ path: url.pathname, ...options });
+      return new Response(null, { status });
+    });
+    const hider = createRoomHider(session, {
+      getSession: client.getSession,
+      hide: (roomId) =>
+        client.createMutation('DELETE', `/api/rooms/${roomId}`, undefined, {
+          discardResponse: true,
+        }),
+    });
+    const first = hider.hide(id);
+    assert.equal(first, hider.hide(id));
+    await first;
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].method, 'DELETE');
+    assert.equal(writes[0].body, undefined);
+    assert.equal(writes[0].credentials, 'include');
+    assert.equal(writes[0].headers['X-CSRF-TOKEN'], 'csrf-a');
+    await assert.rejects(hider.hide('mock-room'));
+  }
+});
+
+test('숨김 실패는 성공으로 처리하지 않고 재시도하며 사용자 변경을 거절한다', async () => {
+  let status = 409;
+  let writes = 0;
+  let current = session;
+  const client = createApiClient('https://example.test', async (url) => {
+    if (url.pathname === '/api/me') return json(current);
+    writes++;
+    return status === 409
+      ? json({ code: 'UPCOMING_ROOM', message: 'not past' }, 409)
+      : new Response(null, { status: 204 });
+  });
+  const hider = createRoomHider(session, {
+    getSession: client.getSession,
+    hide: (roomId) =>
+      client.createMutation('DELETE', `/api/rooms/${roomId}`, undefined, { discardResponse: true }),
+  });
+  await assert.rejects(hider.hide(id), { code: 'UPCOMING_ROOM' });
+  assert.equal(writes, 1);
+  status = 204;
+  await hider.hide(id);
+  assert.equal(writes, 2);
+  client.clearSession();
+  current = { user: { userId: 'other', nickname: '나' }, csrfToken: 'other-csrf' };
+  await assert.rejects(hider.hide(id), { code: 'SESSION_CHANGED' });
+  assert.equal(writes, 2);
 });

@@ -46,7 +46,9 @@ export function safeReturnTo(value: string | null): string {
     return PATHS.home;
   const url = new URL(value, 'https://meetdle.invalid');
   return url.origin === 'https://meetdle.invalid' &&
-    (Object.values(PATHS).some((path) => path !== PATHS.login && path === url.pathname) ||
+    (url.pathname === '/rooms' ||
+      /^\/invite\/[A-Za-z0-9_-]{43}$/.test(url.pathname) ||
+      Object.values(PATHS).some((path) => path !== PATHS.login && path === url.pathname) ||
       (url.pathname.startsWith('/rooms/') &&
         isServerRoomId(url.pathname.slice('/rooms/'.length))) ||
       /^\/invitations\/[A-Za-z0-9_-]{43}$/.test(url.pathname))
