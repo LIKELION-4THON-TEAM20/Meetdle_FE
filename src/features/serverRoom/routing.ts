@@ -16,7 +16,7 @@ export function createdRoomDestination(response: CreateRoomResponse) {
 export function roomScreen(room: RoomState) {
   switch (room.phase) {
     case 'WAITING_FOR_DEPARTURE':
-      if (room.me.role === 'HOST' && room.allowedActions.includes('START_ROOM'))
+      if (!room.startedAt && (room.me.role === 'HOST' || room.startedAt === null))
         return PATHS.recruitment;
       return room.allowedActions.includes('EDIT_INPUT') ? PATHS.schedule : PATHS.participation;
     case 'OPTIONS_READY':
@@ -45,6 +45,16 @@ export function roomScreen(room: RoomState) {
   }
 }
 
+export function roomScreenForEntry(room: RoomState, requested?: string) {
+  if (room.phase === 'WAITING_FOR_DEPARTURE') {
+    if (requested === PATHS.participation) return requested;
+    if (requested === PATHS.schedule && room.allowedActions.includes('EDIT_INPUT'))
+      return requested;
+    if (requested === PATHS.recruitment && !room.startedAt) return requested;
+  }
+  return roomScreen(room);
+}
+
 export function shouldPollRoom(room: RoomState) {
   const screen = roomScreen(room);
   return (
@@ -53,4 +63,9 @@ export function shouldPollRoom(room: RoomState) {
     screen === PATHS.registration ||
     screen === PATHS.voteStatus
   );
+}
+
+export function serverScreenUrl(path: string, roomId: string) {
+  serverRoomUrl(roomId);
+  return `${path}?${new URLSearchParams({ mode: 'api', roomId })}`;
 }

@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { createRoomStateStore, estimateServerNow } from './roomState';
 import { shouldPollRoom } from './routing';
+import type { RoomState } from '../../api/types';
 
-export function useRoomState(roomId: string, poll = false) {
+export function useRoomState(
+  roomId: string,
+  poll: boolean | ((room: RoomState) => boolean) = false,
+) {
   const store = useMemo(() => createRoomStateStore(roomId), [roomId]);
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
   const polling =
-    poll && !snapshot.error && snapshot.room !== null && shouldPollRoom(snapshot.room);
+    poll &&
+    !snapshot.error &&
+    snapshot.room !== null &&
+    (typeof poll === 'function' ? poll(snapshot.room) : shouldPollRoom(snapshot.room));
 
   useEffect(() => {
     const disconnect = store.connect();

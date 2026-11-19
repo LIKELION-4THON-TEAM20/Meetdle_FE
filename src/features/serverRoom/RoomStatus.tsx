@@ -1,13 +1,14 @@
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { startKakaoLogin } from '../../api/auth';
 import { ApiRequestError } from '../../api/client';
 import { isServerRoomId } from '../../api/rooms';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import { PATHS } from '../../router/paths';
-import { roomScreen, serverRoomUrl } from './routing';
+import { roomScreenForEntry, serverRoomUrl, serverScreenUrl, shouldPollRoom } from './routing';
 import { useRoomState } from './useRoomState';
 import { getCreatedRoom } from '../createdRoom/model';
+import ServerParticipation from '../../pages/ParticipationStatus/ServerParticipation';
 
 function serverErrorMessage(error: unknown) {
   if (error instanceof ApiRequestError) {
@@ -76,8 +77,11 @@ const screenTitles: Partial<Record<string, string>> = {
   [PATHS.result]: '약속 결과',
 };
 
-function ServerRoomStatus({ roomId }: { roomId: string }) {
-  const state = useRoomState(roomId, true);
+function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: string }) {
+  const state = useRoomState(roomId, (room) => {
+    const screen = roomScreenForEntry(room, requested);
+    return screen === PATHS.recruitment || screen === PATHS.participation || shouldPollRoom(room);
+  });
   const navigate = useNavigate();
   if (!state.room || state.error) {
     return (
@@ -86,7 +90,23 @@ function ServerRoomStatus({ roomId }: { roomId: string }) {
   }
 
   const room = state.room;
-  const screen = roomScreen(room);
+  const screen = roomScreenForEntry(room, requested);
+  if (screen === PATHS.recruitment || screen === PATHS.participation) {
+    return (
+      <ServerParticipation
+        key={room.me.participantId + screen}
+        room={room}
+        state={state}
+        recruitment={screen === PATHS.recruitment}
+      />
+    );
+  }
+  if (
+    requested !== screen &&
+    (screen === PATHS.candidates || (screen === PATHS.schedule && room.startedAt))
+  ) {
+    return <Navigate to={serverScreenUrl(screen, roomId)} replace />;
+  }
   const deadline =
     room.voting?.closesAt ??
     room.registration?.closesAt ??
@@ -110,6 +130,9 @@ function ServerRoomStatus({ roomId }: { roomId: string }) {
           </p>
         )}
         {state.notice && <p role="status">{state.notice}</p>}
+        {screen === PATHS.schedule && (
+          <Link to={serverScreenUrl(PATHS.participation, roomId)}>참여자 입력 현황 보기</Link>
+        )}
         {state.can('START_ROOM') && room.invite && (
           <Link to={`${PATHS.created}?mode=api&roomId=${roomId}`}>초대 정보 보기</Link>
         )}
@@ -117,6 +140,10 @@ function ServerRoomStatus({ roomId }: { roomId: string }) {
       </main>
     </div>
   );
+}
+
+export function ServerRoomHandoff({ roomId, path }: { roomId: string; path: string }) {
+  return <ServerRoomStatus key={roomId} roomId={roomId} requested={path} />;
 }
 
 export default function ServerRoomRoute() {

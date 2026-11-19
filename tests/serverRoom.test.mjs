@@ -232,3 +232,117 @@ test('invitation maps preview, code, capacity, closed, expiry, rate limit and ne
     assert.match(invitationError(error, step), message);
   }
 });
+
+test('SCREEN 04 separates roster and input progress and applies server role and action gates', async () => {
+  const { participationModel } = await vite.ssrLoadModule(
+    '/src/pages/ParticipationStatus/serverParticipationModel.ts',
+  );
+  const { roomScreenForEntry, serverScreenUrl } = await vite.ssrLoadModule(
+    '/src/features/serverRoom/routing.ts',
+  );
+  const room = {
+    ...dto(),
+    startedAt: null,
+    joinedCount: 2,
+    capacity: 4,
+    inputProgress: { completedCount: 1, capacity: 4 },
+    me: { role: 'HOST', participantId: 'host' },
+    members: [
+      { participantId: 'host', nickname: 'Host', role: 'HOST', inputComplete: true },
+      { participantId: 'member', nickname: 'Member', role: 'MEMBER', inputStatus: 'IN_PROGRESS' },
+    ],
+    allowedActions: ['START_ROOM', 'CALCULATE_OPTIONS'],
+  };
+  const model = participationModel(room);
+  assert.equal(model.canStart, true);
+  assert.equal(model.canCalculate, false);
+  assert.equal(model.completed, 1);
+  assert.equal(model.participants.length, 2);
+  assert.equal(model.incomplete[0].status, 'inProgress');
+  assert.equal(model.canRemind, true);
+  const member = { ...room, me: { role: 'MEMBER', participantId: 'member' } };
+  assert.equal(participationModel(member).canStart, false);
+  assert.equal(participationModel(member).canNotifyHost, false);
+  assert.equal(roomScreenForEntry(member), '/rooms/recruitment');
+  assert.equal(
+    roomScreenForEntry(
+      { ...member, startedAt: '2026-11-19T12:00:00Z', allowedActions: ['EDIT_INPUT'] },
+      '/rooms/participation-status',
+    ),
+    '/rooms/participation-status',
+  );
+  assert.equal(serverScreenUrl('/rooms/candidates', id), '/rooms/candidates?mode=api&roomId=' + id);
+});
+
+test('SCREEN 04 refreshes stale A31 and reuses the A11 key on a lost response', async () => {
+  const { createParticipationCommands, participationError } = await vite.ssrLoadModule(
+    '/src/pages/ParticipationStatus/serverParticipationModel.ts',
+  );
+  let room = {
+    ...dto(),
+    joinedCount: 2,
+    capacity: 4,
+    inputProgress: { completedCount: 2, capacity: 4 },
+    inputVersion: 7,
+  };
+  const writes = [];
+  responder = async (url, options) => {
+    if (url.pathname === '/api/me') return Response.json(session);
+    if (url.pathname.endsWith('/state')) return Response.json(room);
+    writes.push({
+      path: url.pathname,
+      body: JSON.parse(options.body),
+      key: options.headers['Idempotency-Key'],
+    });
+    if (url.pathname.endsWith('/start')) {
+      if (room.revision === 3) {
+        room = { ...room, revision: 4 };
+        return Response.json({ code: 'STALE_ROOM', message: 'Conflict' }, { status: 409 });
+      }
+      room = {
+        ...room,
+        revision: 5,
+        startedAt: '2026-11-19T12:00:00Z',
+        capacity: 2,
+        allowedActions: ['CALCULATE_OPTIONS'],
+      };
+      return new Response(null, { status: 204 });
+    }
+    if (writes.length === 3) throw new TypeError('lost response');
+    room = {
+      ...room,
+      revision: 6,
+      phase: 'OPTIONS_READY',
+      options: { optionsId: otherId },
+      allowedActions: [],
+    };
+    return Response.json(room.options, { status: 201 });
+  };
+  const store = createRoomStateStore(id);
+  const stop = store.connect();
+  try {
+    await store.refresh();
+    const commands = createParticipationCommands();
+    await assert.rejects(store.mutate('START_ROOM', commands.start), (error) => {
+      assert.match(participationError(error), /최신 참여/);
+      return error.code === 'STALE_ROOM';
+    });
+    assert.equal(store.getSnapshot().room.revision, 4);
+    await store.mutate('START_ROOM', commands.start);
+    assert.equal(store.getSnapshot().room.capacity, 2);
+    const calculate = store.mutate('CALCULATE_OPTIONS', commands.calculate);
+    assert.equal(calculate, store.mutate('CALCULATE_OPTIONS', commands.calculate));
+    await assert.rejects(calculate, (error) => error.code === 'NETWORK_ERROR');
+    await store.mutate('CALCULATE_OPTIONS', commands.calculate);
+    assert.equal(store.getSnapshot().room.phase, 'OPTIONS_READY');
+    assert.deepEqual(
+      writes.map(({ body }) => body),
+      [{ expectedRevision: 3 }, { expectedRevision: 4 }, { inputVersion: 7 }, { inputVersion: 7 }],
+    );
+    assert.ok(writes[2].key);
+    assert.equal(writes[2].key, writes[3].key);
+  } finally {
+    stop();
+    api.clearSession();
+  }
+});

@@ -10,6 +10,7 @@ import { PATHS, roomPath } from './paths';
 import { isServerRoomId } from '../api/rooms';
 import { ServerRoomCreated } from '../pages/RoomCreated/RoomCreated';
 import { serverRoomUrl } from '../features/serverRoom/routing';
+import { ServerRoomHandoff } from '../features/serverRoom/RoomStatus';
 
 export default function FlowLayout() {
   const { pathname, search } = useLocation();
@@ -20,6 +21,13 @@ export default function FlowLayout() {
       return <RoomRecovery message="서버 약속방 주소가 올바르지 않아요." />;
     }
     if (pathname === PATHS.created) return <ServerRoomCreated key={id} roomId={id} />;
+    if (
+      [PATHS.recruitment, PATHS.participation, PATHS.schedule, PATHS.candidates].some(
+        (path) => path === pathname,
+      )
+    ) {
+      return <ServerRoomHandoff roomId={id} path={pathname} />;
+    }
     return <Navigate to={serverRoomUrl(id)} replace />;
   }
   return (

@@ -1,5 +1,14 @@
 # Meetdle API 연동 계획
 
+## SCREEN 04 서버 연동
+
+- 홈은 `serverRoomUrl(roomId)`로 이동한다. A08의 `WAITING_FOR_DEPARTURE`와 시작 전 상태에서 모집 화면을 렌더링한다. 모집 수치는 `joinedCount / capacity`, 입력 수치는 `inputProgress.completedCount / inputProgress.capacity`다. 두 화면은 같은 A08 스토어를 사용한다.
+- 방장이 `START_ROOM`을 가지고 가입자가 2명 이상이면 모달 확인 후 A31에 최신 `expectedRevision`을 보낸다. A08 재조회 후 `EDIT_INPUT`이 있으면 `serverScreenUrl(PATHS.schedule, roomId)`로 이동하고, 입력을 완료했으면 입력 현황을 표시한다. A31의 Phase 자체는 유지된다.
+- SCREEN 03은 A10 성공 후 `serverScreenUrl(PATHS.participation, roomId)`로 이동한다. 이 경로가 A08을 다시 읽는다. URL의 role이나 화면 전환 state에서 입력 완료 여부를 복원하지 않는다.
+- SCREEN 04만 A11을 실행한다. 방장과 `CALCULATE_OPTIONS`, 입력 완료 2명 이상을 확인하고 미완료자가 있을 때 기존 모달을 표시한다. 서버가 계산 시점 완료자 스냅샷을 고정한다. 동일 roomId·inputVersion 재시도에는 같은 요청 핸들과 키를 사용한다. A08이 `OPTIONS_READY`를 반환하면 `serverScreenUrl(PATHS.candidates, roomId)`로 이동한다.
+- SCREEN 05는 URL의 서버 UUID로 A08의 `options`를 읽고 기존 결과를 재사용한다. A11을 다시 호출하지 않는다. A12 성공 후에도 같은 roomId를 유지하고 A08의 `meeting`과 `selectionId`를 SCREEN 06·07에서 사용한다. SCREEN 03·05는 이번 브랜치에서 실제 URL의 공통 상태 화면까지 제공하며 각 담당 화면은 팀원 브랜치에서 연결한다.
+- 모집 초대는 방장에게 내려온 A08 `invite`를 SCREEN 02에서 공유한다. 입력 재촉은 A33 `INPUT`, 일반 회원의 방장 진행 요청은 A33 `HOST`로 요청한다. 서버 문구·링크·수신 대상을 모달에서 확인한 뒤 별도로 카카오 공유를 연다. SDK 구성 누락 또는 실패는 오류로 표시한다. A30은 방 설정 담당 화면에서 별도로 연결한다.
+
 ## SCREEN 02 서버 연동과 화면 간 계약
 
 - SCREEN 01의 A05 성공 처리에서 `createdRoomDestination(response)`를 사용한다. 반환하는 `{ to, state }`를 `navigate(to, { state })`에 전달한다. 주소는 `/rooms/create/complete?mode=api&roomId=<서버 UUID>`이고 state는 `{ createdRoom: A05 응답 }`이다. 02는 A08에서 인증·방 ID·방장 권한과 현재 초대를 확인한 다음 일치하는 A05 초대 데이터를 사용한다. 새로고침과 직접 진입은 A08만으로 복원한다.

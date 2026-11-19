@@ -54,10 +54,15 @@ export function prepareKakaoShare() {
 }
 
 export async function shareKakaoInvite(title: string, code: string, inviteUrl: string) {
+  return shareKakaoText(`${title.slice(0, 50)} 초대\n초대 코드: ${code}`, inviteUrl);
+}
+
+export async function shareKakaoText(text: string, url: string, signal?: AbortSignal) {
   const kakao = await prepareKakaoShare();
+  signal?.throwIfAborted();
   kakao.Share.sendDefault({
     objectType: 'text',
-    text: `${title.slice(0, 50)} 초대\n초대 코드: ${code}`,
-    link: { mobileWebUrl: inviteUrl, webUrl: inviteUrl },
+    text,
+    link: { mobileWebUrl: url, webUrl: url },
   });
 }
