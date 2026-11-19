@@ -1,12 +1,23 @@
-import restaurant from '../../assets/place-exploration/restaurant.png';
-import restaurantSelected from '../../assets/place-exploration/restaurant-selected.png';
-import cafe from '../../assets/place-exploration/cafe.png';
-import pub from '../../assets/place-exploration/pub.png';
-import culture from '../../assets/place-exploration/culture.png';
+import restaurant from '../../assets/place-exploration/restaurant-default.svg';
+import restaurantRegistered from '../../assets/place-exploration/restaurant-registered.svg';
+import cafe from '../../assets/place-exploration/cafe-default.svg';
+import cafeRegistered from '../../assets/place-exploration/cafe-registered.svg';
+import pub from '../../assets/place-exploration/pub-default.svg';
+import pubRegistered from '../../assets/place-exploration/pub-registered.svg';
+import culture from '../../assets/place-exploration/culture-default.svg';
+import cultureRegistered from '../../assets/place-exploration/culture-registered.svg';
 import type { ExplorationArea, RecommendedPlace } from '../../pages/PlaceExploration/types';
 import type { Cluster, KakaoMaps } from './types';
+import { createRadiusShade } from './radiusShade';
+import { createMarkerMotion } from './markerMotion';
 
 const PIN_IMAGES = { restaurant, cafe, pub, culture };
+const REGISTERED_IMAGES = {
+  restaurant: restaurantRegistered,
+  cafe: cafeRegistered,
+  pub: pubRegistered,
+  culture: cultureRegistered,
+};
 
 export function createPlaceMap(
   maps: KakaoMaps,
@@ -25,36 +36,47 @@ export function createPlaceMap(
   const circle = new maps.Circle({
     center,
     radius: area.radiusMeters,
-    strokeWeight: 2,
+    strokeWeight: 0,
     strokeColor: '#7c5cff',
-    strokeOpacity: 0.8,
+    strokeOpacity: 0,
     fillColor: '#b9a8ff',
-    fillOpacity: 0.12,
+    fillOpacity: 0,
   });
   circle.setMap(map);
+  const shade = createRadiusShade(node);
   const zoom = new maps.ZoomControl();
   map.addControl(zoom, maps.ControlPosition.RIGHT);
   const clusterer = new maps.MarkerClusterer({
     map,
     averageCenter: true,
-    minLevel: 7,
+    minLevel: 10,
     disableClickZoom: true,
   });
   const onCluster = (cluster: Cluster) => map.setBounds(cluster.getBounds(), 32, 32, 32, 32);
   maps.event.addListener(clusterer, 'clusterclick', onCluster);
-  const fit = () => map.setBounds(circle.getBounds(), 36, 36, 36, 36);
+  const fit = () => {
+    const bounds = circle.getBounds();
+    map.setBounds(bounds, 12, 12, 12, 12);
+    const projection = map.getProjection();
+    const west = projection.containerPointFromCoords(bounds.getSouthWest());
+    const east = projection.containerPointFromCoords(bounds.getNorthEast());
+    // SDK zoom levels are discrete: the next wider level can leave the circle half-sized.
+    if (Math.abs(east.x - west.x) < node.clientWidth * 0.8) {
+      map.setLevel(Math.max(1, map.getLevel() - 1));
+    }
+  };
   fit();
   let previousPlaces: readonly RecommendedPlace[] | null = null;
   let markers: {
     id: string;
     marker: InstanceType<KakaoMaps['Marker']>;
-    normal: object;
-    selected: object;
+    motion: ReturnType<typeof createMarkerMotion>;
     click: () => void;
   }[] = [];
   const clearMarkers = () => {
     clusterer.clear();
-    for (const { marker, click } of markers) {
+    for (const { marker, click, motion } of markers) {
+      motion.dispose();
       maps.event.removeListener(marker, 'click', click);
       marker.setMap(null);
     }
@@ -62,18 +84,21 @@ export function createPlaceMap(
   };
   return {
     fit,
-    update(places: readonly RecommendedPlace[], selectedId: string | null) {
+    update(
+      places: readonly RecommendedPlace[],
+      selectedId: string | null,
+      registeredIds: readonly string[] = [],
+    ) {
       if (places !== previousPlaces) {
         clearMarkers();
         previousPlaces = places;
         markers = places.map((place) => {
-          const normal = new maps.MarkerImage(PIN_IMAGES[place.categoryId], new maps.Size(20, 32), {
-            offset: new maps.Point(10, 32),
-          });
-          const selected = new maps.MarkerImage(
-            place.categoryId === 'restaurant' ? restaurantSelected : PIN_IMAGES[place.categoryId],
-            new maps.Size(28, 45),
-            { offset: new maps.Point(14, 45) },
+          const normal = new maps.MarkerImage(
+            PIN_IMAGES[place.categoryId],
+            new maps.Size(20, 31.396),
+            {
+              offset: new maps.Point(10, 31.396),
+            },
           );
           const marker = new maps.Marker({
             position: new maps.LatLng(place.coordinates.latitude, place.coordinates.longitude),
@@ -83,22 +108,32 @@ export function createPlaceMap(
           });
           const click = () => onSelect(place.id);
           maps.event.addListener(marker, 'click', click);
-          return { id: place.id, marker, normal, selected, click };
+          const motion = createMarkerMotion(
+            maps,
+            marker,
+            PIN_IMAGES[place.categoryId],
+            REGISTERED_IMAGES[place.categoryId],
+          );
+          return { id: place.id, marker, motion, click };
         });
         clusterer.addMarkers(markers.map(({ marker }) => marker));
       }
       for (const entry of markers) {
-        entry.marker.setImage(entry.id === selectedId ? entry.selected : entry.normal);
-        entry.marker.setZIndex(entry.id === selectedId ? 10 : 1);
+        const isSelected = entry.id === selectedId;
+        const isRegistered = registeredIds.includes(entry.id);
+        entry.motion.update(isSelected, isRegistered);
+        entry.marker.setZIndex(isSelected ? 10 : isRegistered ? 5 : 1);
       }
     },
     resize() {
       const currentCenter = map.getCenter();
       map.relayout();
       map.setCenter(currentCenter);
+      shade.update();
     },
     dispose() {
       clearMarkers();
+      shade.dispose();
       maps.event.removeListener(clusterer, 'clusterclick', onCluster);
       circle.setMap(null);
       map.removeControl(zoom);
