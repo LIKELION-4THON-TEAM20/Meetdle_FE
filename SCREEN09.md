@@ -1,5 +1,44 @@
 # SCREEN 09 — 장소 탐색 및 등록
 
+## #28 서버 API 연동 (2026-11-20)
+
+현재 브랜치는 `feat/#28-place-exploration-api`다. 서버 경로와 독립 목 미리보기를 분리한다. 이 절 아래의 #11 설명은 기존 목 구현 기록이다.
+
+### 진입·조회·현황 연결
+
+- `/rooms/places?mode=api&roomId=<실제 UUID>` 및 기존 mode 없는 UUID 주소를 공통 ServerRoomHandoff로 연결한다. A08 phase·role·allowedActions가 장소 탐색을 허용하면 ServerPlaceExploration을 표시한다.
+- 최초 진입·새로고침·포커스 복귀·최신 상태 다시 조회에서 세션과 A08을 사용한다. meeting.station의 좌표·이름·약속 시각, registration의 round·closesAt·categories·myCompleted·progress를 표시한다.
+- 본인 후보는 반드시 `registration.myCandidates`의 candidateId·place로 복원한다. ID가 없으면 장소 키나 목 ID를 대신 만들지 않고 응답 오류로 표시한다. 다른 참가자의 개별 등록 장소를 추정하지 않는다.
+- 완료 후 A08의 myCompleted를 확인하고 같은 UUID의 `serverScreenUrl(PATHS.registration, roomId)`로 이동한다. 기존 임시 현황 라우트 대신 develop의 서버 등록 현황을 사용하며 후속 마감·투표 기능 자체는 수정하지 않는다.
+- `/rooms/places` 및 `roomId=exploration-preview`의 독립 목 미리보기는 유지한다. 실제 UUID 요청 실패를 목 응답으로 대체하지 않는다. #25~#27 미병합 작업은 가져오지 않았다.
+
+### 검색·지도·표시
+
+- A14에 카테고리, trim한 검색어(빈 값은 q 생략), page 1~3을 전달한다. 250ms 디바운스·요청 취소·응답 세대로 이전 결과를 폐기한다. 로딩·검색 실패·재시도·빈 결과·nextPage 추가 검색을 제공한다.
+- 지도 중심은 서버 확정 역의 lat/lng다. 반경은 registration.categories 및 검색 응답 radiusMeters를 사용하고 expanded만 서버 확장으로 표시한다. available·registrable·pickToken 및 카테고리 정책을 모두 확인한다.
+- 지도는 기존 Kakao UI·Subtract·핀 모션을 재사용한다. 등록한 후보의 장소 키를 registeredIds로 전달해 보라색 핀 상태를 표시한다. 현재 카테고리의 본인 후보와 검색 결과를 합치며 지도 아래에 선택 장소·검색 결과 카드를 둔다.
+- 서버 제공 imageUrl만 사용하고 없으면 기존 카테고리별 기본 이미지를 사용한다. 상세 링크는 서버 detailUrl만 사용한다. 카카오 ID·URL·사진을 만들어내지 않는다. 등록 장소에 distanceMeters가 없으면 거리 행을 숨긴다.
+- UI 장소 키는 카테고리·이름·주소·좌표로 구성하되 서버 candidateId나 pickToken 대신 전송하지 않는다.
+
+### 복수 추가·단건 삭제·완료
+
+- A34 `POST /api/rooms/{roomId}/place-submission/me/candidates`에 현재 round·category와 검색 응답의 pickToken을 보낸다. 같은 카테고리의 후보를 여러 곳 추가하며 기존 후보를 교체하지 않는다. 응답 candidateId와 재조회한 A08의 후보를 대조한다.
+- A35 `DELETE .../candidates/{candidateId}?round=...`는 A08에서 복원한 본인 후보 ID 한 곳만 삭제한다. 본문은 없고 쿠키·CSRF를 보낸다. 다른 본인 후보와 다른 참가자의 후보는 건드리지 않는다. A15 전체 교체·카테고리 일괄 삭제를 사용하지 않는다.
+- A16 완료 조건은 본인 myCandidates가 한 곳 이상인 것이다. 필수 카테고리 충족은 방 전체 정책이며 개인 완료 조건과 구분한다. 완료 요청 본문은 현재 round만 보낸다.
+- 서버 phase·마감·자격·myCompleted·allowedActions를 확인한다. 중복 클릭을 합치고 변경 후 같은 회차의 A08을 다시 읽어 실제 결과와 일치해야 성공으로 처리한다.
+- 쓰기 성공 후 GET 실패나 응답 유실·5xx는 쓰기를 반복하지 않고 결과 확인 버튼에서 GET으로 복구한다. 명시적 4xx 거절은 성공으로 바꾸지 않는다. 최신 조회를 검토한 뒤에만 새 작업을 시작한다. 세션 변경 시 이전 입력·증표·쓰기 결과의 영향을 폐기한다.
+
+### 명세와 검증
+
+2026-11-20 [Notion A14](https://app.notion.com/p/56b9170baf5483d0a60e81e828504afe), [A16](https://app.notion.com/p/b5f9170baf5483979ce00173f85cc12b), [A34](https://app.notion.com/p/0a19170baf5482a285c981b38059d3ad), [A35](https://app.notion.com/p/7149170baf5483708a4d01b89a9844fb)와 [배포 OpenAPI](https://api.meetdle.co.kr/v3/api-docs)를 확인했다. A08의 최신 myCandidates 계약은 현재 develop의 공통 DTO를 사용한다. src/api의 공통 계약 파일은 이번 보완에서 변경하지 않았다.
+
+- A35는 Notion에 204, Swagger에 빈 200이다. 기존 공통 removeCandidate가 discardResponse로 둘 다 처리하며 회귀 테스트를 추가했다.
+- Swagger의 required/nullable·실패 응답 표기는 일부 빠져 있어 Notion의 15분 증표·회차·권한·오류 계약을 함께 사용한다.
+- `npm run build`, `npm run lint`, `node --test --test-concurrency=1 tests/*.test.mjs`로 검증했으며 전체 111개 테스트가 통과했다. 빌드의 기존 500 kB 청크 경고는 남아 있다.
+- 모의 API Chrome 검증: mode=api/기존 UUID 진입, 같은 카테고리 두 곳 추가, 새로고침 뒤 ID 복원·한 곳 삭제, 필수 FOOD를 비워도 후보 한 곳으로 완료, 같은 방 서버 현황·새로고침, 쓰기 성공/GET 실패 뒤 조회만 재시도, 명시적 409 후 최신 상태 재제출, 검색 실패·빈 결과·401·독립 목 경로를 확인했다.
+- 실제 배포 서버: localhost:5173 Origin의 비인증 A03·A08·A14 GET은 401이며 Allow-Origin·Allow-Credentials가 있다. A34 POST·A35 DELETE·A16 PUT의 OPTIONS는 200이다. 이전 CORS 403은 이번 확인에서 재현되지 않았다.
+- 실제 인증된 POST·DELETE·PUT, 실제 pickToken 발급·검증·자동 마감 전이, 카카오 지도 타일·도메인 인증·실기기 앱 전환은 미검증이다. OPTIONS와 모의 검증을 실제 저장 성공으로 보고하지 않는다.
+
 이슈 #11. `/rooms/places`에서 연다. Figma UI → Meetdle UI — Flow의 `198:9658`(현재 이름 `SCREEN 09 — 수정1`)과 STATE 09-A~F를 확인했다.
 
 ## 구현 및 기존 화면 연결

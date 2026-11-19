@@ -1,4 +1,5 @@
 import { createBrowserRouter, Link } from 'react-router';
+import PlaceRegistrationStatus from '../pages/PlaceRegistrationStatus/PlaceRegistrationStatus';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
 import InvitationRoute from './InvitationRoute';
@@ -11,7 +12,6 @@ import MeetingConfirmed from '../pages/MeetingConfirmed/MeetingConfirmed';
 import RoomRecruitment from '../pages/ParticipationStatus/RoomRecruitment';
 import MeetingInfo from '../pages/MeetingInfo/MeetingInfo';
 import PlaceRegistrationSetup from '../pages/PlaceRegistrationSetup/PlaceRegistrationSetup';
-import PlaceRegistrationStatus from '../pages/PlaceRegistrationStatus/PlaceRegistrationStatus';
 import RegistrationClose from '../pages/RegistrationClose/RegistrationClose';
 import VoteStart from '../pages/VoteStart/VoteStart';
 import PlaceVote from '../pages/PlaceVote/PlaceVote';

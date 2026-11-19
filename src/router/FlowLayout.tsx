@@ -19,7 +19,15 @@ export default function FlowLayout() {
   const id = params.get('roomId');
   if (id && isServerRoomId(id) && !getCreatedRoom(id)) {
     if (pathname === PATHS.schedule) return <ServerSchedule key={id} roomId={id} />;
-    if ([PATHS.participation, PATHS.candidates, PATHS.confirmed].some((path) => path === pathname))
+    if (
+      [
+        PATHS.participation,
+        PATHS.candidates,
+        PATHS.confirmed,
+        PATHS.places,
+        PATHS.registration,
+      ].some((path) => path === pathname)
+    )
       return <ServerRoomHandoff key={id + pathname} roomId={id} path={pathname} />;
   }
   if (params.get('mode') === 'api' && pathname.startsWith('/rooms/')) {

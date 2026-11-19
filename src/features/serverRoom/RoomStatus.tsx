@@ -9,6 +9,7 @@ import { PATHS } from '../../router/paths';
 import { roomScreenForEntry, serverRoomUrl, serverScreenUrl, shouldPollRoom } from './routing';
 import { ServerSchedule } from '../../router/ScheduleApiRoutes';
 import { ServerCandidates } from '../planning/PlanningRoutes';
+import ServerPlaceExploration from '../../pages/PlaceExploration/ServerPlaceExploration';
 import { useRoomState } from './useRoomState';
 import { getCreatedRoom } from '../createdRoom/model';
 import ServerParticipation from '../../pages/ParticipationStatus/ServerParticipation';
@@ -190,6 +191,13 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
       />
     );
   }
+  if (screen === PATHS.places)
+    return (
+      <ServerPlaceExploration
+        key={room.roomId + ':' + room.me.participantId + ':' + room.registration?.round}
+        roomId={room.roomId}
+      />
+    );
   if (screen === PATHS.setup) {
     if (
       opened?.selectionId === room.meeting?.selectionId &&

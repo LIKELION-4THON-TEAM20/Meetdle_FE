@@ -1,3 +1,5 @@
+import ServerPlaceExploration from '../pages/PlaceExploration/ServerPlaceExploration';
+import { isServerRoomId } from '../api/rooms';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import PlaceExploration from '../pages/PlaceExploration/PlaceExploration';
@@ -13,6 +15,8 @@ export default function PlaceExplorationRoute() {
   const [params] = useSearchParams();
   const [openedAt] = useState(Date.now);
   const roomId = params.get('roomId');
+  if (roomId && isServerRoomId(roomId))
+    return <ServerPlaceExploration key={roomId} roomId={roomId} />;
   const fromConfirmation =
     params.get('from') === 'confirmation' &&
     (roomId === MOCK_ROOM_ID || roomId === CREATED_ROOM_PREVIEW_ID);
