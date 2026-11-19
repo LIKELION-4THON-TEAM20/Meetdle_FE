@@ -13,6 +13,7 @@ export interface TimeSlotGroup {
 }
 
 export interface Station {
+  serverSelectable?: boolean;
   id: string;
   name: string;
   lines: readonly { id: string; name: string }[];

@@ -182,6 +182,8 @@ fetch('https://api.meetdle.co.kr/api/me', { credentials: 'include' }).then((r) =
 
 ### A08 Phase와 Action
 
+백엔드에 `http://localhost:5173` Origin 허용, credentialed GET·POST·PUT·OPTIONS와 요청 헤더 허용, 로그인·초대 복귀 허용 URL을 확인한다. localhost와 API는 교차 사이트이므로 세션 쿠키의 SameSite/Secure 및 브라우저의 타사 쿠키 설정으로 실제 전송이 되는지도 확인해야 한다. 이 단계의 서버 검증은 GET과 OPTIONS로 수행했다.
+
 Phase 12개는 `WAITING_FOR_DEPARTURE`, `OPTIONS_READY`, `REGION_CONFIRMED`, `PLACE_SUBMISSION_OPEN`, `PLACE_SUBMISSION_CLOSED`, `VOTING_OPEN`, `VOTE_REVIEW_REQUIRED`, `WAITING_FOR_HOST_DECISION`, `RESULT_READY`, `FINAL_PLACE_CONFIRMED`, `RECOVERY_REQUIRED`, `ENDED`다.
 
 | Action                                                    | API                       |
@@ -332,3 +334,15 @@ fetch('https://api.meetdle.co.kr/api/me', { credentials: 'include' }).then(({ st
 - SCREEN 13의 진행률과 회원별 제출 상태는 A08 `voting` 또는 `voteReview`에서 가져온다. 기존 15초 polling과 포커스 재조회를 사용한다. 타이머 만료는 A08 재조회만 요청한다. `VOTE_REVIEW_REQUIRED`에서 방장은 서버의 결정 권한으로 A27을 실행한다. EXTEND는 회차당 1회이며 동일 요청의 재시도에 키를 재사용한다. 새 마감은 현재·기존 마감 이후의 서울 시각으로 선택하고 서버 상한을 적용한다. PROCEED는 제출표가 한 건 이상일 때만 열리며 이 구현은 선택 헤더를 생략한다. A27 성공 뒤 A08 읽기가 실패하면 읽기만 재시도한다.
 - A33 VOTING과 HOST는 공유 모달을 열 때 호출한다. 서버 문구·링크·대상을 확인한 뒤 사용자가 카카오톡에서 수신자를 선택한다.
 - `WAITING_FOR_HOST_DECISION`, `RESULT_READY`, `FINAL_PLACE_CONFIRMED`, `RECOVERY_REQUIRED`, `ENDED`는 같은 방의 `/rooms/vote/result?mode=api&roomId=…`로 연결한다. SCREEN 14는 최신 A08의 `tieDecision`, `result`, `recovery`, `allowedActions`에 따라 화면을 표시하고 결과 동작을 연다.
+
+### #26 최신 develop 연결 보완 (2026-11-20)
+
+- 실제 UUID 입력은 mode=api와 기존 mode 없는 주소 모두 ServerSchedule로 연결하며 `/rooms/{roomId}` 공통 진입에서도 입력 단계를 표시한다.
+- A10 성공 후 A08로 저장 내용을 확인하고 `serverScreenUrl(PATHS.participation, roomId)`로 이동한다. 팀원 담당 서버 참여 현황을 사용하며 임시 참여 현황 구현을 제거했다.
+- A09의 선택 가능한 카탈로그 역은 반환된 노선 문자열로 재차 차단하지 않는다. 기존 목 노선 제한은 유지한다.
+- 세션 변경 시 기존 입력을 폐기하고 같은 세션의 포커스 복귀에서는 작성 내용을 보존한다. 조회·저장·복구 정책과 검증은 SCREEN03_API.md를 참고한다.
+- #25·#27·#28 미병합 작업을 가져오지 않고 현재 develop의 공통 클라이언트·DTO·서버 현황 연결 계약을 사용했다.
+
+## #26 일정 입력 연결 (2026-11-19)
+
+A08/A09/A10을 실제 UUID 일정 입력·참여 현황 경로에 연결했다. 공통 API 코드 변경 없이 기존 함수·DTO·CSRF 처리를 사용한다. 기존 목 경로를 유지하고 실제 요청 실패 시 목 응답으로 대체하지 않는다. 복원·전체 교체·revision 충돌·PUT 응답 유실 후 재조회 정책과 CORS 검증은 [SCREEN03_API.md](./SCREEN03_API.md)에 정리했다. 이 브랜치에는 #25/#27/#28의 화면 연동을 포함하지 않는다.

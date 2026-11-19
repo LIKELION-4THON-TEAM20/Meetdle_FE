@@ -10,12 +10,17 @@ import { PATHS, roomPath } from './paths';
 import { isServerRoomId } from '../api/rooms';
 import { ServerRoomCreated } from '../pages/RoomCreated/RoomCreated';
 import { serverRoomUrl } from '../features/serverRoom/routing';
+import { ServerSchedule } from './ScheduleApiRoutes';
 import { ServerRoomHandoff } from '../features/serverRoom/RoomStatus';
 
 export default function FlowLayout() {
   const { pathname, search } = useLocation();
   const params = new URLSearchParams(search);
   const id = params.get('roomId');
+  if (id && isServerRoomId(id) && !getCreatedRoom(id)) {
+    if (pathname === PATHS.schedule) return <ServerSchedule key={id} roomId={id} />;
+    if (pathname === PATHS.participation) return <ServerRoomHandoff roomId={id} path={pathname} />;
+  }
   if (params.get('mode') === 'api' && pathname.startsWith('/rooms/')) {
     if (!id || !isServerRoomId(id) || getCreatedRoom(id)) {
       return <RoomRecovery message="서버 약속방 주소가 올바르지 않아요." />;
@@ -68,6 +73,9 @@ export function CreatedRoomLayout() {
   const params = new URLSearchParams(search);
   const id = params.get('roomId');
   const code = params.get('code');
+  // #26의 실제 서버 입력·현황만 통과시키고, 목 방 복구는 기존 경로를 유지한다.
+  if (id && isServerRoomId(id) && (pathname === PATHS.schedule || pathname === PATHS.participation))
+    return <Outlet />;
   const room = id ? getCreatedRoom(id) : code ? findCreatedRoomByCode(code) : getCreatedRoom(null);
   if ((params.has('roomId') && !id) || !room || (code !== null && code !== room.inviteCode)) {
     return (

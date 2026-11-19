@@ -7,6 +7,7 @@ import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import { PATHS } from '../../router/paths';
 import { roomScreenForEntry, serverRoomUrl, serverScreenUrl, shouldPollRoom } from './routing';
+import { ServerSchedule } from '../../router/ScheduleApiRoutes';
 import { useRoomState } from './useRoomState';
 import { getCreatedRoom } from '../createdRoom/model';
 import ServerParticipation from '../../pages/ParticipationStatus/ServerParticipation';
@@ -239,10 +240,8 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
       />
     );
   }
-  if (
-    requested !== screen &&
-    (screen === PATHS.candidates || (screen === PATHS.schedule && room.startedAt))
-  ) {
+  if (screen === PATHS.schedule) return <ServerSchedule key={roomId} roomId={roomId} />;
+  if (requested !== screen && screen === PATHS.candidates) {
     return <Navigate to={serverScreenUrl(screen, roomId)} replace />;
   }
   const deadline =
@@ -267,9 +266,6 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
           </p>
         )}
         {state.notice && <p role="status">{state.notice}</p>}
-        {screen === PATHS.schedule && (
-          <Link to={serverScreenUrl(PATHS.participation, roomId)}>참여자 입력 현황 보기</Link>
-        )}
         {state.can('START_ROOM') && room.invite && (
           <Link to={`${PATHS.created}?mode=api&roomId=${roomId}`}>초대 정보 보기</Link>
         )}

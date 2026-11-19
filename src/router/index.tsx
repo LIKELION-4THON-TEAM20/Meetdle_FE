@@ -3,7 +3,7 @@ import CreateRoom from '../pages/CreateRoom/CreateRoom';
 import RoomCreated from '../pages/RoomCreated/RoomCreated';
 import InvitationRoute from './InvitationRoute';
 import ServerRoomRoute from './ServerRoomRoute';
-import { ScheduleTransitRoute } from '../pages/ScheduleTransit/ScheduleTransit';
+import { ScheduleTransitEntryRoute } from './ScheduleApiRoutes';
 import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatus';
 import RoomRecruitment from '../pages/ParticipationStatus/RoomRecruitment';
 import TimeRegionCandidates from '../pages/TimeRegionCandidates/TimeRegionCandidates';
@@ -71,7 +71,7 @@ export const router = createBrowserRouter([
 
           {
             path: PATHS.schedule,
-            element: <ScheduleTransitRoute />,
+            element: <ScheduleTransitEntryRoute />,
           },
           {
             path: PATHS.recruitment,
