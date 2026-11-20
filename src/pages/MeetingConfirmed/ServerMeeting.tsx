@@ -1,3 +1,4 @@
+import { sortPlaceCategories } from '../../features/places/categoryOrder';
 import { Link, useNavigate } from 'react-router';
 import Button from '../../components/common/Button/Button';
 import type { RoomState } from '../../api/types';
@@ -57,6 +58,11 @@ export default function ServerMeeting({
     >
       {confirmation ? (
         <footer className="meeting-confirmed__footer">
+          {room.me.role === 'MEMBER' && actions.beforeRegistration && (
+            <p className="meeting-info__notice meeting-info__notice--waiting" role="status">
+              방장이 장소 등록을 시작하면 자동으로 이동해요.
+            </p>
+          )}
           {actions.canSetup && (
             <Button
               className="meeting-confirmed__action"
@@ -65,7 +71,6 @@ export default function ServerMeeting({
               장소 등록 설정하기
             </Button>
           )}
-          {actions.canReselect && <Link to={link(PATHS.candidates)}>일시·지역 다시 선택하기</Link>}
           <RoomShareButton
             room={room}
             kind="meetingConfirmed"
@@ -98,9 +103,6 @@ export default function ServerMeeting({
                   장소 등록 설정하기
                 </Button>
               )}
-              {actions.canReselect && (
-                <Link to={link(PATHS.candidates)}>일시·지역 다시 선택하기</Link>
-              )}
             </>
           ) : (
             <>
@@ -109,7 +111,7 @@ export default function ServerMeeting({
               )}
               {!!registration?.categories.length && (
                 <ul aria-label="장소 등록 카테고리">
-                  {registration.categories.map((category) => (
+                  {sortPlaceCategories(registration.categories).map((category) => (
                     <li key={category.category}>
                       {categoryNames[toUiCategory[category.category]]} ·{' '}
                       {category.required ? '필수' : '선택'}

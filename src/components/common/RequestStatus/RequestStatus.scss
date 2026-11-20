@@ -115,3 +115,23 @@
     animation: none;
   }
 }
+
+.request-status__actions:has(> .request-status__kakao) {
+  width: 100%;
+  max-width: 261px;
+}
+.request-status__actions > .request-status__kakao {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  background: #fee500;
+  color: #191919;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  box-shadow: none;
+}
+.request-status-page__footer > a {
+  text-decoration: none;
+}

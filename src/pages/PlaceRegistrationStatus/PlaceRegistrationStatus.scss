@@ -43,7 +43,7 @@
   }
   &__footer {
     display: grid;
-    gap: 10px;
+    gap: 12px;
     padding: 14px 27px max(28px, env(safe-area-inset-bottom));
     &::before {
       display: block;
@@ -52,6 +52,7 @@
       content: '';
     }
   }
+  &__footer .common-button { font-weight: 500; }
   &__start {
     font-weight: 500;
   }

@@ -396,3 +396,15 @@ test('가입 사용자 변경 뒤 이전 검색 증표로 쓰기를 실행하지
   await assert.rejects(op.execute(), (error) => error.code === 'SESSION_CHANGED');
   assert.equal(writes().length, 0);
 });
+
+test('place entry reuses the validated parent session instead of publishing another session refresh', async () => {
+  reset();
+  api.clearSession();
+  await api.getSession();
+  requests = [];
+  const repo = await open();
+  assert.equal(requests.filter((r) => r.path === '/api/me').length, 0);
+  assert.equal(requests.filter((r) => r.path.endsWith('/state')).length, 1);
+  await repo.reload();
+  assert.equal(requests.filter((r) => r.path === '/api/me').length, 0);
+});

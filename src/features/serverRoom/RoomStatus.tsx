@@ -50,12 +50,19 @@ export function RoomRequestStatus({
   retry: () => void;
 }) {
   if (error instanceof ApiRequestError && error.status === 404) return <RoomNotFound />;
-  const login = error instanceof ApiRequestError && error.status === 401;
+  const login =
+    error instanceof ApiRequestError && (error.status === 401 || error.code === 'SESSION_CHANGED');
   return (
-    <RequestStatusPage footer={error ? <Link to={PATHS.home}>홈으로 가기</Link> : undefined}>
+    <RequestStatusPage footer={error ? <Link to={PATHS.home}>홈으로 돌아가기↗︎</Link> : undefined}>
       <RequestStatus
         loading={!error}
-        title={error ? serverErrorMessage(error) : '약속 정보를 불러오는 중이에요.'}
+        title={
+          login
+            ? '카카오 로그인이 필요해요.'
+            : error
+              ? serverErrorMessage(error)
+              : '약속 정보를 불러오는 중이에요.'
+        }
         description={
           error
             ? login
@@ -63,10 +70,11 @@ export function RoomRequestStatus({
               : '잠시 후 다시 시도해주세요.'
             : '잠시만 기다려주세요.'
         }
-        onRetry={error ? retry : undefined}
+        onRetry={error && !login ? retry : undefined}
       >
         {login && (
           <Button
+            className="request-status__kakao"
             onClick={() =>
               startKakaoLogin({ returnTo: serverRoomUrl(roomId), returnOrigin: location.origin })
             }
@@ -137,7 +145,9 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
       requested !== screen &&
       (requestedVoteScreen ||
         registrationScreens.includes(requested) ||
-        requested === PATHS.setup) &&
+        requested === PATHS.setup ||
+        ((requested === PATHS.confirmed || requested === PATHS.info) &&
+          room.phase === 'PLACE_SUBMISSION_OPEN')) &&
       !keepReceipt &&
       !state.error)
   ) {
@@ -273,8 +283,9 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
       );
     return (
       <ServerCandidates
-        key={`${room.roomId}:${room.me.participantId}:${room.options?.optionsId}:${room.meeting?.selectionId}:${state.receivedAt}`}
+        key={`${room.roomId}:${room.me.participantId}:${room.options?.optionsId}:${room.meeting?.selectionId}`}
         state={room}
+        sampledAt={state.receivedAt}
         reload={() => void state.refresh()}
       />
     );

@@ -1,3 +1,5 @@
+import NudgeMessagePicker from './NudgeMessagePicker';
+import { editedNudge, isReminder, nudgeOptions, nudgeTitle } from './nudgeModel';
 import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useEffect, useRef, useState } from 'react';
 import { getSession } from '../../api/auth';
@@ -22,6 +24,9 @@ export default function RoomShareDialog({
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [sending, setSending] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const reminder = isReminder(kind);
+  const compact = reminder || kind === 'hostRequest';
   const running = useRef(false);
   const request = useRef<AbortController | null>(null);
   useEffect(() => {
@@ -80,7 +85,13 @@ export default function RoomShareDialog({
     setError('');
     try {
       // No await/API calls here: retain the browser's user activation for Kakao's popup/app link.
-      openPreparedKakaoShare(prepared.message);
+      const outgoing = compact
+        ? editedNudge(
+            prepared.message,
+            kind === 'hostRequest' ? '우리 이제 다음 단계로 넘어갈 수 있대!' : selectedText,
+          )
+        : prepared.message;
+      openPreparedKakaoShare(outgoing);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -98,28 +109,48 @@ export default function RoomShareDialog({
       onClose={onClose}
       closeOnBackdropClick={false}
       closeOnEscape={false}
-      className="room-share-dialog"
+      className={`room-share-dialog${compact ? ' room-share-dialog--nudge' : ''}`}
       aria-labelledby="room-share-title"
     >
-      <h2 id="room-share-title">{message?.title ?? '카카오톡 공유하기'}</h2>
+      <h2 id="room-share-title">
+        {compact ? nudgeTitle(kind) : (message?.title ?? '카카오톡 공유하기')}
+      </h2>
       {message ? (
         <>
-          <p>{message.description}</p>
-          <dl className="room-share-dialog__info">
-            {message.rows.map((row) => (
-              <div key={row.label}>
-                <dt>{row.label}</dt>
-                <dd>{row.value}</dd>
-              </div>
-            ))}
-          </dl>
-          <strong className="room-share-dialog__brand">Meetdle</strong>
-          {message.recipients.length > 0 && (
-            <p className="room-share-dialog__recipients">
-              참여 요청 대상: {message.recipients.join(', ')}
-            </p>
+          <p>
+            {compact
+              ? kind === 'hostRequest'
+                ? '우리 이제 다음 단계로 넘어갈 수 있대!'
+                : '친구에게 보낼 메시지를 선택해보세요'
+              : message.description}
+          </p>
+          {reminder && (
+            <NudgeMessagePicker
+              options={nudgeOptions(message)}
+              value={selectedText}
+              onChange={setSelectedText}
+              disabled={sending}
+            />
           )}
-          <p>카카오톡에서 보낼 친구나 채팅방을 직접 선택해주세요.</p>
+          {!compact && (
+            <>
+              <dl className="room-share-dialog__info">
+                {message.rows.map((row) => (
+                  <div key={row.label}>
+                    <dt>{row.label}</dt>
+                    <dd>{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <strong className="room-share-dialog__brand">Meetdle</strong>
+              {message.recipients.length > 0 && (
+                <p className="room-share-dialog__recipients">
+                  참여 요청 대상: {message.recipients.join(', ')}
+                </p>
+              )}
+              <p>카카오톡에서 보낼 친구나 채팅방을 직접 선택해주세요.</p>
+            </>
+          )}
         </>
       ) : (
         !error && (
@@ -144,7 +175,7 @@ export default function RoomShareDialog({
       )}
       <Button
         className="room-share-dialog__send"
-        disabled={!message || sending}
+        disabled={!message || sending || (reminder && !selectedText.trim())}
         onClick={() => void send()}
       >
         {sending ? '카카오톡 공유 요청됨' : '카카오톡으로 전송하기'}
@@ -154,9 +185,20 @@ export default function RoomShareDialog({
           열린 카카오톡 공유창을 확인해주세요. 창이 없다면 브라우저의 팝업 차단 여부를 확인해주세요.
         </p>
       )}
-      <Button variant="secondary" onClick={onClose}>
-        닫기
-      </Button>
+      {compact ? (
+        <button
+          type="button"
+          className="room-share-dialog__close"
+          aria-label="닫기"
+          onClick={onClose}
+        >
+          ×
+        </button>
+      ) : (
+        <Button variant="secondary" onClick={onClose}>
+          닫기
+        </Button>
+      )}
     </Modal>
   );
 }

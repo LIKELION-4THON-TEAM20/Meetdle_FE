@@ -144,7 +144,7 @@ export function createApiExplorationRepository(roomId: string) {
   }
   return {
     async open(signal?: AbortSignal) {
-      owner = await getSession({ refresh: true });
+      owner = await getSession();
       signal?.throwIfAborted();
       const fresh = await load(signal);
       mutation = undefined;

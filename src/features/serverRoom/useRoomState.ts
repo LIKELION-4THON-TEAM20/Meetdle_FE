@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { createRoomStateStore, estimateServerNow } from './roomState';
-import { shouldPollRoom } from './routing';
+import { roomPollingInterval, shouldPollRoom } from './routing';
 import type { RoomState } from '../../api/types';
 
 export function useRoomState(
@@ -30,13 +30,14 @@ export function useRoomState(
     };
   }, [store]);
 
+  const pollInterval = snapshot.room ? roomPollingInterval(snapshot.room) : 15_000;
   useEffect(() => {
     if (!polling) return;
     const timer = window.setInterval(() => {
       if (!document.hidden) void store.refresh();
-    }, 15_000);
+    }, pollInterval);
     return () => window.clearInterval(timer);
-  }, [polling, store]);
+  }, [polling, pollInterval, store]);
 
   return {
     ...snapshot,

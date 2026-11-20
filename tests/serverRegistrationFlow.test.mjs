@@ -200,3 +200,22 @@ test('마감 후 연장은 미완료자가 있거나 필수 후보가 비어 있
   };
   assert.equal(registrationFlow(belowHalf, now).canMini, false);
 });
+
+test('마감 후 단계 표시가 늦어도 서버가 허용한 연장·투표를 사용할 수 있다', () => {
+  const expired = {
+    ...room,
+    allowedActions: ['EXTEND_COLLECTION', 'START_VOTING'],
+    registration: { ...room.registration, closesAt: new Date(now - 1).toISOString() },
+  };
+  assert.equal(registrationFlow(expired, now).closed, true);
+  assert.equal(registrationFlow(expired, now).open, false);
+  assert.equal(registrationFlow(expired, now).canExtend, true);
+  assert.equal(registrationFlow(expired, now).canVote, true);
+  assert.equal(roomScreenForEntry(expired, '/rooms/vote/start'), '/rooms/vote/start');
+  assert.notEqual(roomScreenForEntry({ ...expired, allowedActions: [] }, '/rooms/vote/start'), '/rooms/vote/start');
+  assert.equal(registrationFlow(expired, now).canMini, false);
+  assert.equal(registrationFlow({ ...expired, allowedActions: [] }, now).canExtend, false);
+  assert.equal(registrationFlow({ ...expired, allowedActions: [] }, now).canVote, false);
+  assert.equal(registrationFlow({ ...expired, me: { role: 'MEMBER' } }, now).canExtend, false);
+  assert.equal(registrationFlow({ ...expired, registration: room.registration }, now).closed, false);
+});

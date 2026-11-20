@@ -103,3 +103,27 @@ test('meeting sharing uses the A08 link and confirmed data', () => {
   assert.equal(meetingShareText({ ...host, shareUrl: 'javascript:alert(1)' }), null);
   assert.equal(meetingShareText({ ...host, shareUrl: null }), null);
 });
+
+test('등록 시작 후 확정·공유 화면에 머물지 않고 본인 등록 권한에 맞는 화면으로 이동한다', () => {
+  const member = {
+    ...host,
+    phase: 'PLACE_SUBMISSION_OPEN',
+    me: { role: 'MEMBER', canRegister: true },
+    allowedActions: ['SEARCH_PLACES', 'EDIT_NOMINATION'],
+    registration: { closesAt: '2026-11-19T01:00:00Z', closedAt: null, myCompleted: false },
+  };
+  for (const path of ['/rooms/confirmed', '/rooms/info']) {
+    assert.equal(roomScreenForEntry(member, path), '/rooms/places');
+    assert.equal(roomScreenForEntry({ ...member, me: { ...member.me, canRegister: false } }, path), '/rooms/registration/status');
+    assert.equal(roomScreenForEntry({ ...member, registration: { ...member.registration, myCompleted: true } }, path), '/rooms/registration/status');
+    assert.equal(roomScreenForEntry({ ...member, allowedActions: [] }, path), '/rooms/registration/status');
+  }
+});
+
+test('확정 화면은 호스트의 등록 시작을 짧은 간격으로 확인한다', async () => {
+  const { roomPollingInterval, shouldPollRoom } = await vite.ssrLoadModule('/src/features/serverRoom/routing.ts');
+  const member = { ...host, me: { role: 'MEMBER' } };
+  assert.equal(shouldPollRoom(member), true);
+  assert.equal(roomPollingInterval(member), 3000);
+  assert.equal(roomPollingInterval({ ...member, phase: 'PLACE_SUBMISSION_OPEN' }), 15000);
+});

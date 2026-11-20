@@ -64,10 +64,9 @@ export function roomScreen(room: RoomState) {
 export function roomScreenForEntry(room: RoomState, requested?: string) {
   if (
     room.phase === 'PLACE_SUBMISSION_OPEN' &&
-    meetingActions(room).canRegister &&
     (!requested || [PATHS.confirmed, PATHS.info, PATHS.setup].some((path) => path === requested))
   )
-    return PATHS.places;
+    return roomScreen(room);
   if (
     room.phase === 'WAITING_FOR_DEPARTURE' &&
     (room.me.role === 'HOST' || !!room.startedAt) &&
@@ -91,7 +90,8 @@ export function roomScreenForEntry(room: RoomState, requested?: string) {
     return requested;
   if (
     requested === PATHS.startVote &&
-    room.phase === 'PLACE_SUBMISSION_CLOSED' &&
+    ['PLACE_SUBMISSION_OPEN', 'PLACE_SUBMISSION_CLOSED'].includes(room.phase) &&
+    !!room.registration &&
     room.me.role === 'HOST' &&
     room.allowedActions.includes('START_VOTING')
   )
@@ -134,6 +134,11 @@ export function roomScreenForEntry(room: RoomState, requested?: string) {
     if (requested === PATHS.recruitment && !room.startedAt) return requested;
   }
   return roomScreen(room);
+}
+
+export function roomPollingInterval(room: RoomState) {
+  // Participants wait here while the host starts registration on another device.
+  return room.phase === 'REGION_CONFIRMED' ? 3_000 : 15_000;
 }
 
 export function shouldPollRoom(room: RoomState) {

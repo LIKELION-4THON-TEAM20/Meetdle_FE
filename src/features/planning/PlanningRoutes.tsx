@@ -63,12 +63,21 @@ function LoadingOrError({ error, reload }: { error: unknown; reload: () => void 
   );
 }
 
-export function ServerCandidates({ state, reload }: { state: RoomState; reload: () => void }) {
+export function ServerCandidates({
+  state,
+  reload,
+  sampledAt,
+}: {
+  state: RoomState;
+  reload: () => void;
+  sampledAt?: number;
+}) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const reselectTime = params.get('reselectTime') === '1';
   const [clock, setClock] = useState(Date.now);
-  const [receivedAt] = useState(Date.now);
+  const [initialReceivedAt] = useState(Date.now);
+  const receivedAt = sampledAt ?? initialReceivedAt;
   useEffect(() => {
     if (!reselectTime) return;
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
@@ -126,7 +135,7 @@ export function ServerCandidates({ state, reload }: { state: RoomState; reload: 
   );
   const refresh = (
     <Button variant="secondary" disabled={busy} onClick={reload}>
-      최신 상태 다시 조회
+      다시 시도
     </Button>
   );
   let data;
@@ -198,7 +207,7 @@ export function ServerCandidates({ state, reload }: { state: RoomState; reload: 
               서버 확정 결과 다시 확인
             </Button>
           )}
-          {refresh}
+          {error && refresh}
         </>
       }
     />
