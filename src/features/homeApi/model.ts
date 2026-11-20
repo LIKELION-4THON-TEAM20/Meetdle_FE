@@ -1,5 +1,5 @@
 import { getTodayKey } from '../../pages/Home/appointment.utils';
-import type { MyRoomSummary, Phase } from '../../api/types';
+import type { MemberStatus, MyRoomSummary, Phase } from '../../api/types';
 import type { Appointment } from '../../pages/Home/appointment.types';
 import { ApiRequestError } from '../../api/client';
 import { isServerRoomId } from '../../api/rooms';
@@ -24,6 +24,21 @@ export function roomEntryUrl(roomId: string) {
 }
 export function phaseLabel(phase: Phase) {
   return PHASE_LABELS[phase];
+}
+export function roomParticipants(
+  room: { roomId: string; members?: MemberStatus[] | null },
+  expectedRoomId: string,
+): Appointment['participants'] {
+  if (room.roomId !== expectedRoomId)
+    throw new ApiRequestError(200, {
+      code: 'INVALID_RESPONSE',
+      message: 'Room membership mismatch.',
+    });
+  return (room.members ?? []).slice(0, 4).map((member) => ({
+    id: member.participantId,
+    name: member.nickname,
+    imageUrl: member.profileImageUrl ?? null,
+  }));
 }
 export function toAppointment(room: MyRoomSummary): Appointment {
   if (

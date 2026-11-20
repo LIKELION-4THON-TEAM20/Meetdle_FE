@@ -1,3 +1,4 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ApiRequestError } from '../../api/client';
@@ -256,7 +257,12 @@ export default function ServerPlaceVote({
         ) : (
           <>
             {state.notice && <p role="status">{state.notice}</p>}
-            {error && <p role="alert">{error}</p>}
+            {error && (
+              <RequestStatus
+                title="투표를 저장하지 못했어요."
+                description={error + ' 선택한 내용은 그대로 유지돼요.'}
+              />
+            )}
             {accepted || state.error ? (
               <>
                 <p role="status">최신 투표 상태를 확인해주세요.</p>

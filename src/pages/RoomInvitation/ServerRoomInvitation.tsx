@@ -1,10 +1,10 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { startKakaoLogin } from '../../api/auth';
 import { api, ApiRequestError } from '../../api/client';
 import { isServerRoomId } from '../../api/rooms';
 import type { InvitePreview, ResolvedInvite } from '../../api/types';
-import participantAvatars from '../../assets/icons/room-invitation/participants.svg';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
 import {
@@ -146,7 +146,6 @@ function InviteScreen({ token }: { token: string }) {
             <MeetingInfoCard
               variant="participant"
               hostName={preview.hostNickname}
-              participantAvatarsSrc={participantAvatars}
               meeting={{
                 name: preview.title ?? '약속방',
                 candidateDates: formatCandidateDates({
@@ -197,7 +196,9 @@ function InviteScreen({ token }: { token: string }) {
             )}
           </>
         )}
-        {actionError && <p role="alert">{actionError}</p>}
+        {actionError && (
+          <RequestStatus title="약속방에 참여하지 못했어요." description={actionError} />
+        )}
         {loginError && !data?.session && (
           <p role="alert">
             {loginError === 'CANCELLED'

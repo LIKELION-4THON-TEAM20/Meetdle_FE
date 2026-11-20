@@ -16,6 +16,18 @@ export function useScheduleRoom(roomId: string) {
   useEffect(() => {
     const controller = new AbortController();
     let observedSession: SessionResponse | undefined;
+    let stage: 'session' | 'room' = 'session';
+    const timeout = window.setTimeout(() => {
+      if (controller.signal.aborted) return;
+      setResult({
+        key,
+        error: new ApiRequestError(null, {
+          code: stage === 'session' ? 'SESSION_TIMEOUT' : 'ROOM_TIMEOUT',
+          message: 'Schedule loading timed out',
+        }),
+      });
+      controller.abort();
+    }, 15_000);
     const unsubscribe = api.subscribeSession((session) => {
       if (
         !observedSession ||
@@ -41,18 +53,24 @@ export function useScheduleRoom(roomId: string) {
     window.addEventListener('online', refresh);
     void (async () => {
       try {
-        const session = await getSession({ refresh: true });
+        // Parent room entry has already checked the session. Avoid another forced
+        // session refresh while switching from recruitment to schedule input.
+        const session = await getSession();
         controller.signal.throwIfAborted();
         observedSession = session;
+        stage = 'room';
         const room = await getRoomState(roomId, controller.signal);
         controller.signal.throwIfAborted();
         assertScheduleState(room, roomId);
         setResult({ key, data: { room, session } });
       } catch (error) {
         if (!controller.signal.aborted) setResult({ key, error });
+      } finally {
+        window.clearTimeout(timeout);
       }
     })();
     return () => {
+      window.clearTimeout(timeout);
       unsubscribe();
       controller.abort();
       window.removeEventListener('focus', refresh);

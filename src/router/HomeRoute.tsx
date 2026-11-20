@@ -11,6 +11,7 @@ import { consumeLoginReturn, loginErrorMessage } from '../features/auth/loginRet
 import { toAppointment } from '../features/homeApi/model';
 import { createRoomHider } from '../features/homeApi/hideRoom';
 import { useRoomList } from '../features/homeApi/useRoomList';
+import { useRoomAvatars } from '../features/homeApi/useRoomAvatars';
 import type { AppointmentFilter } from '../pages/Home/appointment.types';
 import { PATHS } from './paths';
 import AuthStatus from './AuthStatus';
@@ -22,6 +23,7 @@ function AuthenticatedHome({ session, revision }: { session: SessionResponse; re
   const [filter, setFilter] = useState<AppointmentFilter>('all');
   const scope = { all: 'ALL', upcoming: 'UPCOMING', past: 'PAST' } as const;
   const rooms = useRoomList(scope[filter], revision);
+  const avatars = useRoomAvatars(rooms.items, rooms.key);
   const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState('');
   const mounted = useRef(true);
@@ -44,7 +46,10 @@ function AuthenticatedHome({ session, revision }: { session: SessionResponse; re
   return (
     <Home
       key={session.user.userId}
-      appointments={rooms.items.map(toAppointment)}
+      appointments={rooms.items.map((room) => ({
+        ...toAppointment(room),
+        participants: avatars[room.roomId] ?? [],
+      }))}
       filter={filter}
       onFilterChange={setFilter}
       loading={rooms.loading}

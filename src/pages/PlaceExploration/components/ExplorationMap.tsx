@@ -1,3 +1,4 @@
+import RequestStatus from '../../../components/common/RequestStatus/RequestStatus';
 import { useEffect, useRef, useState } from 'react';
 import Button from '../../../components/common/Button/Button';
 import { loadKakaoMaps } from '../../../lib/kakaoMaps/loader';
@@ -96,23 +97,20 @@ function ExplorationMap({
           </Button>
         </>
       ) : (
-        <div className="exploration-map__state" role="status">
-          {status === 'loading' ? (
-            <p>지도를 불러오는 중이에요.</p>
-          ) : (
-            <>
-              <p>{error}</p>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setStatus('loading');
-                  setAttempt((value) => value + 1);
-                }}
-              >
-                지도 다시 시도
-              </Button>
-            </>
-          )}
+        <div className="exploration-map__state">
+          <RequestStatus
+            loading={status === 'loading'}
+            title={status === 'loading' ? '지도를 불러오는 중이에요.' : '지도를 불러오지 못했어요.'}
+            description={status === 'loading' ? '잠시만 기다려주세요.' : error}
+            onRetry={
+              status === 'loading'
+                ? undefined
+                : () => {
+                    setStatus('loading');
+                    setAttempt((value) => value + 1);
+                  }
+            }
+          />
         </div>
       )}
     </section>

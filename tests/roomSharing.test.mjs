@@ -160,3 +160,38 @@ test('extension and restart notices are scoped to participant, round and deadlin
     delete globalThis.sessionStorage;
   }
 });
+
+test('prepared share calls SDK synchronously in the click stack and reports missing SDK', async () => {
+  const { openPreparedKakaoShare } = await vite.ssrLoadModule(
+    '/src/features/serverRoom/kakaoInviteShare.ts',
+  );
+  let clickActive = true;
+  const payloads = [];
+  globalThis.window = {
+    Kakao: {
+      isInitialized: () => true,
+      Share: {
+        sendDefault(payload) {
+          assert.equal(clickActive, true);
+          payloads.push(payload);
+        },
+      },
+    },
+  };
+  try {
+    const returned = openPreparedKakaoShare({
+      text: '초대합니다',
+      url,
+      buttonTitle: '초대 확인하기',
+    });
+    clickActive = false;
+    assert.equal(returned, undefined);
+    assert.equal(payloads.length, 1);
+    assert.equal(payloads[0].buttonTitle, '초대 확인하기');
+    assert.equal(payloads[0].link.mobileWebUrl, url);
+    globalThis.window = {};
+    assert.throws(() => openPreparedKakaoShare({ text: '초대', url, buttonTitle: '확인' }), /준비/);
+  } finally {
+    delete globalThis.window;
+  }
+});

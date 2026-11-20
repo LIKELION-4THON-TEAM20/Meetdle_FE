@@ -109,7 +109,13 @@ function AvailabilityGrid({ dates, selected, onPaint }: AvailabilityGridProps) {
   }
 
   return (
-    <div className="availability-grid" aria-describedby="availability-help">
+    <div
+      className={`availability-grid${dates.length > 4 ? ' availability-grid--scrollable' : ''}`}
+      aria-describedby="availability-help"
+      tabIndex={dates.length > 4 ? 0 : undefined}
+      role="region"
+      aria-label="가능 시간 선택표"
+    >
       <p className="schedule-transit__sr-only" id="availability-help">
         시간 칸에서 드래그하면 연속 선택하며, 시간 표시와 날짜 머리글에서는 화면을 스크롤할 수
         있어요. 방향키로 칸을 이동하고 Enter 또는 Space로 선택·해제하세요.
@@ -152,7 +158,7 @@ function AvailabilityGrid({ dates, selected, onPaint }: AvailabilityGridProps) {
           <tbody key={group.label}>
             <tr className="availability-grid__group">
               <th colSpan={dates.length + 1} scope="rowgroup">
-                {group.label}
+                <span>{group.label}</span>
               </th>
             </tr>
             {group.slots.map((slot) => {

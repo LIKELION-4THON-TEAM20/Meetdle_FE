@@ -1,3 +1,6 @@
+import RequestStatus, {
+  RequestStatusPage,
+} from '../../components/common/RequestStatus/RequestStatus';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ApiRequestError } from '../../api/client';
@@ -41,7 +44,7 @@ function ErrorNotice({ error }: { error: unknown }) {
     error instanceof ApiRequestError && (error.status === 401 || error.code === 'SESSION_CHANGED');
   return (
     <div className="planning-notice">
-      <p role="alert">{message(error)}</p>
+      <RequestStatus title="일시·지역 정보를 처리하지 못했어요." description={message(error)} />
       {login && <Link to={PATHS.login}>로그인하기</Link>}
     </div>
   );
@@ -49,20 +52,14 @@ function ErrorNotice({ error }: { error: unknown }) {
 
 function LoadingOrError({ error, reload }: { error: unknown; reload: () => void }) {
   return (
-    <div className="page planning-status">
-      <Header title="약속 정보 확인" />
-      <main>
-        {error ? (
-          <>
-            <ErrorNotice error={error} />
-            <Button onClick={reload}>다시 조회하기</Button>
-          </>
-        ) : (
-          <p role="status">약속 정보를 불러오는 중이에요.</p>
-        )}
-        <Link to={PATHS.home}>내 약속 홈으로 이동</Link>
-      </main>
-    </div>
+    <RequestStatusPage footer={error ? <Link to={PATHS.home}>홈으로 가기</Link> : undefined}>
+      <RequestStatus
+        title={error ? '후보 정보를 불러오지 못했어요.' : '후보 정보를 불러오는 중이에요.'}
+        description={error ? message(error) : '가능한 일시와 중간지역을 확인하고 있어요.'}
+        loading={!error}
+        onRetry={error ? reload : undefined}
+      />
+    </RequestStatusPage>
   );
 }
 
@@ -118,7 +115,13 @@ export function ServerCandidates({ state, reload }: { state: RoomState; reload: 
   const feedback = (
     <>
       {error && <ErrorNotice error={error} />}
-      {busy && <p role="status">서버에서 처리 중이에요.</p>}
+      {busy && (
+        <RequestStatus
+          loading
+          title="선택한 후보를 확정하는 중이에요."
+          description="잠시만 기다려주세요."
+        />
+      )}
     </>
   );
   const refresh = (

@@ -1,3 +1,4 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import type { JoinByCodeHandler } from './join-code.types';
 import { useEffect, useRef, useState } from 'react';
 import AppointmentDeleteModal from './components/AppointmentDeleteModal';
@@ -138,19 +139,19 @@ function Home({
           </div>
           {notice && <p role="status">{notice}</p>}
           {error && (
-            <div role="alert">
-              <p>{error}</p>
-              {onRetry && (
-                <button type="button" onClick={onRetry} disabled={loading}>
-                  다시 시도
-                </button>
-              )}
-            </div>
+            <RequestStatus
+              title="약속 목록을 불러오지 못했어요."
+              description={error}
+              onRetry={onRetry}
+              disabled={loading}
+            />
           )}
           {loading && (
-            <p className="home-page__empty" role="status">
-              약속 목록을 불러오는 중이에요.
-            </p>
+            <RequestStatus
+              loading
+              title="약속 목록을 불러오는 중이에요."
+              description="잠시만 기다려주세요."
+            />
           )}
           {visibleAppointments.length ? (
             visibleAppointments.map((appointment) => (

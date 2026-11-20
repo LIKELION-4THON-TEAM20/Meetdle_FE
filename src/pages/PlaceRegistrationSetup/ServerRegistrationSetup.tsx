@@ -1,3 +1,4 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ApiRequestError } from '../../api/client';
@@ -207,13 +208,17 @@ export default function ServerRegistrationSetup({
           </div>
         ) : loadError ? (
           <>
-            <p role="alert">{loadError}</p>
+            <RequestStatus title="장소 등록 설정을 불러오지 못했어요." description={loadError} />
             <Button variant="secondary" onClick={reloadCategories}>
               다시 시도
             </Button>
           </>
         ) : (
-          <p role="status">카테고리 가용성을 확인 중이에요.</p>
+          <RequestStatus
+            loading
+            title="등록 가능한 카테고리를 확인하는 중이에요."
+            description="잠시만 기다려주세요."
+          />
         )}
         {insufficient && (
           <p className="registration-setup__banner registration-setup__banner--blocked">
@@ -241,7 +246,9 @@ export default function ServerRegistrationSetup({
             }}
           />
         )}
-        {submitError && <p role="alert">{submitError}</p>}
+        {submitError && (
+          <RequestStatus title="장소 등록을 시작하지 못했어요." description={submitError} />
+        )}
         {state.notice && <p role="status">{state.notice}</p>}
       </main>
       <footer className="registration-setup__footer">

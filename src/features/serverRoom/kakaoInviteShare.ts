@@ -81,3 +81,20 @@ export async function shareKakaoMessage(
     link: { webUrl: message.url, mobileWebUrl: message.url },
   });
 }
+
+// Must be called synchronously from a user click, after prepareKakaoShare completes.
+export function openPreparedKakaoShare(message: {
+  text: string;
+  url: string;
+  buttonTitle: string;
+}) {
+  const kakao = sdk();
+  if (!kakao?.isInitialized())
+    throw new Error('카카오 공유 준비가 끝나지 않았어요. 다시 불러와주세요.');
+  kakao.Share.sendDefault({
+    objectType: 'text',
+    text: message.text,
+    buttonTitle: message.buttonTitle,
+    link: { webUrl: message.url, mobileWebUrl: message.url },
+  });
+}

@@ -1,3 +1,4 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { ApiRequestError } from '../../api/client';
@@ -357,7 +358,7 @@ export default function ServerRegistrationFlow({
           </>
         )}
         {state.notice && <p role="status">{state.notice}</p>}
-        {error && <p role="alert">{error}</p>}
+        {error && <RequestStatus title="장소 등록 요청을 처리하지 못했어요." description={error} />}
       </main>
       <footer className={`${rootClass}__footer`}>
         {status.host && status.open && (
@@ -365,7 +366,13 @@ export default function ServerRegistrationFlow({
             장소 등록 안내 공유하기
           </RoomShareButton>
         )}
-        {busy && <p role="status">요청을 처리 중이에요.</p>}
+        {busy && (
+          <RequestStatus
+            loading
+            title="장소 등록 상태를 변경하는 중이에요."
+            description="잠시만 기다려주세요."
+          />
+        )}
         {status.open &&
           participants.some(
             ({ id, status }) => id !== room.me.participantId && status !== 'completed',

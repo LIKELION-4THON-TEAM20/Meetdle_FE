@@ -1,3 +1,4 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { getSession } from '../../api/auth';
@@ -44,15 +45,29 @@ function errorMessage(error: unknown) {
   if (error instanceof TypeError) return '서버 설정 또는 응답을 확인할 수 없어요.';
   return error instanceof Error ? error.message : '요청에 실패했어요.';
 }
-function ErrorNotice({ error }: { error: unknown }) {
+function ErrorNotice({
+  error,
+  title = '장소 정보를 불러오지 못했어요.',
+  onRetry,
+  disabled,
+}: {
+  error: unknown;
+  title?: string;
+  onRetry?: () => void;
+  disabled?: boolean;
+}) {
   return (
-    <div className="place-exploration__error">
-      <p role="alert">{errorMessage(error)}</p>
+    <RequestStatus
+      title={title}
+      description={errorMessage(error)}
+      onRetry={onRetry}
+      disabled={disabled}
+    >
       {error instanceof ApiRequestError &&
         (error.status === 401 || error.code === 'SESSION_CHANGED') && (
           <Link to={PATHS.login}>로그인하기</Link>
         )}
-    </div>
+    </RequestStatus>
   );
 }
 
@@ -194,8 +209,23 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
     <div className="page place-exploration">
       <Header title="장소 등록" showBackButton onBack={() => navigate(PATHS.home)} />
       <main className="place-exploration__content">
-        {loading && <p role="status">약속 정보를 불러오는 중이에요.</p>}
-        {!!error && <ErrorNotice error={error} />}
+        {loading && (
+          <RequestStatus
+            loading
+            title="장소 등록 정보를 불러오는 중이에요."
+            description="약속 정보와 내 등록 상태를 확인하고 있어요."
+          />
+        )}
+        {!!error && (
+          <ErrorNotice
+            error={error}
+            title={
+              failedIntent
+                ? '장소 등록 요청을 처리하지 못했어요.'
+                : '장소 등록 정보를 불러오지 못했어요.'
+            }
+          />
+        )}
         {failedIntent && (
           <Button
             disabled={busy || loading}
@@ -564,20 +594,23 @@ function ServerSearch({
         <p>현재 방 상태에서는 장소를 검색할 수 없어요.</p>
       ) : (
         <>
-          {!current && !paused && <p role="status">장소 검색 중…</p>}
+          {!current && !paused && (
+            <RequestStatus
+              loading
+              title="장소를 검색하는 중이에요."
+              description="잠시만 기다려주세요."
+            />
+          )}
           {current?.error && (
-            <>
-              <ErrorNotice error={current.error} />
-              <Button
-                disabled={paused}
-                onClick={() => {
-                  if (current.response) void more();
-                  else setAttempt((n) => n + 1);
-                }}
-              >
-                검색 다시 시도
-              </Button>
-            </>
+            <ErrorNotice
+              error={current.error}
+              title="장소를 검색하지 못했어요."
+              disabled={paused}
+              onRetry={() => {
+                if (current.response) void more();
+                else setAttempt((n) => n + 1);
+              }}
+            />
           )}
           {response && (
             <>

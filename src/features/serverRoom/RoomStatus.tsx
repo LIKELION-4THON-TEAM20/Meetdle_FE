@@ -1,3 +1,6 @@
+import RequestStatus, {
+  RequestStatusPage,
+} from '../../components/common/RequestStatus/RequestStatus';
 import RoomNotFound from '../../components/common/RoomNotFound/RoomNotFound';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { useState } from 'react';
@@ -47,14 +50,22 @@ export function RoomRequestStatus({
   retry: () => void;
 }) {
   if (error instanceof ApiRequestError && error.status === 404) return <RoomNotFound />;
+  const login = error instanceof ApiRequestError && error.status === 401;
   return (
-    <div className="page">
-      <Header title="약속 정보 확인" />
-      <main style={{ padding: 27 }}>
-        <p role={error ? 'alert' : 'status'}>
-          {error ? serverErrorMessage(error) : '약속 정보를 불러오는 중이에요.'}
-        </p>
-        {error instanceof ApiRequestError && error.status === 401 && (
+    <RequestStatusPage footer={error ? <Link to={PATHS.home}>홈으로 가기</Link> : undefined}>
+      <RequestStatus
+        loading={!error}
+        title={error ? serverErrorMessage(error) : '약속 정보를 불러오는 중이에요.'}
+        description={
+          error
+            ? login
+              ? '로그인하면 이 약속방으로 다시 돌아와요.'
+              : '잠시 후 다시 시도해주세요.'
+            : '잠시만 기다려주세요.'
+        }
+        onRetry={error ? retry : undefined}
+      >
+        {login && (
           <Button
             onClick={() =>
               startKakaoLogin({ returnTo: serverRoomUrl(roomId), returnOrigin: location.origin })
@@ -63,14 +74,8 @@ export function RoomRequestStatus({
             카카오 로그인
           </Button>
         )}
-        {!!error && (
-          <Button variant="secondary" onClick={retry}>
-            다시 시도
-          </Button>
-        )}
-        <Link to={PATHS.home}>홈으로 돌아가기</Link>
-      </main>
-    </div>
+      </RequestStatus>
+    </RequestStatusPage>
   );
 }
 

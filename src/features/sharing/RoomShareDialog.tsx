@@ -1,9 +1,10 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useEffect, useRef, useState } from 'react';
 import { getSession } from '../../api/auth';
 import { api } from '../../api/client';
 import Modal from '../../components/common/Modal/Modal';
 import Button from '../../components/common/Button/Button';
-import { prepareKakaoShare, shareKakaoMessage } from '../serverRoom/kakaoInviteShare';
+import { prepareKakaoShare, openPreparedKakaoShare } from '../serverRoom/kakaoInviteShare';
 import { prepareRoomShare } from './prepareShare';
 import type { ShareKind } from './shareModel';
 import './RoomShareDialog.scss';
@@ -40,54 +41,54 @@ export default function RoomShareDialog({
         setError('로그인 상태가 바뀌었어요. 다시 열어주세요.');
       }
     });
-    void prepareRoomShare(roomId, kind, controller.signal)
+    let expires: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
+      const value = await prepareRoomShare(roomId, kind, controller.signal);
+      await prepareKakaoShare();
+      return value;
+    })()
       .then((value) => {
         if (controller.signal.aborted) return;
         owner = value.session;
         setPrepared(value);
-        void prepareKakaoShare().catch(() => undefined);
+        expires = setTimeout(() => {
+          if (running.current) return;
+          setPrepared(undefined);
+          setError('공유 정보가 오래됐어요. 다시 불러와주세요.');
+        }, 60_000);
       })
       .catch((cause) => {
         if (!controller.signal.aborted)
-          setError(cause instanceof Error ? cause.message : '공유 정보를 불러오지 못했어요.');
+          setError(
+            cause instanceof Error && cause.message.includes('Kakao')
+              ? '카카오 공유를 준비하지 못했어요. JavaScript 키와 SDK 로딩을 확인하고 다시 불러와주세요.'
+              : cause instanceof Error
+                ? cause.message
+                : '공유 정보를 불러오지 못했어요.',
+          );
       });
     return () => {
       controller.abort();
+      clearTimeout(expires);
       unsubscribe();
     };
   }, [roomId, kind, attempt]);
-  async function send() {
+  function send() {
     if (!prepared || running.current || !request.current || request.current.signal.aborted) return;
     running.current = true;
     setSending(true);
     setError('');
-    const signal = request.current.signal;
     try {
-      const current = await getSession({ refresh: true });
-      signal.throwIfAborted();
-      if (
-        current.user.userId !== prepared.session.user.userId ||
-        current.csrfToken !== prepared.session.csrfToken
-      )
-        throw new Error('로그인 상태가 바뀌었어요.');
-      const fresh = await prepareRoomShare(roomId, kind, signal);
-      if (
-        fresh.session.user.userId !== prepared.session.user.userId ||
-        fresh.session.csrfToken !== prepared.session.csrfToken
-      )
-        throw new Error('로그인 상태가 바뀌었어요.');
-      await shareKakaoMessage(fresh.message, signal);
-      if (!signal.aborted) onClose();
+      // No await/API calls here: retain the browser's user activation for Kakao's popup/app link.
+      openPreparedKakaoShare(prepared.message);
     } catch (cause) {
-      if (!signal.aborted)
-        setError(
-          cause instanceof Error && /진행 단계|공유 링크|대상|로그인 상태/.test(cause.message)
-            ? cause.message
-            : '카카오톡 공유를 열지 못했어요. 공유 키와 도메인 설정을 확인한 뒤 다시 시도해주세요.',
-        );
-    } finally {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : '카카오톡 공유를 열지 못했어요. 다시 시도해주세요.',
+      );
       running.current = false;
-      if (!signal.aborted) setSending(false);
+      setSending(false);
     }
   }
   const message = prepared?.message;
@@ -121,9 +122,15 @@ export default function RoomShareDialog({
           <p>카카오톡에서 보낼 친구나 채팅방을 직접 선택해주세요.</p>
         </>
       ) : (
-        !error && <p role="status">최신 공유 정보를 확인하고 있어요.</p>
+        !error && (
+          <RequestStatus
+            loading
+            title="공유 정보를 준비하는 중이에요."
+            description="잠시만 기다려주세요."
+          />
+        )
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && <RequestStatus title="카카오톡 공유를 준비하지 못했어요." description={error} />}
       {!prepared && error && (
         <Button
           onClick={() => {
@@ -140,8 +147,13 @@ export default function RoomShareDialog({
         disabled={!message || sending}
         onClick={() => void send()}
       >
-        {sending ? '카카오톡 공유를 여는 중…' : '카카오톡으로 전송하기'}
+        {sending ? '카카오톡 공유 요청됨' : '카카오톡으로 전송하기'}
       </Button>
+      {sending && (
+        <p role="status">
+          열린 카카오톡 공유창을 확인해주세요. 창이 없다면 브라우저의 팝업 차단 여부를 확인해주세요.
+        </p>
+      )}
       <Button variant="secondary" onClick={onClose}>
         닫기
       </Button>
