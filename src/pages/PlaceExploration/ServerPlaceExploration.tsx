@@ -1,10 +1,13 @@
+import { sortPlaceCategories } from '../../features/places/categoryOrder';
+import ExplorationSearchNotice from './components/ExplorationSearchNotice';
 import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { getSession } from '../../api/auth';
 import { api, ApiRequestError } from '../../api/client';
 import type { Category, PlaceSearchResponse, RoomState, SessionResponse } from '../../api/types';
-import RoomShareButton from '../../features/sharing/RoomShareButton';
+import clockIcon from '../../assets/place-exploration/clock.svg';
+import searchIcon from '../../assets/place-exploration/search.svg';
 import Button from '../../components/common/Button/Button';
 import Modal from '../../components/common/Modal/Modal';
 import Header from '../../components/common/Header/Header';
@@ -83,6 +86,7 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
   const [clock, setClock] = useState(Date.now);
   const alive = useRef(false);
   const lock = useRef(false);
+  const refreshing = useRef(false);
   const read = useRef<AbortController | null>(null);
   const operation = useRef<{ execute(): Promise<RoomState> } | null>(null);
   const completionIntent = useRef(false);
@@ -90,7 +94,8 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
   const path = (target: string) => serverScreenUrl(target, roomId);
   const refresh = useCallback(
     async (initial = false) => {
-      if (lock.current) return;
+      if (lock.current || refreshing.current) return;
+      refreshing.current = true;
       read.current?.abort();
       const abort = new AbortController();
       read.current = abort;
@@ -112,6 +117,7 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
       } catch (cause) {
         if (!abort.signal.aborted && alive.current) setError(cause);
       } finally {
+        if (read.current === abort) refreshing.current = false;
         if (!abort.signal.aborted && alive.current) setLoading(false);
       }
     },
@@ -135,6 +141,7 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
       setLoading(false);
       setError(new ApiRequestError(null, { code: 'SESSION_CHANGED', message: 'Session changed' }));
     });
+    refreshing.current = true;
     const initialRead = new AbortController();
     read.current = initialRead;
     void repository
@@ -150,6 +157,7 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
         if (!initialRead.signal.aborted) setError(cause);
       })
       .finally(() => {
+        if (read.current === initialRead) refreshing.current = false;
         if (!initialRead.signal.aborted) setLoading(false);
       });
     const timer = setInterval(() => setClock(Date.now()), 1000);
@@ -162,6 +170,7 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
       unsubscribe();
       sessionObserved.current = undefined;
       read.current?.abort();
+      refreshing.current = false;
       clearInterval(timer);
       window.removeEventListener('focus', focus);
     };
@@ -209,7 +218,7 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
     <div className="page place-exploration">
       <Header title="장소 등록" showBackButton onBack={() => navigate(PATHS.home)} />
       <main className="place-exploration__content">
-        {loading && (
+        {loading && !state && (
           <RequestStatus
             loading
             title="장소 등록 정보를 불러오는 중이에요."
@@ -219,6 +228,8 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
         {!!error && (
           <ErrorNotice
             error={error}
+            onRetry={!failedIntent ? () => void refresh(true) : undefined}
+            disabled={busy || loading}
             title={
               failedIntent
                 ? '장소 등록 요청을 처리하지 못했어요.'
@@ -239,9 +250,6 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
           </Button>
         )}
         {notice && <p role="status">{notice}</p>}
-        <Button variant="secondary" disabled={busy || loading} onClick={() => void refresh(true)}>
-          최신 상태 다시 조회
-        </Button>
         {state && (
           <>
             {state.meeting && (
@@ -261,6 +269,7 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
                 </div>
                 {registration && (
                   <span className="place-exploration__timer">
+                    <img src={clockIcon} alt="" />
                     마감까지 {formatRemaining(Date.parse(registration.closesAt), now)}
                   </span>
                 )}
@@ -272,19 +281,15 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
               <>
                 <section className="exploration-summary" aria-label="내 등록 현황">
                   <div>
-                    <h3>내 등록 {candidates.length}곳</h3>
+                    <h3>내 등록 {new Set(candidates.map(({ place }) => place.category)).size} / {registration.categories.length}</h3>
                     <p>
                       장소 {registration.uniqueCandidateCount}곳 ·{' '}
                       {registration.progress.completedCount} / {registration.progress.capacity}명
                       등록 완료
                     </p>
                   </div>
-                  <p>
-                    {registration.round}회차 ·{' '}
-                    {registration.myCompleted ? '내 등록 완료' : '내 등록 미완료'}
-                  </p>
                   <ul>
-                    {registration.categories.map((c) => (
+                    {sortPlaceCategories(registration.categories).map((c) => (
                       <li
                         key={c.category}
                         className={
@@ -294,7 +299,6 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
                         }
                       >
                         {categoryLabels[c.category]}
-                        {c.required ? ' (필수)' : ''}
                       </li>
                     ))}
                   </ul>
@@ -305,30 +309,28 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
                   <p role="status">장소 등록이 마감됐어요.</p>
                 )}
                 <>
-                  <section className="exploration-place-list" aria-label="내가 등록한 장소">
-                    <h3>내가 등록한 장소</h3>
-                    {!candidates.length && <p>아직 등록한 장소가 없어요.</p>}
-                    {candidates.map(({ candidateId, place: p }) => (
-                      <div key={candidateId}>
-                        <ExplorationPlaceCard
-                          place={displayPlace(p)}
-                          categoryLabel={categoryLabels[p.category]}
-                          blocked={null}
-                          pending={false}
-                          showRegister={false}
-                          onRegister={() => {}}
-                        />
-                        <Button
-                          variant="secondary"
-                          disabled={!editable || !state.allowedActions.includes('EDIT_NOMINATION')}
-                          onClick={() => void run(() => repository.withdraw(candidateId, now))}
-                        >
-                          {p.name} 등록 철회
-                        </Button>
-                      </div>
-                    ))}
-                  </section>
                   <ServerSearch
+                    registeredPlaces={(category) => {
+                      const visible = candidates.filter(({ place }) => place.category === category);
+                      return visible.length > 0 ? (
+                        <section className="exploration-place-list" aria-label="내가 등록한 장소">
+                          <h3>내가 등록한 장소</h3>
+                          {visible.map(({ candidateId, place }) => (
+                            <ExplorationPlaceCard
+                              key={candidateId}
+                              place={displayPlace(place)}
+                              categoryLabel={categoryLabels[place.category]}
+                              blocked={null}
+                              pending={busy}
+                              showRegister={false}
+                              onRegister={() => {}}
+                              removeDisabled={!editable || !state.allowedActions.includes('EDIT_NOMINATION')}
+                              onRemove={() => void run(() => repository.withdraw(candidateId, now))}
+                            />
+                          ))}
+                        </section>
+                      ) : null;
+                    }}
                     repository={repository}
                     state={state}
                     readVersion={snapshot!.receivedAt}
@@ -345,15 +347,9 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
         )}
       </main>
       <footer className="place-exploration__footer">
-        {state?.me.role === 'HOST' && state.phase === 'PLACE_SUBMISSION_OPEN' && (
-          <RoomShareButton room={state} kind="registrationRequest" disabled={busy || loading}>
-            장소 등록 안내 공유하기
-          </RoomShareButton>
-        )}
-        {state?.registration && !canCompleteRegistration(state) && (
-          <p>장소 후보를 한 곳 이상 등록하면 완료할 수 있어요.</p>
-        )}
         <Button
+          className="place-exploration__complete"
+          data-ready={!!state && canCompleteRegistration(state)}
           disabled={
             !editable ||
             !state?.allowedActions.includes('COMPLETE_COLLECTION') ||
@@ -365,7 +361,7 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
         >
           {busy ? '처리 중…' : registration?.myCompleted ? '등록 완료됨' : '등록 완료'}
         </Button>
-        <Button variant="secondary" disabled={!state || busy} onClick={status}>
+        <Button className="place-exploration__status" variant="secondary" disabled={!state || busy} onClick={status}>
           등록 현황 보기
         </Button>
       </footer>
@@ -374,6 +370,7 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
 }
 
 function ServerSearch({
+  registeredPlaces,
   repository,
   state,
   readVersion,
@@ -381,6 +378,7 @@ function ServerSearch({
   paused,
   onRegister,
 }: {
+  registeredPlaces: (category: Category) => ReactNode;
   repository: ApiExplorationRepository;
   state: RoomState;
   readVersion: number;
@@ -388,7 +386,7 @@ function ServerSearch({
   paused: boolean;
   onRegister: (category: Category, place: RecommendedPlace) => void;
 }) {
-  const categories = state.registration!.categories;
+  const categories = sortPlaceCategories(state.registration!.categories);
   const [storedCategory, setCategory] = useState<Category>(categories[0]?.category ?? 'FOOD');
   const category = categories.some((c) => c.category === storedCategory)
     ? storedCategory
@@ -399,16 +397,24 @@ function ServerSearch({
   const [outsideRadius, setOutsideRadius] = useState<number | null>(null);
   const [nearby, setNearby] = useState<{
     category: Category;
-    items: PlaceSearchResponse['items'];
+    response: PlaceSearchResponse;
   } | null>(null);
   const [result, setResult] = useState<{
     key: string;
+    contextKey: string;
     response?: PlaceSearchResponse;
     error?: unknown;
   }>();
   const [morePending, setMorePending] = useState(false);
   const moreLock = useRef(false);
   const moreAbort = useRef<AbortController | null>(null);
+  const contextKey = JSON.stringify([
+    state.roomId,
+    state.registration!.round,
+    state.meeting!.selectionId,
+    category,
+    query,
+  ]);
   const key = JSON.stringify([
     state.revision,
     readVersion,
@@ -430,12 +436,12 @@ function ServerSearch({
         .search(category!, query, 1, abort.signal)
         .then((response) => {
           if (!abort.signal.aborted) {
-            setResult({ key, response });
-            if (!query.trim()) setNearby({ category: category!, items: response.items });
+            setResult({ key, contextKey, response });
+            if (!query.trim()) setNearby({ category: category!, response });
           }
         })
         .catch((error: unknown) => {
-          if (!abort.signal.aborted) setResult({ key, error });
+          if (!abort.signal.aborted) setResult({ key, contextKey, error });
         });
     }, 250);
     return () => {
@@ -443,8 +449,9 @@ function ServerSearch({
       clearTimeout(timer);
       moreAbort.current?.abort();
     };
-  }, [repository, key, category, query, canSearch, paused]);
-  const response = current?.response;
+  }, [repository, key, contextKey, category, query, canSearch, paused]);
+  const response =
+    current?.response ?? (result?.contextKey === contextKey ? result.response : undefined);
   const places = response?.items.map((item) => displayPlace(item.place, item)) ?? [];
   const radius =
     response?.radiusMeters ?? categories.find((c) => c.category === category)?.radiusMeters ?? 2500;
@@ -452,20 +459,19 @@ function ServerSearch({
     ? places.filter((p) => p.distanceMeters !== undefined && p.distanceMeters <= radius)
     : places;
   const outOfRangeSearch = !!query.trim() && !!response?.items.length && searchPlaces.length === 0;
-  const cultureUnavailable =
-    category === 'CULTURE' &&
-    (!categoryAvailable ||
-      response?.available === false ||
-      (!query.trim() && response?.items.length === 0 && response.nextPage === null));
-  const nearbyItems = nearby?.category === category ? nearby.items : [];
+  const nearbyResponse = nearby?.category === category ? nearby.response : undefined;
+  const cultureUnavailable = category === 'CULTURE' && (
+    !categoryAvailable || nearbyResponse?.available === false ||
+    (nearbyResponse?.nextPage === null &&
+      !nearbyResponse.items.some((item) => item.distanceMeters <= nearbyResponse.radiusMeters))
+  );
+  const nearbyItems = nearbyResponse?.items ?? [];
   const mapPlaces = query.trim()
     ? [
-        ...nearbyItems
-          .filter((item) => item.distanceMeters <= radius)
-          .map((item) => displayPlace(item.place, item)),
+        ...nearbyItems.map((item) => displayPlace(item.place, item)),
         ...searchPlaces,
       ]
-    : places;
+    : response ? places : nearbyItems.map((item) => displayPlace(item.place, item));
   const selected = [...places, ...nearbyItems.map((item) => displayPlace(item.place, item))].find(
     (p) => p.id === selectedId,
   );
@@ -481,10 +487,10 @@ function ServerSearch({
         const combined = new Map(
           [...response.items, ...next.items].map((item) => [placeKey(item.place), item]),
         );
-        setResult({ key, response: { ...next, items: [...combined.values()] } });
+        setResult({ key, contextKey, response: { ...next, items: [...combined.values()] } });
       }
     } catch (error) {
-      if (!abort.signal.aborted) setResult({ key, response, error });
+      if (!abort.signal.aborted) setResult({ key, contextKey, response, error });
     } finally {
       moreLock.current = false;
       setMorePending(false);
@@ -495,7 +501,7 @@ function ServerSearch({
     const blocked =
       !place.eligible || !response?.available || !categoryAvailable
         ? '서버에서 등록할 수 없는 장소로 판정했어요.'
-        : disabled
+        : disabled || paused || !current || !!current.error
           ? '현재는 등록 내용을 변경할 수 없어요.'
           : null;
     return (
@@ -507,6 +513,7 @@ function ServerSearch({
         registered={registered}
         pending={false}
         blocked={blocked}
+        onSelect={() => setSelectedId(place.id)}
         onRegister={() => onRegister(category!, place)}
       />
     );
@@ -564,6 +571,7 @@ function ServerSearch({
         ))}
       </div>
       <label className="place-exploration__search">
+        <img src={searchIcon} alt="" />
         <input
           aria-label="장소 검색"
           placeholder="장소 검색"
@@ -577,34 +585,27 @@ function ServerSearch({
         />
       </label>
       {cultureUnavailable && (
-        <div className="place-exploration__culture-empty" role="status">
-          <span className="place-exploration__culture-empty-icon" aria-hidden="true">
-            !
-          </span>
-          <p>이 지역에는 등록할 수 있는 문화시설이 없어요.</p>
-        </div>
+        <ExplorationSearchNotice warning message="이 지역에는 등록할 수 있는 문화시설이 없어요." />
       )}
       {!cultureUnavailable && outOfRangeSearch && (
-        <p className="place-exploration__out-of-range" role="status">
-          선택 가능한 범위를 벗어난 장소예요.
-        </p>
+        <ExplorationSearchNotice message="선택 가능한 범위를 벗어난 장소예요." />
       )}
-      {map}
+      {!query.trim() && !selected && !cultureUnavailable && (
+        <div className="place-exploration__hint">
+          <h3>장소를 검색하거나 지도에서 찾아보세요</h3>
+          <p>지도에서 핀을 누르면 아래에 장소 정보가 표시돼요.<br />한 번에 1곳만 보여줘요.</p>
+        </div>
+      )}
       {cultureUnavailable ? null : !canSearch ? (
-        <p>현재 방 상태에서는 장소를 검색할 수 없어요.</p>
+        <ExplorationSearchNotice message="현재 방 상태에서는 장소를 검색할 수 없어요." />
       ) : (
         <>
-          {!current && !paused && (
-            <RequestStatus
-              loading
-              title="장소를 검색하는 중이에요."
-              description="잠시만 기다려주세요."
-            />
+          {!current && !paused && !response && (
+            <ExplorationSearchNotice message="장소를 검색하는 중이에요." />
           )}
           {current?.error && (
-            <ErrorNotice
-              error={current.error}
-              title="장소를 검색하지 못했어요."
+            <ExplorationSearchNotice
+              message="장소를 검색하지 못했어요. 잠시 후 다시 시도해주세요."
               disabled={paused}
               onRetry={() => {
                 if (current.response) void more();
@@ -614,30 +615,22 @@ function ServerSearch({
           )}
           {response && (
             <>
-              {(!response.available || !categoryAvailable) && (
-                <p role="status">이 카테고리는 현재 등록할 수 없어요.</p>
+              {(!response.available || !categoryAvailable) && !outOfRangeSearch && places.length > 0 && (
+                <ExplorationSearchNotice message="이 카테고리는 현재 등록할 수 없어요." />
               )}
-              {!places.length && <p role="status">검색 결과가 없어요.</p>}
-              {response.expanded && (
-                <p>서버에서 탐색 반경을 {response.radiusMeters}m로 확장했어요.</p>
+              {!places.length && !current?.error && (
+                <ExplorationSearchNotice message={query.trim() ? '검색 결과가 없어요.' : '주변에 검색된 장소가 없어요.'} />
               )}
               {query.trim() ? (
-                !outOfRangeSearch && (
+                !outOfRangeSearch && searchPlaces.length > 0 && (
                   <section className="exploration-place-list" aria-label="장소 검색 결과">
                     <h3>검색 결과</h3>
                     {searchPlaces.map(card)}
                   </section>
                 )
-              ) : selected ? (
-                <section className="exploration-place-list" aria-label="선택한 장소">
-                  <h3>선택한 장소</h3>
-                  {card(selected)}
-                </section>
-              ) : (
-                <p>장소를 검색하거나 지도에서 핀을 선택해주세요.</p>
-              )}
-              {!!response.nextPage && (
-                <Button disabled={morePending || paused} onClick={() => void more()}>
+              ) : null}
+              {!!query.trim() && !!response.nextPage && (
+                <Button className="place-exploration__more" variant="secondary" disabled={morePending || paused || !current} onClick={() => void more()}>
                   {morePending ? '불러오는 중…' : '검색 결과 더 보기'}
                 </Button>
               )}
@@ -645,6 +638,14 @@ function ServerSearch({
           )}
         </>
       )}
+      {map}
+      {!query.trim() && selected && !cultureUnavailable && (
+        <section className="exploration-place-list" aria-label="선택한 장소">
+          <h3>선택한 장소</h3>
+          {card(selected)}
+        </section>
+      )}
+      {category && registeredPlaces(category)}
       <Modal
         open={outsideRadius !== null}
         onClose={() => setOutsideRadius(null)}

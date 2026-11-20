@@ -19,7 +19,7 @@ const copy = {
   ],
   hostRequest: [
     '함께 만날 조건이 모였어요 🙌',
-    '입력 현황을 확인하고 가능한 일시와 지역을 정해주세요!',
+    '우리 이제 다음 단계로 넘어갈 수 있대!',
     '입력 현황 확인하기',
   ],
   meetingConfirmed: [
@@ -181,15 +181,25 @@ export function buildShareMessage(
       room.result.visitOrder.forEach((id, i) => add(`${i + 1}번째 장소`, byId.get(id)?.place.name));
     }
   }
+  return {
+    kind,
+    title,
+    description,
+    buttonTitle,
+    rows,
+    text: formatShareText(title, description, rows),
+    url: parsed.href,
+    recipients,
+  };
+}
+
+export function formatShareText(title: string, description: string, rows: ShareMessage['rows']) {
   const raw = `[Meetdle] ${title}\n${description}\n\n${rows.map((row) => `${row.label}: ${row.value}`).join('\n')}`;
-  let text = raw;
-  if (raw.length > 200) {
-    text = '';
-    for (const char of raw) {
-      if (text.length + char.length > 199) break;
-      text += char;
-    }
-    text += '…';
+  if (raw.length <= 200) return raw;
+  let text = '';
+  for (const char of raw) {
+    if (text.length + char.length > 199) break;
+    text += char;
   }
-  return { kind, title, description, buttonTitle, rows, text, url: parsed.href, recipients };
+  return text + '…';
 }

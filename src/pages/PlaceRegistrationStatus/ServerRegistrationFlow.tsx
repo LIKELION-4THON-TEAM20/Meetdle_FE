@@ -4,7 +4,6 @@ import { useNavigate, useLocation } from 'react-router';
 import { ApiRequestError } from '../../api/client';
 import { roomMutations } from '../../api/rooms';
 import type { RoomState } from '../../api/types';
-import RoomShareButton from '../../features/sharing/RoomShareButton';
 import { rememberShareNotice } from '../../features/sharing/shareNotice';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
@@ -68,21 +67,34 @@ export default function ServerRegistrationFlow({
   const retry = useRef<{ signature: string; handle: Handle }>(undefined);
   const [lastDeadline, setLastDeadline] = useState<{ kind: DeadlineKind; time: number }>();
   const expiry = useRef('');
-  const now = estimateServerNow(room, state.receivedAt, wallTime);
+  const [elapsedDeadline, setElapsedDeadline] = useState('');
+  const expiryKey = `${room.registration.round}:${room.registration.closesAt}`;
+  const observedNow = estimateServerNow(room, state.receivedAt, wallTime);
+  const now = elapsedDeadline === expiryKey
+    ? Math.max(observedNow, Date.parse(room.registration.closesAt))
+    : observedNow;
   const status = registrationFlow(room, now);
   const { refresh } = state;
-  const expiryKey = `${room.registration.round}:${room.registration.closesAt}`;
 
   useEffect(() => {
     const timer = window.setInterval(() => setWallTime(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
-  const expired = room.phase === 'PLACE_SUBMISSION_OPEN' && now >= status.closesAt;
+  const deadlineDelay = state.receivedAt + status.closesAt - Date.parse(room.serverNow) - wallTime;
+  useEffect(() => {
+    if (!Number.isFinite(deadlineDelay) || deadlineDelay > 2 ** 31 - 1 || elapsedDeadline === expiryKey) return;
+    const timer = window.setTimeout(() => setElapsedDeadline(expiryKey), Math.max(0, deadlineDelay));
+    return () => window.clearTimeout(timer);
+  }, [deadlineDelay, elapsedDeadline, expiryKey]);
+
+  // Keep the deadline notification stable if a later server clock sample is behind.
+  const expired = room.phase === 'PLACE_SUBMISSION_OPEN' &&
+    (now >= status.closesAt || elapsedDeadline === expiryKey);
   useEffect(() => {
     if (expired && expiry.current !== expiryKey) {
       expiry.current = expiryKey;
-      void refresh();
+      void refresh({ checkSession: false });
     }
   }, [expired, expiryKey, refresh]);
 
@@ -100,10 +112,6 @@ export default function ServerRegistrationFlow({
   const progress = status.members
     ? Math.min(100, Math.round((status.completed / status.members) * 100))
     : 0;
-  const seconds = Math.max(0, Math.ceil((status.closesAt - now) / 1000));
-  const clock = [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
-    .map((value) => String(value).padStart(2, '0'))
-    .join(':');
   const participants = room.registration.completion.map((entry) => ({
     id: entry.participantId,
     name: entry.nickname,
@@ -146,7 +154,7 @@ export default function ServerRegistrationFlow({
     sending.current = true;
     setBusy(true);
     setError('');
-    setDialog(null);
+    dismissPrompt();
     if (intent !== 'CLOSE' && deadline !== undefined) {
       setLastDeadline({ kind: intent, time: deadline });
       if (intent === 'VOTE') setVoteDeadline(deadline);
@@ -159,9 +167,11 @@ export default function ServerRegistrationFlow({
           : intent === 'EXTEND'
             ? 'EXTEND_COLLECTION'
             : 'START_VOTING';
+    let acceptedRevision = room.revision;
     try {
-      await state.mutate(action, async (latest) => {
-        const currentTime = estimateServerNow(latest, state.receivedAt);
+      await state.mutate(action, async (latest, latestReceivedAt) => {
+        acceptedRevision = latest.revision;
+        const currentTime = estimateServerNow(latest, latestReceivedAt);
         const live = registrationFlow(latest, currentTime);
         const permitted =
           intent === 'CLOSE'
@@ -204,9 +214,9 @@ export default function ServerRegistrationFlow({
           rememberShareNotice(latest, { kind: 'registrationExtended', round, closesAt });
         if ((intent === 'EXTEND' || intent === 'MINI_TIMER') && closesAt)
           setDismissedPrompt(`${round}:${closesAt}:PROGRESS`);
-        onAccepted(latest.revision);
         return response;
       });
+      onAccepted(acceptedRevision);
       if (intent === 'CLOSE') navigate(link(PATHS.startVote));
       else if (intent === 'EXTEND' || intent === 'MINI_TIMER')
         navigate(link(PATHS.registration), {
@@ -263,19 +273,10 @@ export default function ServerRegistrationFlow({
                 {status.completed} / {status.members}명
               </h2>
               <p>
-                정원 {status.capacity}명 ·{' '}
-                {room.registration.myCompleted ? '내 등록 완료' : '내 등록 미완료'}
+                {status.rows.filter(({ required }) => required).map(({ name }) => name).join('·')}은 필수예요.
+                {status.rows.some(({ required }) => !required) &&
+                  ` ${status.rows.filter(({ required }) => !required).map(({ name }) => name).join('·')}은 선택이에요.`}
               </p>
-              {status.rows.map(({ category, name, required }) => (
-                <span key={category}>
-                  {name} · {required ? '필수' : '선택'}{' '}
-                </span>
-              ))}
-              {Number.isFinite(status.closesAt) && (
-                <p>
-                  등록 마감 {formatSeoulDeadline(status.closesAt, now)} · <time>{clock}</time>
-                </p>
-              )}
               {expired && <p role="status">등록 시간이 끝났어요. 서버 상태를 확인하고 있어요.</p>}
               <div
                 className="place-registration-status__progress"
@@ -361,11 +362,6 @@ export default function ServerRegistrationFlow({
         {error && <RequestStatus title="장소 등록 요청을 처리하지 못했어요." description={error} />}
       </main>
       <footer className={`${rootClass}__footer`}>
-        {status.host && status.open && (
-          <RoomShareButton room={room} kind="registrationRequest" disabled={busy || state.loading}>
-            장소 등록 안내 공유하기
-          </RoomShareButton>
-        )}
         {busy && (
           <RequestStatus
             loading
@@ -380,6 +376,7 @@ export default function ServerRegistrationFlow({
         {status.host && isRegistration && !status.closed && (
           <Button
             variant="secondary"
+            className="registration-secondary"
             disabled={busy || state.loading}
             onClick={() => setDialog('PROGRESS')}
           >
@@ -484,13 +481,25 @@ export default function ServerRegistrationFlow({
               >
                 등록 마감시간 연장하기
               </Button>
-              {!status.canVote && <p>필수 후보와 서버의 투표 시작 가능 여부를 확인하고 있어요.</p>}
+              {(!status.canVote || !status.canExtend) && (
+                <p role="status">
+                  {state.error
+                    ? '마감 상태를 불러오지 못했어요. 다시 확인해주세요.'
+                    : !status.canVote && !status.canExtend
+                      ? '현재 후보와 마감 상태에서는 투표 시작이나 시간 연장을 할 수 없어요.'
+                      : !status.canExtend
+                        ? '현재는 등록 시간을 연장할 수 없어요.'
+                        : '필수 카테고리에 후보가 있어야 투표를 시작할 수 있어요.'}
+                </p>
+              )}
+
             </>
           )}
         </Modal>
       )}
       {activeDeadline && initialDeadline !== null && (
         <VoteDeadlineModal
+          confirmDisabled={busy || state.loading}
           deadline={
             activeDeadline === 'VOTE'
               ? (chosenVoteDeadline ?? initialDeadline)

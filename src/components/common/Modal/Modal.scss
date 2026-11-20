@@ -42,9 +42,9 @@
     box-shadow: none;
 
     // Padding, typography, and actions belong to each modal's content component.
+    &:focus,
     &:focus-visible {
-      outline: 2px solid variables.$color-black;
-      outline-offset: -2px;
+      outline: none;
     }
   }
 }

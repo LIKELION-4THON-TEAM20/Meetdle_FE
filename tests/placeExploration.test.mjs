@@ -174,7 +174,7 @@ function sdkFixture() {
   };
 }
 
-test('SDK contract: Circle uses backend coordinates/meters; reset fits bounds and cleanup removes overlays/listeners', () => {
+test('SDK contract: Circle uses backend coordinates/meters; reset restores neighborhood zoom and cleanup removes overlays/listeners', () => {
   const { log, maps } = sdkFixture();
   const snapshot = createExplorationMock(now);
   let selected = null;
@@ -203,10 +203,13 @@ test('SDK contract: Circle uses backend coordinates/meters; reset fits bounds an
   assert.equal(log.maps.length, 1);
   assert.equal(log.circles[0].options.radius, 2500);
   assert.equal(log.circles[0].options.center.getLat(), snapshot.area.center.latitude);
-  assert.equal(log.bounds[0].bounds, log.circles[0].getBounds());
-  assert.deepEqual(log.bounds[0].padding, [12, 12, 12, 12]);
+  assert.equal(log.maps[0].getLevel(), 4);
+  assert.equal(log.bounds.length, 0);
   controller.update(snapshot.recommendations, null);
   const first = log.markers[0];
+  const markerCount = log.markers.length;
+  controller.update(snapshot.recommendations.map((place) => ({ ...place, coordinates: { ...place.coordinates } })), null);
+  assert.equal(log.markers.length, markerCount, 'equivalent results preserve marker instances for size animation');
   log.listeners.get(first).get('click')();
   assert.equal(selected, snapshot.recommendations[0].id);
   log.maps[0].setCenter(new maps.LatLng(37, 128));
@@ -246,7 +249,9 @@ test('SDK contract: Circle uses backend coordinates/meters; reset fits bounds an
   assert.equal(log.maps[0].getLevel(), 10);
   assert.equal(tile.style.transform, beforeTransform);
   controller.fit();
-  assert.equal(log.bounds.at(-1).bounds, log.circles[0].getBounds());
+  assert.equal(log.maps[0].getLevel(), 4);
+  assert.equal(log.maps[0].getCenter().getLat(), snapshot.area.center.latitude);
+  assert.equal(log.maps[0].getCenter().getLng(), snapshot.area.center.longitude);
   assert.equal(log.circles[0].options.radius, 2500);
   controller.dispose();
   assert.equal(log.circles[0].map, null);
@@ -329,4 +334,17 @@ test('place cards keep Kakao navigation separate and disable registration for al
   assert.match(registered, /disabled=""/);
   assert.match(registered, /이미 등록한 장소/);
   assert.match(registered, /<a[^>]+href="https:\/\/map.kakao.com/);
+});
+
+test('서버 카테고리 순서와 무관하게 식당·카페·주점·문화시설로 표시하고 원본을 보존한다', async () => {
+  const { sortPlaceCategories } = await server.ssrLoadModule('/src/features/places/categoryOrder.ts');
+  const original = Object.freeze([
+    { category: 'CULTURE', required: false }, { category: 'BAR', required: true },
+    { category: 'CAFE', required: false }, { category: 'FOOD', required: true },
+  ]);
+  const sorted = sortPlaceCategories(original);
+  assert.deepEqual(sorted.map(({ category }) => category), ['FOOD', 'CAFE', 'BAR', 'CULTURE']);
+  assert.equal(sorted[0], original[3]);
+  assert.equal(original[0].category, 'CULTURE');
+  assert.deepEqual(sortPlaceCategories([original[0], original[2]]).map(({ category }) => category), ['CAFE', 'CULTURE']);
 });

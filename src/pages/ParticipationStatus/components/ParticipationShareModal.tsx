@@ -5,11 +5,11 @@ import Modal from '../../../components/common/Modal/Modal';
 const COPY = {
   reminder: {
     title: '입력 안 한 친구 재촉하기',
-    description: '가능한 시간과 출발역만 입력하면 끝!',
+    description: '얼른 입력 안하면 우리끼리 정한다~',
   },
   notifyHost: {
     title: '방장에게 알리기',
-    description: '우리 이제 다음 단계로 넘어가자고 알려요',
+    description: '우리 이제 다음 단계로 넘어갈 수 있대!',
   },
   result: {
     title: '최종 일정 공유하기',

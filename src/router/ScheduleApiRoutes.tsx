@@ -1,3 +1,5 @@
+import { startKakaoLogin } from '../api/auth';
+import Button from '../components/common/Button/Button';
 import RequestStatus, { RequestStatusPage } from '../components/common/RequestStatus/RequestStatus';
 import RoomNotFound from '../components/common/RoomNotFound/RoomNotFound';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -21,20 +23,37 @@ function ApiState({ error, reload }: { error?: unknown; reload?: () => void }) {
   const [params] = useSearchParams();
   const loginReturn = `${PATHS.schedule}?roomId=${encodeURIComponent(params.get('roomId') ?? '')}`;
   if (error instanceof ApiRequestError && error.status === 404) return <RoomNotFound />;
+  const login =
+    error instanceof ApiRequestError && (error.status === 401 || error.code === 'SESSION_CHANGED');
   return (
-    <RequestStatusPage footer={error ? <Link to={PATHS.home}>홈으로 가기</Link> : undefined}>
+    <RequestStatusPage footer={error ? <Link to={PATHS.home}>홈으로 돌아가기↗︎</Link> : undefined}>
       <RequestStatus
         loading={!error}
-        title={error ? scheduleErrorMessage(error) : '일정 정보를 불러오는 중이에요.'}
-        description={
-          error ? '잠시 후 다시 시도해주세요.' : '선택할 날짜와 기존 입력을 확인하고 있어요.'
+        title={
+          login
+            ? '카카오 로그인이 필요해요.'
+            : error
+              ? scheduleErrorMessage(error)
+              : '일정 정보를 불러오는 중이에요.'
         }
-        onRetry={error ? reload : undefined}
+        description={
+          error
+            ? login
+              ? '로그인하면 이 약속방으로 다시 돌아와요.'
+              : '잠시 후 다시 시도해주세요.'
+            : '선택할 날짜와 기존 입력을 확인하고 있어요.'
+        }
+        onRetry={error && !login ? reload : undefined}
       >
-        {error instanceof ApiRequestError && error.status === 401 && (
-          <Link to={`${PATHS.login}?returnTo=${encodeURIComponent(loginReturn)}`}>
+        {login && (
+          <Button
+            className="request-status__kakao"
+            onClick={() =>
+              startKakaoLogin({ returnTo: loginReturn, returnOrigin: window.location.origin })
+            }
+          >
             카카오 로그인
-          </Link>
+          </Button>
         )}
       </RequestStatus>
     </RequestStatusPage>

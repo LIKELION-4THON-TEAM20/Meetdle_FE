@@ -23,6 +23,9 @@ interface ExplorationPlaceCardProps {
   registered?: boolean;
   selected?: boolean;
   showRegister?: boolean;
+  onSelect?: () => void;
+  onRemove?: () => void;
+  removeDisabled?: boolean;
   onRegister: (submittedAt: number) => void;
 }
 
@@ -34,6 +37,9 @@ function ExplorationPlaceCard({
   registered = false,
   selected = false,
   showRegister = true,
+  onSelect,
+  onRemove,
+  removeDisabled,
   onRegister,
 }: ExplorationPlaceCardProps) {
   const descriptionId = useId();
@@ -45,6 +51,15 @@ function ExplorationPlaceCard({
       className={`exploration-place-card${selected ? ' exploration-place-card--selected' : ''}`}
       aria-label={`${place.name}, ${categoryLabel}`}
     >
+      {onSelect && (
+        <button
+          type="button"
+          className="exploration-place-card__select"
+          aria-label={`${place.name} 지도에서 선택`}
+          aria-pressed={selected}
+          onClick={onSelect}
+        />
+      )}
       <div className="exploration-place-card__thumb-frame">
         <img
           className="exploration-place-card__thumb"
@@ -58,16 +73,28 @@ function ExplorationPlaceCard({
       </div>
       <div className="exploration-place-card__info">
         <h3 title={place.name}>{place.name}</h3>
-        {place.distanceMeters !== undefined && (
-          <p className="exploration-place-card__distance">
-            역에서 {formatDistance(place.distanceMeters)}
-          </p>
-        )}
+        <p
+          className="exploration-place-card__distance"
+          aria-hidden={place.distanceMeters === undefined ? true : undefined}
+        >
+          {place.distanceMeters !== undefined && `역에서 ${formatDistance(place.distanceMeters)}`}
+        </p>
         <p className="exploration-place-card__address" title={place.address}>
           {place.address}
         </p>
       </div>
       <div className="exploration-place-card__actions">
+        {onRemove && (
+          <button
+            className="exploration-place-card__remove"
+            type="button"
+            aria-label={`${place.name} 등록 취소`}
+            disabled={removeDisabled || pending}
+            onClick={onRemove}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        )}
         {showRegister && (
           <Button
             className="exploration-place-card__register"
@@ -82,7 +109,7 @@ function ExplorationPlaceCard({
           </Button>
         )}
         <PlaceDetailLink place={place} className="exploration-place-card__detail">
-          카카오맵 바로가기↗
+          카카오맵 바로가기↗︎
         </PlaceDetailLink>
       </div>
       {blocked && (

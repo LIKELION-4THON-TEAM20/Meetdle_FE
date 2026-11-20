@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { CategoryId } from '../types';
 
 interface CategorySelectorProps {
@@ -28,13 +28,42 @@ function CategorySelector({
   const requiredNames = categories
     .filter(({ id }) => requiredIds.includes(id))
     .map(({ label }) => label);
-  const drag = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const drag = useRef<{
+    pointerId: number; x: number; y: number; active: boolean;
+    node: HTMLButtonElement; timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const previousBounds = useRef(new Map<CategoryId, DOMRect>());
+
+  function clearDrag() {
+    const current = drag.current;
+    if (!current) return;
+    clearTimeout(current.timer);
+    current.node.style.removeProperty('transform');
+    current.node.classList.remove('setup-chip--dragging');
+    drag.current = null;
+  }
+
+  useEffect(() => () => {
+    if (drag.current) clearTimeout(drag.current.timer);
+  }, []);
   const suppressClick = useRef(false);
   const focusAfterMove = useRef<CategoryId | null>(null);
   const chips = useRef(new Map<CategoryId, HTMLButtonElement>());
   const groups = useRef(new Map<boolean, HTMLDivElement>());
 
   useLayoutEffect(() => {
+    if (!globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      for (const [id, before] of previousBounds.current) {
+        const node = chips.current.get(id);
+        if (!node) continue;
+        const after = node.getBoundingClientRect();
+        node.animate([
+          { transform: `translate(${before.left - after.left}px, ${before.top - after.top}px) scale(${before.width / after.width})` },
+          { transform: 'translate(0, 0) scale(1)' },
+        ], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      }
+    }
+    previousBounds.current.clear();
     if (!focusAfterMove.current) return;
     chips.current.get(focusAfterMove.current)?.focus();
     focusAfterMove.current = null;
@@ -65,10 +94,10 @@ function CategorySelector({
           <div className="setup-categories__chips">
             {categories
               .filter(({ id }) => requiredIds.includes(id) === required)
-              .map(({ id, label, available, radiusMeters }) => (
+              .map(({ id, label, available }) => (
                 <button
                   type="button"
-                  className="setup-chip"
+                  className={`setup-chip${selected.includes(id) ? ' setup-chip--selected' : ''}`}
                   aria-pressed={onToggle ? selected.includes(id) : undefined}
                   aria-keyshortcuts="ArrowUp ArrowDown"
                   aria-describedby="setup-category-controls"
@@ -87,41 +116,58 @@ function CategorySelector({
                     event.preventDefault();
                     move(id, event.key === 'ArrowUp');
                   }}
+                  onContextMenu={(event) => event.preventDefault()}
                   onPointerDown={(event) => {
                     if (!event.isPrimary || event.button !== 0) return;
+                    clearDrag();
                     suppressClick.current = false;
+                    const node = event.currentTarget;
+                    const timer = setTimeout(() => {
+                      if (!drag.current) return;
+                      drag.current.active = true;
+                      suppressClick.current = true;
+                      node.classList.add('setup-chip--dragging');
+                      node.style.transform = 'translate(0, -3px) scale(1.08)';
+                    }, 220);
                     drag.current = {
-                      pointerId: event.pointerId,
-                      x: event.clientX,
-                      y: event.clientY,
+                      pointerId: event.pointerId, x: event.clientX, y: event.clientY,
+                      active: false, node, timer,
                     };
-                    event.currentTarget.setPointerCapture(event.pointerId);
+                    node.setPointerCapture(event.pointerId);
+                  }}
+                  onPointerMove={(event) => {
+                    const start = drag.current;
+                    if (start?.pointerId !== event.pointerId) return;
+                    const x = event.clientX - start.x;
+                    const y = event.clientY - start.y;
+                    if (!start.active && Math.hypot(x, y) >= 8) {
+                      clearTimeout(start.timer);
+                      start.active = true;
+                      suppressClick.current = true;
+                      start.node.classList.add('setup-chip--dragging');
+                    }
+                    if (start.active) start.node.style.transform = `translate(${x}px, ${y - 3}px) scale(1.08)`;
                   }}
                   onPointerUp={(event) => {
                     const start = drag.current;
                     if (start?.pointerId !== event.pointerId) return;
-                    drag.current = null;
-                    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 8) return;
-                    suppressClick.current = true;
-                    for (const [destination, group] of groups.current) {
-                      const bounds = group.getBoundingClientRect();
-                      if (
-                        event.clientY >= bounds.top &&
-                        event.clientY <= bounds.bottom &&
-                        event.clientX >= bounds.left &&
-                        event.clientX <= bounds.right
-                      ) {
-                        move(id, destination);
-                        break;
+                    if (start.active) {
+                      previousBounds.current = new Map([...chips.current].map(([key, node]) => [key, node.getBoundingClientRect()]));
+                      for (const [destination, group] of groups.current) {
+                        const bounds = group.getBoundingClientRect();
+                        if (event.clientY >= bounds.top - 7 && event.clientY <= bounds.bottom + 7 &&
+                            event.clientX >= bounds.left && event.clientX <= bounds.right) {
+                          move(id, destination);
+                          break;
+                        }
                       }
                     }
+                    clearDrag();
                   }}
-                  onLostPointerCapture={(event) => {
-                    if (drag.current?.pointerId === event.pointerId) drag.current = null;
-                  }}
+                  onPointerCancel={clearDrag}
+                  onLostPointerCapture={clearDrag}
                 >
                   {label}
-                  {radiusMeters !== undefined && ` · ${radiusMeters / 1000}km`}
                   {available === false && ' · 등록 불가'}
                 </button>
               ))}
