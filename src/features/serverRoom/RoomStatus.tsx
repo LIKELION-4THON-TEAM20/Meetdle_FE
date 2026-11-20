@@ -1,3 +1,4 @@
+import RoomNotFound from '../../components/common/RoomNotFound/RoomNotFound';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { useState } from 'react';
 import { startKakaoLogin } from '../../api/auth';
@@ -7,8 +8,10 @@ import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import { PATHS } from '../../router/paths';
 import { roomScreenForEntry, serverRoomUrl, serverScreenUrl, shouldPollRoom } from './routing';
+import { ServerSchedule } from '../../router/ScheduleApiRoutes';
+import { ServerCandidates } from '../planning/PlanningRoutes';
+import ServerPlaceExploration from '../../pages/PlaceExploration/ServerPlaceExploration';
 import { useRoomState } from './useRoomState';
-import { getCreatedRoom } from '../createdRoom/model';
 import ServerParticipation from '../../pages/ParticipationStatus/ServerParticipation';
 import ServerMeeting from '../../pages/MeetingConfirmed/ServerMeeting';
 import { meetingDetails } from './meeting';
@@ -43,6 +46,7 @@ export function RoomRequestStatus({
   error: unknown;
   retry: () => void;
 }) {
+  if (error instanceof ApiRequestError && error.status === 404) return <RoomNotFound />;
   return (
     <div className="page">
       <Header title="약속 정보 확인" />
@@ -112,11 +116,14 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
 
   const room = state.room;
   const screen = roomScreenForEntry(room, requested);
+  if (screen === PATHS.created)
+    return <Navigate to={serverScreenUrl(PATHS.created, roomId)} replace />;
   const ballotKey = `${room.me.participantId}:${room.voting?.round}`;
   const keepReceipt =
     (requested === PATHS.vote || !requested) &&
     submittedBallot === ballotKey &&
-    screen === PATHS.voteStatus;
+    (screen === PATHS.voteStatus ||
+      ['RESULT_READY', 'WAITING_FOR_HOST_DECISION'].includes(room.phase));
   const requestedVoteScreen =
     requested === PATHS.vote || requested === PATHS.voteStatus || requested === PATHS.result;
   if (
@@ -188,6 +195,13 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
       />
     );
   }
+  if (screen === PATHS.places)
+    return (
+      <ServerPlaceExploration
+        key={room.roomId + ':' + room.me.participantId + ':' + room.registration?.round}
+        roomId={room.roomId}
+      />
+    );
   if (screen === PATHS.setup) {
     if (
       opened?.selectionId === room.meeting?.selectionId &&
@@ -235,15 +249,30 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
         key={room.me.participantId + screen}
         room={room}
         state={state}
-        recruitment={screen === PATHS.recruitment}
+        recruitment={
+          screen === PATHS.recruitment || (room.me.role === 'HOST' && room.startedAt === null)
+        }
       />
     );
   }
-  if (
-    requested !== screen &&
-    (screen === PATHS.candidates || (screen === PATHS.schedule && room.startedAt))
-  ) {
-    return <Navigate to={serverScreenUrl(screen, roomId)} replace />;
+  if (screen === PATHS.schedule) return <ServerSchedule key={roomId} roomId={roomId} />;
+  if (screen === PATHS.candidates) {
+    if (requested !== screen) return <Navigate to={serverScreenUrl(screen, roomId)} replace />;
+    if (room.me.role !== 'HOST')
+      return (
+        <RoomRequestStatus
+          roomId={roomId}
+          error={new ApiRequestError(403, { code: 'FORBIDDEN', message: 'Host only' })}
+          retry={() => void state.refresh()}
+        />
+      );
+    return (
+      <ServerCandidates
+        key={`${room.roomId}:${room.me.participantId}:${room.options?.optionsId}:${room.meeting?.selectionId}:${state.receivedAt}`}
+        state={room}
+        reload={() => void state.refresh()}
+      />
+    );
   }
   const deadline =
     room.voting?.closesAt ??
@@ -267,9 +296,6 @@ function ServerRoomStatus({ roomId, requested }: { roomId: string; requested?: s
           </p>
         )}
         {state.notice && <p role="status">{state.notice}</p>}
-        {screen === PATHS.schedule && (
-          <Link to={serverScreenUrl(PATHS.participation, roomId)}>참여자 입력 현황 보기</Link>
-        )}
         {state.can('START_ROOM') && room.invite && (
           <Link to={`${PATHS.created}?mode=api&roomId=${roomId}`}>초대 정보 보기</Link>
         )}
@@ -285,7 +311,7 @@ export function ServerRoomHandoff({ roomId, path }: { roomId: string; path: stri
 
 export default function ServerRoomRoute() {
   const { roomId = '' } = useParams();
-  if (!isServerRoomId(roomId) || getCreatedRoom(roomId)) {
+  if (!isServerRoomId(roomId)) {
     return (
       <RoomRequestStatus
         roomId={roomId}

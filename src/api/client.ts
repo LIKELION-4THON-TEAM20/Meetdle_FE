@@ -33,9 +33,11 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
   let session: SessionResponse | undefined;
   let pendingSession: Promise<SessionResponse> | undefined;
   let generation = 0;
-  const sessionListeners = new Set<(authenticated: boolean) => void>();
-
-  function subscribeSession(listener: (authenticated: boolean) => void) {
+  const sessionListeners = new Set<(value: SessionResponse | undefined) => void>();
+  function publishSession() {
+    for (const listener of sessionListeners) listener(session);
+  }
+  function subscribeSession(listener: (value: SessionResponse | undefined) => void) {
     sessionListeners.add(listener);
     return () => {
       sessionListeners.delete(listener);
@@ -63,11 +65,11 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
     generation++;
     session = undefined;
     pendingSession = undefined;
+    publishSession();
   }
 
   function clearSession() {
     resetSession();
-    sessionListeners.forEach((listener) => listener(false));
   }
 
   function assertSessionGeneration(start: number) {
@@ -155,7 +157,7 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
           (session.user.userId !== value.user.userId || session.csrfToken !== value.csrfToken);
         if (changed) resetSession();
         session = value;
-        if (changed) sessionListeners.forEach((listener) => listener(true));
+        publishSession();
         return value;
       })
       .finally(() => {
@@ -241,7 +243,7 @@ export function createApiClient(base: string | undefined, fetcher: typeof fetch 
     return pendingLogout;
   }
 
-  return { url, get, getSession, clearSession, subscribeSession, createMutation, logout };
+  return { url, get, getSession, clearSession, createMutation, logout, subscribeSession };
 }
 
 export const api = createApiClient(import.meta.env?.VITE_API_BASE_URL);

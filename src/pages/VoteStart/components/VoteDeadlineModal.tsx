@@ -62,6 +62,8 @@ export default function VoteDeadlineModal({
     <Modal
       open
       onClose={onClose}
+      closeOnBackdropClick={false}
+      closeOnEscape={false}
       className={`vote-deadline-modal${registrationExtension || voteExtension ? ' vote-deadline-modal--registration' : ''}`}
       aria-labelledby="vote-deadline-title"
       aria-describedby="vote-deadline-help"
@@ -70,7 +72,7 @@ export default function VoteDeadlineModal({
         {registrationExtension
           ? '장소 등록 마감 시간 연장'
           : voteExtension
-            ? '투표 마감 시간 연장'
+            ? '장소 투표 마감 시간 연장'
             : '투표 마감 시간 설정'}
       </h2>
       {(registrationExtension || voteExtension) && <p>마감 일시를 선택해주세요</p>}
@@ -98,10 +100,10 @@ export default function VoteDeadlineModal({
         }}
       >
         {registrationExtension
-          ? '등록 마감시간 연장하기'
+          ? '등록 마감시간 설정하기'
           : voteExtension
             ? '투표 마감시간 연장하기'
-            : '확인'}
+            : '등록 마감시간 설정하기'}
       </Button>
     </Modal>
   );

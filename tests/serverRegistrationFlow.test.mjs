@@ -131,7 +131,7 @@ test('server routes skip SCREEN 11 when the result is ready and use permission f
       { ...room, phase: 'PLACE_SUBMISSION_CLOSED', allowedActions: ['START_VOTING'] },
       path,
     ),
-    '/rooms/vote/start',
+    '/rooms/registration/status',
   );
   assert.equal(
     roomScreenForEntry(
@@ -152,5 +152,21 @@ test('server routes skip SCREEN 11 when the result is ready and use permission f
       path,
     ),
     '/rooms/vote/status',
+  );
+});
+
+test('등록 마감 검토 화면은 진행 중에도 열고 전원 완료 시 투표 마감 설정으로 이동한다', () => {
+  const closed = { ...room, phase: 'PLACE_SUBMISSION_CLOSED', allowedActions: ['START_VOTING'] };
+  assert.equal(roomScreenForEntry(room, '/rooms/registration/close'), '/rooms/registration/close');
+  assert.equal(roomScreenForEntry(closed, '/rooms/vote/start'), '/rooms/vote/start');
+  assert.equal(
+    roomScreenForEntry(
+      {
+        ...closed,
+        registration: { ...closed.registration, progress: { completedCount: 4, capacity: 4 } },
+      },
+      '/rooms/registration/status',
+    ),
+    '/rooms/vote/start',
   );
 });

@@ -1,101 +1,36 @@
-import { createBrowserRouter, Link, Navigate } from 'react-router';
+import { ROOM_SCREENS } from './roomRoutes';
+import { createBrowserRouter, Link } from 'react-router';
 import CreateRoom from '../pages/CreateRoom/CreateRoom';
-import RoomCreated from '../pages/RoomCreated/RoomCreated';
-import RoomInvitation from '../pages/RoomInvitation/RoomInvitation';
-import { ScheduleTransitRoute } from '../pages/ScheduleTransit/ScheduleTransit';
-import ParticipationStatus from '../pages/ParticipationStatus/ParticipationStatus';
-import RoomRecruitment from '../pages/ParticipationStatus/RoomRecruitment';
-import TimeRegionCandidates from '../pages/TimeRegionCandidates/TimeRegionCandidates';
-import MeetingConfirmed from '../pages/MeetingConfirmed/MeetingConfirmed';
-import MeetingInfo from '../pages/MeetingInfo/MeetingInfo';
-import PlaceRegistrationSetup from '../pages/PlaceRegistrationSetup/PlaceRegistrationSetup';
-import PlaceRegistrationStatus from '../pages/PlaceRegistrationStatus/PlaceRegistrationStatus';
-import RegistrationClose from '../pages/RegistrationClose/RegistrationClose';
-import VoteStart from '../pages/VoteStart/VoteStart';
-import PlaceVote from '../pages/PlaceVote/PlaceVote';
-import VoteStatus from '../pages/VoteStatus/VoteStatus';
-import VoteResult from '../pages/VoteResult/VoteResult';
-import MockRoomLayout from '../features/mockRoom/MockRoomLayout';
-
-import FlowLayout, { CreatedRoomLayout, LegacyJoinRedirect } from './FlowLayout';
+import InvitationRoute from './InvitationRoute';
+import ServerRoomRoute from './ServerRoomRoute';
+import FlowLayout, { RoomRecovery, LegacyJoinRedirect } from './FlowLayout';
 import LoginRoute from './LoginRoute';
 import HomeRoute from './HomeRoute';
 import { PATHS } from './paths';
-import PlaceExplorationRoute from './PlaceExplorationRoute';
-import ServerRoomRoute from '../features/serverRoom/RoomStatus';
-import ServerRoomInvitation from '../pages/RoomInvitation/ServerRoomInvitation';
 
 export const router = createBrowserRouter([
   {
     element: <FlowLayout />,
     children: [
-      { path: '/rooms', element: <Navigate to={PATHS.home} replace /> },
+      { path: PATHS.home, element: <HomeRoute /> },
+      { path: '/rooms', element: <HomeRoute /> },
+      { path: PATHS.login, element: <LoginRoute /> },
+      { path: PATHS.create, element: <CreateRoom /> },
+      { path: PATHS.invitation, element: <InvitationRoute /> },
+      { path: '/invite/:token', element: <InvitationRoute /> },
+      { path: '/invitations/:token', element: <InvitationRoute /> },
       { path: '/rooms/:roomId', element: <ServerRoomRoute /> },
-      { path: '/invite/:inviteToken', element: <ServerRoomInvitation /> },
-      {
-        element: <MockRoomLayout />,
-        children: [
-          { path: PATHS.confirmed, element: <MeetingConfirmed /> },
-          { path: PATHS.info, element: <MeetingInfo /> },
-          { path: PATHS.setup, element: <PlaceRegistrationSetup /> },
-          { path: PATHS.result, element: <VoteResult /> },
-          { path: PATHS.voteStatus, element: <VoteStatus /> },
-          { path: PATHS.vote, element: <PlaceVote /> },
-          { path: PATHS.closeRegistration, element: <RegistrationClose /> },
-          { path: PATHS.startVote, element: <VoteStart /> },
-          { path: PATHS.registration, element: <PlaceRegistrationStatus /> },
-        ],
-      },
-      {
-        path: PATHS.home,
-        element: <HomeRoute />,
-      },
-      {
-        path: PATHS.login,
-        element: <LoginRoute />,
-      },
       { path: PATHS.legacyJoin, element: <LegacyJoinRedirect /> },
-      { path: PATHS.places, element: <PlaceExplorationRoute /> },
-      {
-        element: <CreatedRoomLayout />,
-        children: [
-          {
-            path: PATHS.create,
-            element: <CreateRoom />,
-          },
-          {
-            path: PATHS.created,
-            element: <RoomCreated />,
-          },
-          {
-            path: PATHS.invitation,
-            element: <RoomInvitation />,
-          },
-          {
-            path: PATHS.schedule,
-            element: <ScheduleTransitRoute />,
-          },
-          {
-            path: PATHS.recruitment,
-            element: <RoomRecruitment />,
-          },
-          {
-            path: PATHS.participation,
-            element: <ParticipationStatus />,
-          },
-          {
-            path: PATHS.candidates,
-            element: <TimeRegionCandidates />,
-          },
-        ],
-      },
+      ...ROOM_SCREENS.map((path) => ({
+        path,
+        element: <RoomRecovery message="약속방을 선택해주세요. 홈에서 약속을 열어주세요." />,
+      })),
       {
         path: '*',
         element: (
           <main className="page">
             <h1>페이지를 찾을 수 없어요.</h1>
-            <Link to={PATHS.home}>내 약속 홈으로 이동</Link>
-            <Link to="/rooms/create">약속방 만들기로 이동</Link>
+            <Link to={PATHS.home}>홈으로 이동</Link>
           </main>
         ),
       },

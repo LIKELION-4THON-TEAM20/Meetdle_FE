@@ -18,22 +18,34 @@ export function createdRoomDestination(response: CreateRoomResponse) {
 
 export function roomScreen(room: RoomState) {
   switch (room.phase) {
-    case 'WAITING_FOR_DEPARTURE':
-      if (!room.startedAt && (room.me.role === 'HOST' || room.startedAt === null))
-        return PATHS.recruitment;
-      return room.allowedActions.includes('EDIT_INPUT') ? PATHS.schedule : PATHS.participation;
+    case 'WAITING_FOR_DEPARTURE': {
+      if (!room.startedAt) {
+        if (room.me.role === 'HOST')
+          return room.joinedCount <= 1 ? PATHS.created : PATHS.participation;
+        if (room.startedAt === null) return PATHS.recruitment;
+      }
+      const me = room.members?.find((member) => member.participantId === room.me.participantId);
+      const complete =
+        !!room.myInput?.completedAt || me?.inputComplete || me?.inputStatus === 'COMPLETED';
+      return !complete &&
+        (room.allowedActions.includes('EDIT_INPUT') ||
+          room.allowedActions.includes('COMPLETE_INPUT'))
+        ? PATHS.schedule
+        : PATHS.participation;
+    }
     case 'OPTIONS_READY':
       return room.me.role === 'HOST' ? PATHS.candidates : PATHS.participation;
     case 'REGION_CONFIRMED':
-      return room.me.role === 'HOST' ? PATHS.confirmed : PATHS.info;
+      return PATHS.confirmed;
     case 'PLACE_SUBMISSION_OPEN':
-      return room.me.role === 'MEMBER' && meetingActions(room).canRegister
-        ? PATHS.info
-        : PATHS.registration;
+      return meetingActions(room).canRegister ? PATHS.places : PATHS.registration;
     case 'PLACE_SUBMISSION_CLOSED':
-      return room.me.role === 'HOST' && room.allowedActions.includes('START_VOTING')
+      return room.me.role === 'HOST' &&
+        room.allowedActions.includes('START_VOTING') &&
+        !!room.registration &&
+        room.registration.progress.completedCount >= room.registration.progress.capacity
         ? PATHS.startVote
-        : PATHS.closeRegistration;
+        : PATHS.registration;
     case 'VOTING_OPEN': {
       const { edit, submit } = ballotPermissions(room, Date.parse(room.serverNow));
       return edit || submit ? PATHS.vote : PATHS.voteStatus;
@@ -50,14 +62,51 @@ export function roomScreen(room: RoomState) {
 }
 
 export function roomScreenForEntry(room: RoomState, requested?: string) {
-  if (requested === PATHS.voteStatus && room.phase === 'VOTING_OPEN') return requested;
-  if (requested === PATHS.closeRegistration && room.phase === 'PLACE_SUBMISSION_CLOSED')
+  if (
+    room.phase === 'PLACE_SUBMISSION_OPEN' &&
+    meetingActions(room).canRegister &&
+    (!requested || [PATHS.confirmed, PATHS.info, PATHS.setup].some((path) => path === requested))
+  )
+    return PATHS.places;
+  if (
+    room.phase === 'WAITING_FOR_DEPARTURE' &&
+    (room.me.role === 'HOST' || !!room.startedAt) &&
+    (!requested ||
+      [PATHS.created, PATHS.recruitment, PATHS.participation].some((path) => path === requested))
+  )
+    return roomScreen(room);
+  if (
+    requested === PATHS.voteStatus &&
+    (room.phase === 'VOTING_OPEN' ||
+      (room.me.role === 'HOST' &&
+        !!room.voting &&
+        ['RESULT_READY', 'WAITING_FOR_HOST_DECISION'].includes(room.phase)))
+  )
+    return requested;
+  if (
+    requested === PATHS.closeRegistration &&
+    ['PLACE_SUBMISSION_OPEN', 'PLACE_SUBMISSION_CLOSED'].includes(room.phase) &&
+    room.me.role === 'HOST'
+  )
+    return requested;
+  if (
+    requested === PATHS.startVote &&
+    room.phase === 'PLACE_SUBMISSION_CLOSED' &&
+    room.me.role === 'HOST' &&
+    room.allowedActions.includes('START_VOTING')
+  )
+    return requested;
+  if (
+    requested === PATHS.candidates &&
+    ['WAITING_FOR_DEPARTURE', 'OPTIONS_READY'].includes(room.phase) &&
+    room.me.role === 'HOST'
+  )
     return requested;
   if (room.meeting) {
     const actions = meetingActions(room);
     if (requested === PATHS.info) return requested;
     if (requested === PATHS.confirmed) {
-      return actions.beforeRegistration && room.me.role === 'HOST' ? requested : PATHS.info;
+      return actions.beforeRegistration ? requested : PATHS.info;
     }
     if (requested === PATHS.setup) {
       if (
@@ -91,7 +140,10 @@ export function shouldPollRoom(room: RoomState) {
   const screen = roomScreen(room);
   return (
     (room.phase === 'WAITING_FOR_DEPARTURE' &&
-      (screen === PATHS.recruitment || screen === PATHS.participation)) ||
+      (screen === PATHS.created ||
+        screen === PATHS.recruitment ||
+        screen === PATHS.participation)) ||
+    room.phase === 'REGION_CONFIRMED' ||
     room.phase === 'PLACE_SUBMISSION_OPEN' ||
     room.phase === 'PLACE_SUBMISSION_CLOSED' ||
     room.phase === 'VOTING_OPEN' ||

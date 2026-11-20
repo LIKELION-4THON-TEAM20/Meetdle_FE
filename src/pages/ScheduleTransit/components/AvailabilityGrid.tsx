@@ -43,7 +43,7 @@ function AvailabilityGrid({ dates, selected, onPaint }: AvailabilityGridProps) {
   function handlePointerDown(event: PointerEvent<HTMLTableElement>) {
     if (!event.isPrimary || event.button !== 0) return;
     const button = getCell(event.target instanceof Element ? event.target : null);
-    if (!button) return;
+    if (!button || button.matches(':disabled')) return;
     event.preventDefault();
     const key = button.dataset.availabilityKey as AvailabilityCellKey;
     const stroke = {

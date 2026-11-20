@@ -1,5 +1,4 @@
 import { useLayoutEffect, useRef } from 'react';
-import { CATEGORIES, REGISTRATION_RULES } from '../mockData';
 import type { CategoryId } from '../types';
 
 interface CategorySelectorProps {
@@ -20,7 +19,7 @@ function CategorySelector({
   selected,
   requiredIds,
   disabled,
-  categories = CATEGORIES,
+  categories = [],
   onToggle,
   onMove,
 }: CategorySelectorProps) {
@@ -144,9 +143,9 @@ function CategorySelector({
           {requiredNames.join('·')}은 방 전체에서 각각 최소 1곳의 후보가 필요해요.
         </p>
       )}
-      {selected.length < REGISTRATION_RULES.minimumPlacesPerPerson ? (
+      {selected.length < 1 ? (
         <p className="registration-setup__warning" role="status">
-          카테고리를 {REGISTRATION_RULES.minimumPlacesPerPerson}개 이상 선택해주세요.
+          카테고리를 1개 이상 선택해주세요.
         </p>
       ) : (
         requiredCount < requiredIds.length && (

@@ -14,7 +14,7 @@ interface AppointmentCardProps {
   deleteMode: boolean;
   onRevealDelete: () => void;
   onHideDelete: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
 }
 
 function AppointmentCard({
@@ -57,7 +57,7 @@ function AppointmentCard({
           <div className="appointment-card__meta">
             <span>
               <img src={users} alt="참여 인원" draggable={false} />
-              {appointment.participants.length}명
+              {appointment.participantCount ?? appointment.participants.length}명
             </span>
             <span className="appointment-card__date">
               <span className="appointment-card__calendar">
@@ -101,6 +101,7 @@ function AppointmentCard({
       style={{ '--delete-reveal': `${reveal}px`, '--delete-opacity': reveal / 48 } as CSSProperties}
       onPointerDown={(event) => {
         if (
+          !onDelete ||
           !event.isPrimary ||
           event.button !== 0 ||
           (event.target as HTMLElement).closest('button')
@@ -167,6 +168,7 @@ function AppointmentCard({
         }
       }}
       onContextMenu={(event) => {
+        if (!onDelete) return;
         event.preventDefault();
         onRevealDelete();
       }}
@@ -178,14 +180,16 @@ function AppointmentCard({
       ) : (
         card
       )}
-      <button
-        type="button"
-        className={`appointment-card-delete${reveal > 0 ? ' appointment-card-delete--visible' : ''}`}
-        aria-label={`${appointment.name} 삭제`}
-        onClick={onDelete}
-      >
-        <img src={deleteIcon} alt="" draggable={false} />
-      </button>
+      {onDelete && (
+        <button
+          type="button"
+          className={`appointment-card-delete${reveal > 0 ? ' appointment-card-delete--visible' : ''}`}
+          aria-label={`${appointment.name} 삭제`}
+          onClick={onDelete}
+        >
+          <img src={deleteIcon} alt="" draggable={false} />
+        </button>
+      )}
     </div>
   );
 }

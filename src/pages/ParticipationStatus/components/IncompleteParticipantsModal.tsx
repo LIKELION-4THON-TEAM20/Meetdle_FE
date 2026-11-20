@@ -24,6 +24,8 @@ function IncompleteParticipantsModal({
     <Modal
       open={open}
       onClose={onClose}
+      closeOnBackdropClick={false}
+      closeOnEscape={false}
       className="incomplete-participants-modal"
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-description`}

@@ -116,6 +116,9 @@ test('RoomState clears on session change, distinguishes errors, and refreshes on
   await assert.rejects(change, (error) => error === conflict);
   assert.equal(store.getSnapshot().room.revision, 2);
   assert.ok(store.getSnapshot().notice);
+  await client.getSession({ refresh: true });
+  assert.equal(store.getSnapshot().room.revision, 2);
+  assert.equal(reads, 2);
   await store.mutate('START_ROOM', async () => 'success');
   assert.equal(store.getSnapshot().room.revision, 3);
   credentials = { ...session, csrfToken: 'new-csrf' };
@@ -145,7 +148,7 @@ test('RoomState clears on session change, distinguishes errors, and refreshes on
 
 test('server routes use role and allowedActions and never route mock IDs through the client contract', () => {
   const room = dto();
-  assert.equal(roomScreen(room), '/rooms/recruitment');
+  assert.equal(roomScreen({ ...room, joinedCount: 1 }), '/rooms/create/complete');
   assert.equal(
     roomScreen({ ...room, me: { role: 'MEMBER' }, allowedActions: ['EDIT_INPUT'] }),
     '/rooms/schedule-transit',
@@ -540,7 +543,7 @@ test('SCREEN 04 separates roster and input progress and applies server role and 
       { ...member, startedAt: '2026-11-19T12:00:00Z', allowedActions: ['EDIT_INPUT'] },
       '/rooms/participation-status',
     ),
-    '/rooms/participation-status',
+    '/rooms/schedule-transit',
   );
   assert.equal(serverScreenUrl('/rooms/candidates', id), '/rooms/candidates?mode=api&roomId=' + id);
 });
@@ -615,5 +618,113 @@ test('SCREEN 04 refreshes stale A31 and reuses the A11 key on a lost response', 
   } finally {
     stop();
     api.clearSession();
+  }
+});
+
+test('호스트 혼자이면 초대 화면, 실제 참여자가 한 명 이상 들어오면 입력 현황을 표시한다', () => {
+  const solo = {
+    ...dto(),
+    startedAt: null,
+    joinedCount: 1,
+    capacity: 6,
+    allowedActions: ['EDIT_INPUT'],
+  };
+  assert.equal(roomScreen(solo), '/rooms/create/complete');
+  assert.equal(roomScreenForEntry(solo, '/rooms/participation-status'), '/rooms/create/complete');
+  assert.equal(shouldPollRoom(solo), true);
+  const joined = { ...solo, joinedCount: 2 };
+  assert.equal(roomScreen(joined), '/rooms/participation-status');
+  assert.equal(roomScreenForEntry(joined, '/rooms/recruitment'), '/rooms/participation-status');
+  assert.equal(
+    roomScreen({ ...solo, startedAt: '2026-11-20T00:00:00Z' }),
+    '/rooms/schedule-transit',
+  );
+  assert.equal(roomScreen({ ...joined, phase: 'OPTIONS_READY' }), '/rooms/candidates');
+});
+
+test('모집 중 정원을 유지하고 다른 참여자가 합류한 뒤에만 시작할 수 있다', async () => {
+  const { participationModel } = await vite.ssrLoadModule(
+    '/src/pages/ParticipationStatus/serverParticipationModel.ts',
+  );
+  for (const joinedCount of [1, 2, 3, 4]) {
+    const room = {
+      ...dto(),
+      inputProgress: { completedCount: 0, capacity: 4 },
+      startedAt: null,
+      capacity: 4,
+      joinedCount,
+      allowedActions: ['START_ROOM'],
+    };
+    assert.equal(participationModel(room).canStart, joinedCount >= 2);
+    assert.equal(room.capacity, 4);
+  }
+  assert.equal(
+    participationModel({
+      ...dto(),
+      inputProgress: { completedCount: 0, capacity: 4 },
+      capacity: 4,
+      joinedCount: 2,
+      allowedActions: [],
+    }).canStart,
+    false,
+  );
+});
+
+test('시작 후 호스트와 참여자는 미제출이면 입력 화면, 제출 완료이면 현황으로 이동한다', () => {
+  for (const role of ['HOST', 'MEMBER']) {
+    const room = {
+      ...dto(),
+      startedAt: '2026-11-20T00:00:00Z',
+      joinedCount: 4,
+      me: { role, participantId: 'me' },
+      allowedActions: ['COMPLETE_INPUT'],
+      myInput: { completedAt: null },
+      members: [{ participantId: 'me', inputComplete: false }],
+    };
+    assert.equal(
+      roomScreenForEntry(room, '/rooms/participation-status'),
+      '/rooms/schedule-transit',
+    );
+    assert.equal(
+      roomScreenForEntry(
+        { ...room, myInput: { completedAt: '2026-11-20T00:01:00Z' } },
+        '/rooms/participation-status',
+      ),
+      '/rooms/participation-status',
+    );
+  }
+});
+
+test('정원별 입력 기준과 전원 완료에 따라 계산·알림·재촉을 구분한다', async () => {
+  const { participationModel } = await vite.ssrLoadModule(
+    '/src/pages/ParticipationStatus/serverParticipationModel.ts',
+  );
+  for (const capacity of [2, 3, 4, 5, 6]) {
+    const required = Math.max(2, Math.ceil(capacity / 2));
+    for (const completed of [required - 1, required, capacity]) {
+      const room = {
+        ...dto(),
+        joinedCount: capacity,
+        capacity,
+        inputProgress: { completedCount: completed, capacity },
+        me: { role: 'HOST', participantId: 'p0' },
+        members: Array.from({ length: capacity }, (_, i) => ({
+          participantId: 'p' + i,
+          nickname: '이름' + i,
+          role: i ? 'MEMBER' : 'HOST',
+          inputComplete: i < completed,
+        })),
+        allowedActions: ['CALCULATE_OPTIONS'],
+      };
+      const model = participationModel(room);
+      assert.equal(model.requiredInputs, required);
+      assert.equal(model.canCalculate, completed >= required);
+      assert.equal(model.allCompleted, completed === capacity);
+      assert.equal(model.canRemind, completed < capacity);
+      assert.equal(
+        participationModel({ ...room, me: { role: 'MEMBER', participantId: 'p1' } }).canNotifyHost,
+        completed >= required,
+      );
+    }
   }
 });

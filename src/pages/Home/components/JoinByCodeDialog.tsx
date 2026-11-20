@@ -77,6 +77,7 @@ function JoinByCodeDialog({ onClose, onSubmitCode }: JoinByCodeDialogProps) {
               const result = await onSubmitCode(code);
               if (result === 'invalid-code') setError('유효하지 않은 초대 코드예요.');
               else if (result?.status === 'room-full') setFullCapacity(result.capacity);
+              else if (result?.status === 'error') setError(result.message);
             } catch {
               setError('초대 코드를 확인하지 못했어요. 다시 시도해주세요.');
             } finally {
@@ -116,11 +117,7 @@ function JoinByCodeDialog({ onClose, onSubmitCode }: JoinByCodeDialogProps) {
               {notice}
             </p>
           )}
-          <Button
-            type="submit"
-            disabled={!isCodeComplete || !!error || isSubmitting}
-            aria-busy={isSubmitting}
-          >
+          <Button type="submit" disabled={!isCodeComplete || isSubmitting} aria-busy={isSubmitting}>
             {isSubmitting ? '확인 중...' : '약속방 들어가기'}
           </Button>
         </form>

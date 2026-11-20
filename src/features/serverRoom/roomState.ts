@@ -39,7 +39,14 @@ export function createRoomStateStore(roomId: string, read = getRoomState, client
   }
 
   function connect() {
-    const unsubscribe = client.subscribeSession((authenticated) => {
+    let observedSession: string | null = null;
+    const unsubscribe = client.subscribeSession((session) => {
+      const nextSession = session ? JSON.stringify([session.user.userId, session.csrfToken]) : null;
+      if (session && nextSession === observedSession) return;
+      const firstSession = observedSession === null && snapshot.room === null && snapshot.loading;
+      observedSession = nextSession;
+      if (session && firstSession) return;
+      const authenticated = Boolean(session);
       scope++;
       mutation = undefined;
       cancel();

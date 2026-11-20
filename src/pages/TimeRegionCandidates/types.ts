@@ -1,4 +1,4 @@
-// SCREEN 05 전용 임시 모델. 백엔드 응답 계약 확정 시 어댑터에서 교체한다.
+// SCREEN 05 표시 모델. 서버 DTO는 features/planning/model에서 변환한다.
 export interface TimeCandidate {
   id: string;
   date: string; // YYYY-MM-DD, 약속 지역의 날짜
@@ -15,7 +15,7 @@ export interface TimeCandidate {
 export interface ParticipantTravel {
   participantId: string;
   name: string;
-  transportLabel: string;
+  transportLabel?: string;
   minutes: number;
   transfers: number;
 }
@@ -24,6 +24,7 @@ export interface RegionCandidate {
   id: string;
   stationName: string;
   subwayLines: readonly string[];
+  lineLabel?: string;
   recommended: boolean;
   recommendationLabel: string;
   averageTravelMinutes: number;

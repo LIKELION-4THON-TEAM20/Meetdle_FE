@@ -326,3 +326,33 @@
 .station-search__input-wrap--unsupported input {
   color: #969696;
 }
+
+.schedule-transit__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.schedule-transit__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  &::before {
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+}
+
+.schedule-api-state {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 27px;
+  font-size: 14px;
+  line-height: 22px;
+}

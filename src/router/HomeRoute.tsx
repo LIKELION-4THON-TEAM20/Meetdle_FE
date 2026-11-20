@@ -1,59 +1,131 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import Home from '../pages/Home/Home';
-import { MOCK_APPOINTMENTS } from '../pages/Home/appointments.mock';
-import type { Appointment } from '../pages/Home/appointment.types';
-import { getCreatedRooms } from '../features/createdRoom/model';
-import { createMockRoom, restoreRoom } from '../features/mockRoom/model';
-import { getMockRoomEntryPath } from './roomEntryPath';
-import { PATHS, roomPath } from './paths';
+import { logout } from '../api/auth';
+import { ApiRequestError } from '../api/client';
+import type { SessionResponse } from '../api/types';
+import { useAuthSession, sessionStore } from '../features/auth/session';
+import { invitationFlow } from '../features/auth/invitations';
+import { authErrorMessage } from '../features/auth/errors';
+import { consumeLoginReturn, loginErrorMessage } from '../features/auth/loginReturn';
+import { toAppointment } from '../features/homeApi/model';
+import { createRoomHider } from '../features/homeApi/hideRoom';
+import { useRoomList } from '../features/homeApi/useRoomList';
+import type { AppointmentFilter } from '../pages/Home/appointment.types';
+import { PATHS } from './paths';
+import AuthStatus from './AuthStatus';
 
-export default function HomeRoute() {
+function AuthenticatedHome({ session, revision }: { session: SessionResponse; revision: number }) {
   const navigate = useNavigate();
-  const [appointments] = useState<Appointment[]>(() => {
-    let room;
+  const hider = useMemo(() => createRoomHider(session), [session]);
+  const [params] = useSearchParams();
+  const [filter, setFilter] = useState<AppointmentFilter>('all');
+  const scope = { all: 'ALL', upcoming: 'UPCOMING', past: 'PAST' } as const;
+  const rooms = useRoomList(scope[filter], revision);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [error, setError] = useState('');
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (params.has('loginError')) return;
     try {
-      room = restoreRoom(sessionStorage, Date.now());
+      const destination = consumeLoginReturn(sessionStorage);
+      if (destination !== PATHS.home) navigate(destination, { replace: true });
     } catch {
-      room = createMockRoom(Date.now());
+      /* A normal home visit does not require browser storage. */
     }
-    const stagePath = getMockRoomEntryPath(room);
-    return [
-      ...getCreatedRooms().map((created): Appointment => ({
-        id: created.id,
-        name: created.creation.name,
-        status: 'in-progress',
-        date: created.creation.dateRange.start,
-        participants: [{ id: 'mock-host', name: '방장 (목)', imageUrl: null }],
-        badgeLabel: '미확정 (목)',
-        entryPath: roomPath(`${PATHS.created}?from=home`, '', created.id),
-      })),
-      {
-        id: room.id,
-        name: room.name,
-        status: 'in-progress',
-        date: new Intl.DateTimeFormat('en-CA', {
-          timeZone: 'Asia/Seoul',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-        }).format(room.meetingAt),
-        participants: room.participants.map(({ id, name }) => ({ id, name, imageUrl: null })),
-        badgeLabel: '개발용 목',
-        entryPath: roomPath(`${stagePath}?from=home`, '', room.id),
-      },
-      ...MOCK_APPOINTMENTS,
-    ];
-  });
+  }, [navigate, params]);
+  if (loggingOut) return <AuthStatus message="로그아웃하고 있어요." />;
   return (
     <Home
-      appointments={appointments}
-      // 인증 해제 API는 계약 확정 후 연결한다. 현재는 로그인 화면으로 이동한다.
-      onLogout={() => navigate(PATHS.login, { replace: true })}
-      onJoinByCode={async (code) => {
-        // 조회/참여 성공으로 처리하지 않고 초대 확인 화면으로만 이동한다.
-        navigate(`${PATHS.invitation}?code=${encodeURIComponent(code)}`);
+      key={session.user.userId}
+      appointments={rooms.items.map(toAppointment)}
+      filter={filter}
+      onFilterChange={setFilter}
+      loading={rooms.loading}
+      error={error || (rooms.error ? authErrorMessage(rooms.error) : '')}
+      notice={loginErrorMessage(params.get('loginError'))}
+      onRetry={
+        rooms.error instanceof ApiRequestError && rooms.error.code === 'INVALID_CURSOR'
+          ? rooms.retry
+          : rooms.nextCursor && rooms.items.length
+            ? rooms.loadMore
+            : rooms.retry
+      }
+      hasMore={!!rooms.nextCursor}
+      onLoadMore={rooms.loadMore}
+      profileImageUrl={session.user.profileImageUrl}
+      allowDelete
+      onHideAppointment={async (appointment) => {
+        try {
+          await hider.hide(appointment.id);
+          if (mounted.current) rooms.retry();
+        } catch (cause) {
+          throw new Error(authErrorMessage(cause), { cause });
+        }
       }}
+      onLogout={() => {
+        if (loggingOut) return;
+        setLoggingOut(true);
+        setError('');
+        void logout().then(
+          () => {
+            invitationFlow.clear();
+            navigate(PATHS.login, { replace: true });
+          },
+          (cause: unknown) => {
+            setLoggingOut(false);
+            setError(authErrorMessage(cause));
+          },
+        );
+      }}
+      onJoinByCode={async (code) => {
+        try {
+          const resolved = await invitationFlow.resolve(code);
+          if (!mounted.current) return;
+          if (resolved.preview.entryStatus === 'FULL')
+            return { status: 'room-full', capacity: resolved.preview.capacity };
+          if (resolved.preview.entryStatus === 'CLOSED')
+            return { status: 'error', message: '참여가 마감된 약속이에요.' };
+          navigate(`${PATHS.invitation}?roomId=${encodeURIComponent(resolved.preview.roomId)}`);
+        } catch (cause) {
+          if (cause instanceof ApiRequestError && cause.code === 'INVALID_INVITATION')
+            return 'invalid-code';
+          return { status: 'error', message: authErrorMessage(cause) };
+        }
+      }}
+    />
+  );
+}
+
+export default function HomeRoute() {
+  const auth = useAuthSession();
+  const [params] = useSearchParams();
+  if (auth.status === 'checking') return <AuthStatus message="로그인 상태를 확인하고 있어요." />;
+  if (auth.status === 'anonymous')
+    return (
+      <Navigate
+        to={`${PATHS.login}${params.has('loginError') ? `?loginError=${encodeURIComponent(params.get('loginError')!)}` : ''}`}
+        replace
+      />
+    );
+  if (auth.status === 'error')
+    return (
+      <AuthStatus
+        message={authErrorMessage(auth.error)}
+        onRetry={() => void sessionStore.refresh()}
+      />
+    );
+  return (
+    <AuthenticatedHome
+      key={`${auth.session.user.userId}:${auth.session.csrfToken}`}
+      session={auth.session}
+      revision={auth.revision}
     />
   );
 }

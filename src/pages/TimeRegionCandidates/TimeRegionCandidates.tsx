@@ -1,18 +1,10 @@
-import { useId, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
-import { useRoomNavigation } from '../../router/useRoomNavigation';
-import { PATHS, roomPath } from '../../router/paths';
-import { CREATED_ROOM_PREVIEW_ID } from '../../features/createdRoom/model';
-import { saveRoom } from '../../features/mockRoom/model';
-import { createCandidateConfirmation } from '../MeetingConfirmed/confirmationData';
+import { useId, useState, type ReactNode } from 'react';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import TimeCandidateCard from './components/TimeCandidateCard';
 import RegionCandidateCard from './components/RegionCandidateCard';
-import { getTimeRegionCandidates } from './candidateData';
 import { getConfirmationRequest, reconcileSelection } from './candidateUtils';
 import type { CandidateConfirmationRequest, CandidateData, CandidateSelection } from './types';
-import type { Participant } from '../ParticipationStatus/types';
 import './TimeRegionCandidates.scss';
 
 interface TimeRegionCandidatesViewProps {
@@ -21,6 +13,11 @@ interface TimeRegionCandidatesViewProps {
   onConfirm?: (request: CandidateConfirmationRequest) => void;
   previewNotice?: string;
   showTravelDetails?: boolean;
+  preserveOrder?: boolean;
+  busy?: boolean;
+  choicesDisabled?: boolean;
+  confirmationDisabled?: boolean;
+  feedback?: ReactNode;
 }
 
 export function TimeRegionCandidatesView({
@@ -29,13 +26,18 @@ export function TimeRegionCandidatesView({
   onConfirm,
   previewNotice,
   showTravelDetails = false,
+  preserveOrder = false,
+  busy = false,
+  choicesDisabled = false,
+  confirmationDisabled = false,
+  feedback,
 }: TimeRegionCandidatesViewProps) {
   const groupId = useId();
-  const timeCandidates = [...data.timeCandidates].sort(
-    (a, b) => Number(b.recommended) - Number(a.recommended),
+  const timeCandidates = [...data.timeCandidates].sort((a, b) =>
+    preserveOrder ? 0 : Number(b.recommended) - Number(a.recommended),
   );
-  const regionCandidates = [...data.regionCandidates].sort(
-    (a, b) => Number(b.recommended) - Number(a.recommended),
+  const regionCandidates = [...data.regionCandidates].sort((a, b) =>
+    preserveOrder ? 0 : Number(b.recommended) - Number(a.recommended),
   );
   const [storedSelection, setSelection] = useState<CandidateSelection>(() => ({
     timeCandidateId: timeCandidates[0]?.id ?? null,
@@ -55,7 +57,7 @@ export function TimeRegionCandidatesView({
 
   const handleConfirm = () => {
     const currentRequest = getConfirmationRequest(data, selection);
-    if (!currentRequest) return;
+    if (!currentRequest || busy || confirmationDisabled) return;
     if (onConfirm) onConfirm(currentRequest);
     else setShowConnectionNotice(true);
   };
@@ -73,7 +75,7 @@ export function TimeRegionCandidatesView({
           </p>
           {previewNotice && <p role="status">{previewNotice}</p>}
         </section>
-        <fieldset className="time-region-candidates__group">
+        <fieldset className="time-region-candidates__group" disabled={busy || choicesDisabled}>
           <legend>가능한 일시</legend>
           <div className="time-region-candidates__list">
             {timeCandidates.map((candidate) => (
@@ -87,7 +89,7 @@ export function TimeRegionCandidatesView({
             ))}
           </div>
         </fieldset>
-        <fieldset className="time-region-candidates__group">
+        <fieldset className="time-region-candidates__group" disabled={busy || choicesDisabled}>
           <legend>중간지역 후보</legend>
           <div className="time-region-candidates__list">
             {regionCandidates.map((candidate) => (
@@ -117,52 +119,15 @@ export function TimeRegionCandidatesView({
         )}
         <Button
           className="time-region-candidates__confirm"
-          disabled={!request}
+          disabled={!request || busy || confirmationDisabled}
           aria-describedby={!request ? `${groupId}-selection-hint` : undefined}
           onClick={handleConfirm}
         >
-          {request ? '이 후보로 확정하기' : '후보 확정하기'}
+          {busy ? '확정 중…' : request ? '이 후보로 확정하기' : '후보 확정하기'}
         </Button>
+        {feedback}
         {showConnectionNotice && <p role="status">확정 API는 아직 연결되지 않았어요.</p>}
       </footer>
     </div>
   );
 }
-
-function TimeRegionCandidates() {
-  const navigate = useRoomNavigation();
-  const navigateHistory = useNavigate();
-  const { state } = useLocation();
-  const [params] = useSearchParams();
-  const data = getTimeRegionCandidates();
-  const participants: Participant[] | undefined = state?.completedParticipants;
-  const included = participants?.map(({ name }) => name).join(', ');
-  const previewNotice =
-    '개발용 목 후보 예시예요. 선택한 후보는 이 브라우저의 약속 확정 미리보기에 반영돼요.';
-
-  const confirm = (request: CandidateConfirmationRequest) => {
-    if (params.get('role') === 'participant') return;
-    const roomId = params.get('roomId') ?? CREATED_ROOM_PREVIEW_ID;
-    const room = createCandidateConfirmation(data, request, Date.now(), roomId);
-    if (!room) return;
-    const path = roomPath(PATHS.confirmed, '', roomId);
-    try {
-      saveRoom(window.sessionStorage, room);
-    } catch {
-      navigate(path, { state: { fallbackRoom: room } });
-      return;
-    }
-    navigate(path);
-  };
-
-  return (
-    <TimeRegionCandidatesView
-      data={data}
-      onBack={() => (included ? navigateHistory(-1) : navigate(PATHS.participation))}
-      onConfirm={confirm}
-      previewNotice={included ? `후보 계산 대상: ${included}. ${previewNotice}` : previewNotice}
-    />
-  );
-}
-
-export default TimeRegionCandidates;

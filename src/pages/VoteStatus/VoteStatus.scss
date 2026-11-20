@@ -98,11 +98,6 @@
       line-height: 22px;
       overflow-wrap: anywhere;
     }
-    .vote-status__mock-notice {
-      color: #969696;
-      font-size: 12px;
-      line-height: 18px;
-    }
   }
   &__state-card {
     padding: 10px 14px;
@@ -158,4 +153,9 @@
 
 .common-modal:has(> .vote-close-modal)::backdrop {
   background: rgb(217 217 217 / 75%);
+}
+
+.vote-close-modal--final h2 {
+  font-size: 18px;
+  line-height: 26px;
 }

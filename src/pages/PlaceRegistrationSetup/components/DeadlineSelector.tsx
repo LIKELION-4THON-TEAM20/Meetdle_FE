@@ -10,6 +10,7 @@ interface DeadlineSelectorProps {
   deadline: number;
   mode: DeadlineMode;
   onChange: (mode: DeadlineMode, deadline: number) => void;
+  allowInvalidSelection?: boolean;
   serverPolicy?: {
     window: ReturnType<typeof getDeadlineWindow>;
     format: (timestamp: number, now: number) => string;
@@ -26,6 +27,7 @@ function DeadlineSelector({
   mode,
   onChange,
   serverPolicy,
+  allowInvalidSelection = false,
 }: DeadlineSelectorProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -42,7 +44,11 @@ function DeadlineSelector({
   const maximum = Math.floor(window.maximum / 60000) * 60000;
   const customDisabled = !window.canOpen || minimum > maximum;
   const draftTimestamp = serverPolicy ? serverPolicy.fromInput(draft) : new Date(draft).getTime();
-  const validDraft = draft !== '' && valid(draftTimestamp);
+  const validDraft =
+    draft !== '' &&
+    (allowInvalidSelection
+      ? Number.isFinite(draftTimestamp) && draftTimestamp >= minimum
+      : valid(draftTimestamp));
   const invalidPreset = !valid(presetTime(3));
   const openCustom = () => {
     if (customDisabled) return;
@@ -94,7 +100,7 @@ function DeadlineSelector({
             className="setup-chip"
             key={preset.mode}
             aria-pressed={mode === preset.mode}
-            disabled={!valid(presetTime(preset.hours))}
+            disabled={!allowInvalidSelection && !valid(presetTime(preset.hours))}
             onClick={() => onChange(preset.mode, presetTime(preset.hours))}
           >
             {preset.hours}시간 뒤
@@ -150,7 +156,7 @@ function DeadlineSelector({
             step={60}
             required
             min={toInput(minimum)}
-            max={toInput(maximum)}
+            max={allowInvalidSelection ? undefined : toInput(maximum)}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             aria-invalid={!validDraft}

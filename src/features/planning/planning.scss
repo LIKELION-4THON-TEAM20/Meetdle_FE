@@ -1,0 +1,13 @@
+.planning-status main {
+  padding: 28px;
+  display: grid;
+  gap: 20px;
+}
+.planning-notice {
+  margin-block: 12px;
+  color: #a12535;
+}
+.time-region-candidates__footer > button + button,
+.participation-status__footer > button + button {
+  margin-top: 12px;
+}
