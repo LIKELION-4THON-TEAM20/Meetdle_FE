@@ -49,7 +49,6 @@ function DeadlineSelector({
     (allowInvalidSelection
       ? Number.isFinite(draftTimestamp) && draftTimestamp >= minimum
       : valid(draftTimestamp));
-  const invalidPreset = !valid(presetTime(3));
   const openCustom = () => {
     if (customDisabled) return;
     const initial = Math.max(minimum, Math.min(maximum, Math.ceil(deadline / 60000) * 60000));
@@ -79,16 +78,6 @@ function DeadlineSelector({
         {format(deadline, now)}
       </button>
       <div className="setup-deadline__presets">
-        {serverPolicy && (
-          <button
-            type="button"
-            className="setup-chip"
-            aria-pressed={mode === 'serverDefault'}
-            onClick={() => onChange('serverDefault', window.minimum)}
-          >
-            기본 마감
-          </button>
-        )}
         {(
           [
             { mode: 'oneHour', hours: 1 },
@@ -116,18 +105,11 @@ function DeadlineSelector({
           직접 설정
         </button>
       </div>
-      <p className="registration-setup__help">
+      <p className="registration-setup__help setup-deadline__help">
         {serverPolicy
           ? `최소 ${serverPolicy.minimumMinutes}분 이상 열어둬야 해요. 최종 마감은 ${format(window.maximum, now)}이에요.`
           : '최소 1시간 이상 열어둬야 해요. 약속 시작 3시간 전에는 등록이 끝나야 해요.'}
       </p>
-      {invalidPreset && (
-        <p className="registration-setup__warning">
-          {serverPolicy
-            ? '이 프리셋은 서버의 마감 설정 범위를 벗어나요.'
-            : '이 프리셋은 약속 시작 3시간 전 마감 규칙과 맞지 않아 선택할 수 없어요.'}
-        </p>
-      )}
       {!valid(deadline) && (
         <p className="registration-setup__warning" role="status">
           사용 가능한 범위에서 마감 일시를 다시 선택해주세요.

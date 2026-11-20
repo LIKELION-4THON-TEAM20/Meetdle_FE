@@ -10,7 +10,7 @@ export default function AuthStatus({
   onRetry?: () => void;
 }) {
   return (
-    <RequestStatusPage footer={onRetry ? <Link to={PATHS.home}>홈으로 가기</Link> : undefined}>
+    <RequestStatusPage footer={onRetry ? <Link to={PATHS.home}>홈으로 돌아가기↗︎</Link> : undefined}>
       <RequestStatus
         title={message}
         loading={!onRetry}

@@ -223,7 +223,7 @@ export default function ServerRegistrationSetup({
         {insufficient && (
           <p className="registration-setup__banner registration-setup__banner--blocked">
             마감 이후 약속까지 남은 시간이 짧아 장소 등록을 진행하기 어려워요. 마감을 앞당기거나
-            후보 날짜를 연장해주세요.
+            약속 시간을 다시 선택해주세요.
           </p>
         )}
         {window.canOpen && (

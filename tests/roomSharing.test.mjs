@@ -195,3 +195,37 @@ test('prepared share calls SDK synchronously in the click stack and reports miss
     delete globalThis.window;
   }
 });
+
+test('1119 reminder options use stage-specific copy and only actual server deadlines', async () => {
+  const { nudgeOptions, nudgeTitle, isReminder } = await vite.ssrLoadModule(
+    '/src/features/sharing/nudgeModel.ts',
+  );
+  const input = buildShareMessage(room, 'inputReminder', url, ['민우']);
+  const options = nudgeOptions(input);
+  assert.equal(options[0], '얼른 입력 안하면 우리끼리 정한다~');
+  assert.match(options[1], /민우야/);
+  assert.ok(!options.join('').includes('@시간'));
+  const registration = buildShareMessage(room, 'registrationReminder', url, ['하늘']);
+  assert.ok(
+    nudgeOptions(registration)[0].includes(
+      registration.rows.find((row) => row.label === '등록 마감').value,
+    ),
+  );
+  assert.equal(nudgeTitle('votingReminder'), '투표 안 한 친구 재촉하기');
+  assert.equal(isReminder('finalResult'), false);
+});
+
+test('custom reminder text preserves verified link, CTA, progress and SDK length limit', async () => {
+  const { editedNudge } = await vite.ssrLoadModule('/src/features/sharing/nudgeModel.ts');
+  const original = buildShareMessage(room, 'inputReminder', url, ['하늘']);
+  const edited = editedNudge(original, '  친구들아 얼른 입력하자!  ');
+  assert.equal(edited.description, '친구들아 얼른 입력하자!');
+  assert.match(edited.text, /친구들아 얼른 입력하자!/);
+  assert.equal(edited.url, original.url);
+  assert.equal(edited.buttonTitle, original.buttonTitle);
+  assert.deepEqual(edited.rows, original.rows);
+  assert.equal(original.description === edited.description, false);
+  assert.throws(() => editedNudge(original, '   '));
+  assert.throws(() => editedNudge(original, '가'.repeat(121)));
+  assert.ok(editedNudge(original, '가'.repeat(120)).text.length <= 200);
+});

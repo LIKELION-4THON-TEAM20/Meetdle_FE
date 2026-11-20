@@ -1,3 +1,4 @@
+import { sortPlaceCategories } from '../places/categoryOrder';
 import type { RoomState } from '../../api/types';
 import { HOUR } from '../../pages/PlaceRegistrationSetup/deadlineUtils';
 
@@ -15,8 +16,13 @@ export function registrationFlow(room: RoomState, now: number) {
     !!registration &&
     !registration.closedAt &&
     now < closesAt;
-  const closed = room.phase === 'PLACE_SUBMISSION_CLOSED' && !!registration;
-  const rows = (registration?.categories ?? [])
+  // The server can expose post-deadline actions before its phase label catches up.
+  // Elapsed time never grants an action: each operation still requires allowedActions.
+  const closed = !!registration && (
+    room.phase === 'PLACE_SUBMISSION_CLOSED' ||
+    (room.phase === 'PLACE_SUBMISSION_OPEN' && (!!registration.closedAt || now >= closesAt))
+  );
+  const rows = sortPlaceCategories(registration?.categories ?? [])
     .filter(({ available, required }) => available || required)
     .map((entry) => {
       const count =

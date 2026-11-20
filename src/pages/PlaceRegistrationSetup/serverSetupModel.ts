@@ -1,3 +1,4 @@
+import { sortPlaceCategories } from '../../features/places/categoryOrder';
 import type { CategoryAvailability, OpenRegistrationRequest, RoomState } from '../../api/types';
 import { ApiRequestError } from '../../api/client';
 import { toUiCategory } from '../../api/mappers';
@@ -52,7 +53,7 @@ export function formatSeoulDeadline(timestamp: number, now: number) {
 }
 
 export function setupCategories(availability: CategoryAvailability) {
-  return availability.categories.map((item) => ({
+  return sortPlaceCategories(availability.categories).map((item) => ({
     ...item,
     id: toUiCategory[item.category],
     label: labels[toUiCategory[item.category]],

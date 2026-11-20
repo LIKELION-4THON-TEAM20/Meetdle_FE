@@ -28,7 +28,7 @@ export function createPlaceMap(
   const center = new maps.LatLng(area.center.latitude, area.center.longitude);
   const map = new maps.Map(node, {
     center,
-    level: 6,
+    level: 4,
     draggable: true,
     scrollwheel: true,
     keyboardShortcuts: true,
@@ -55,15 +55,9 @@ export function createPlaceMap(
   const onCluster = (cluster: Cluster) => map.setBounds(cluster.getBounds(), 32, 32, 32, 32);
   maps.event.addListener(clusterer, 'clusterclick', onCluster);
   const fit = () => {
-    const bounds = circle.getBounds();
-    map.setBounds(bounds, 12, 12, 12, 12);
-    const projection = map.getProjection();
-    const west = projection.containerPointFromCoords(bounds.getSouthWest());
-    const east = projection.containerPointFromCoords(bounds.getNorthEast());
-    // SDK zoom levels are discrete: the next wider level can leave the circle half-sized.
-    if (Math.abs(east.x - west.x) < node.clientWidth * 0.8) {
-      map.setLevel(Math.max(1, map.getLevel() - 1));
-    }
+    map.setCenter(center);
+    map.setLevel(4);
+    shade.update();
   };
   fit();
   let previousPlaces: readonly RecommendedPlace[] | null = null;
@@ -89,7 +83,14 @@ export function createPlaceMap(
       selectedId: string | null,
       registeredIds: readonly string[] = [],
     ) {
-      if (places !== previousPlaces) {
+      const sameMarkers = previousPlaces?.length === places.length && places.every((place, index) => {
+        const previous = previousPlaces![index];
+        return place.id === previous.id && place.name === previous.name &&
+          place.categoryId === previous.categoryId &&
+          place.coordinates.latitude === previous.coordinates.latitude &&
+          place.coordinates.longitude === previous.coordinates.longitude;
+      });
+      if (!sameMarkers) {
         clearMarkers();
         previousPlaces = places;
         markers = places.map((place) => {
@@ -118,6 +119,7 @@ export function createPlaceMap(
         });
         clusterer.addMarkers(markers.map(({ marker }) => marker));
       }
+      previousPlaces = places;
       for (const entry of markers) {
         const isSelected = entry.id === selectedId;
         const isRegistered = registeredIds.includes(entry.id);
