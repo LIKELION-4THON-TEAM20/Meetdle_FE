@@ -60,6 +60,8 @@ export function canCompleteRegistration(state: RoomState) {
   return !!state.registration && registeredCandidates(state).length > 0;
 }
 
+export class RegistrationConfirmationPending extends Error {}
+
 export function createApiExplorationRepository(roomId: string) {
   if (!isServerRoomId(roomId)) throw new TypeError('Expected a server room UUID');
   let current: RoomState | undefined;
@@ -75,6 +77,13 @@ export function createApiExplorationRepository(roomId: string) {
       throw new ApiRequestError(null, { code: 'SESSION_CHANGED', message: 'Session changed' });
   }
   const picks = new Map<string, PlaceSearchItem>();
+  const confirmedPicks = new Map<string, string>();
+  function findRegisteredPlace(state: RoomState, key: string) {
+    const candidateId = confirmedPicks.get(key);
+    return registeredCandidates(state).find(
+      (candidate) => candidate.candidateId === candidateId || placeKey(candidate.place) === key,
+    );
+  }
   let mutation: { execute(): Promise<RoomState> } | undefined;
   async function load(signal?: AbortSignal) {
     const state = await getRoomState(roomId, signal);
@@ -83,6 +92,7 @@ export function createApiExplorationRepository(roomId: string) {
     if (state.registration) registeredCandidates(state);
     await assertOwner();
     signal?.throwIfAborted();
+    if (current?.registration?.round !== state.registration?.round) confirmedPicks.clear();
     current = state;
     searchGeneration++;
     picks.clear();
@@ -106,6 +116,7 @@ export function createApiExplorationRepository(roomId: string) {
   ) {
     if (mutation) throw new Error('이전 요청의 결과를 먼저 확인해주세요.');
     let attempted = false;
+    let acknowledged = false;
     let rejected: unknown;
     let pending: Promise<RoomState> | undefined;
     mutation = {
@@ -118,6 +129,7 @@ export function createApiExplorationRepository(roomId: string) {
             try {
               const response = await handle.execute();
               accepted?.(response);
+              acknowledged = true;
             } catch (error) {
               if (
                 !(error instanceof ApiRequestError) ||
@@ -127,16 +139,31 @@ export function createApiExplorationRepository(roomId: string) {
               throw error;
             }
           }
+          if (rejected) throw rejected;
           // The write can finish before A08 reflects the candidate. Confirm via
           // bounded GET retries while keeping this write handle single-use.
           for (let attempt = 0; ; attempt++) {
-            const fresh = await load();
-            if (rejected) throw rejected;
+            const fresh = await load().catch((error: unknown) => {
+              if (
+                acknowledged &&
+                error instanceof ApiRequestError &&
+                (error.code === 'NETWORK_ERROR' || (error.status !== null && error.status >= 500))
+              )
+                throw new RegistrationConfirmationPending(
+                  '서버가 요청을 수락했어요. 최신 등록 현황을 다시 조회해주세요.',
+                  { cause: error },
+                );
+              throw error;
+            });
             const sameRound = fresh.registration?.round === state.registration!.round;
             if (sameRound && matches(fresh)) {
               mutation = undefined;
               return fresh;
             }
+            if (sameRound && attempt >= 3 && acknowledged)
+              throw new RegistrationConfirmationPending(
+                '서버가 요청을 수락했어요. 최신 등록 현황이 아직 조회되지 않아 다시 확인이 필요해요.',
+              );
             if (!sameRound || attempt >= 3)
               throw new Error('서버의 등록 상태가 요청과 달라요. 최신 상태를 다시 확인해주세요.');
             await new Promise(resolve => setTimeout(resolve, 200 * (attempt + 1)));
@@ -151,8 +178,11 @@ export function createApiExplorationRepository(roomId: string) {
   }
   return {
     async open(signal?: AbortSignal) {
-      owner = await getSession();
+      const session = await getSession();
       signal?.throwIfAborted();
+      if (session.user.userId !== owner?.user.userId || session.csrfToken !== owner.csrfToken)
+        confirmedPicks.clear();
+      owner = session;
       const fresh = await load(signal);
       mutation = undefined;
       return fresh;
@@ -206,6 +236,7 @@ export function createApiExplorationRepository(roomId: string) {
       else for (const item of result.items) picks.set(placeKey(item.place), item);
       return result;
     },
+    findRegisteredPlace,
     nominate(category: Category, key: string, now: number) {
       const state = stateForEdit('EDIT_NOMINATION', now);
       const item = picks.get(key);
@@ -213,10 +244,12 @@ export function createApiExplorationRepository(roomId: string) {
         !state.registration!.categories.some((c) => c.category === category && c.available) ||
         item?.place.category !== category ||
         !item.registrable ||
-        !item.pickToken
+        !item.pickToken ||
+        findRegisteredPlace(state, key)
       ) {
         throw new Error('등록 가능한 검색 결과를 다시 선택해주세요.');
       }
+      const previousIds = new Set(registeredCandidates(state).map((c) => c.candidateId));
       let candidateId: string | undefined;
       return makeMutation(
         state,
@@ -225,10 +258,16 @@ export function createApiExplorationRepository(roomId: string) {
           category,
           pickToken: item.pickToken,
         }),
-        (fresh) =>
-          registeredCandidates(fresh).some(
-            (c) => placeKey(c.place) === key && (!candidateId || c.candidateId === candidateId),
-          ),
+        (fresh) => {
+          const candidate = registeredCandidates(fresh).find((c) =>
+            candidateId
+              ? c.candidateId === candidateId
+              : !previousIds.has(c.candidateId) && placeKey(c.place) === key,
+          );
+          if (!candidate) return false;
+          confirmedPicks.set(key, candidate.candidateId);
+          return true;
+        },
         (response) => {
           const id = (response as { candidateId?: unknown })?.candidateId;
           if (typeof id !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id))
