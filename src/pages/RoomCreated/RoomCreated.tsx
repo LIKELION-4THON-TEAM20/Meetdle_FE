@@ -10,10 +10,11 @@ import type { MeetingInfo } from './types';
 import { useRoomState } from '../../features/serverRoom/useRoomState';
 import { serverRoomUrl, serverScreenUrl, roomScreen } from '../../features/serverRoom/routing';
 import { RoomRequestStatus } from '../../features/serverRoom/RoomStatus';
-import { prepareKakaoShare, shareKakaoInvite } from '../../features/serverRoom/kakaoInviteShare';
+import { prepareKakaoShare } from '../../features/serverRoom/kakaoInviteShare';
 import type { CreateRoomResponse } from '../../api/types';
 import Toast, { type ToastMessage } from '../../components/common/Toast/Toast';
 import './RoomCreated.scss';
+import RoomShareDialog from '../../features/sharing/RoomShareDialog';
 
 function CreatedView({
   meeting,
@@ -75,6 +76,7 @@ export function ServerRoomCreated({ roomId }: { roomId: string }) {
   const state = useRoomState(roomId, true);
   const { state: navigation } = useLocation();
   const response = navigation?.createdRoom as CreateRoomResponse | undefined;
+  const [shareOpen, setShareOpen] = useState(false);
   const [message, setMessage] = useState<ToastMessage | null>(null);
   const dismiss = useCallback(() => setMessage(null), []);
   const room = state.room;
@@ -112,41 +114,38 @@ export function ServerRoomCreated({ roomId }: { roomId: string }) {
     participantCount: room.joinedCount,
   };
   return (
-    <CreatedView
-      meeting={meeting}
-      inviteCode={available ? invite.code : undefined}
-      inviteUrl={available ? invite.inviteUrl : undefined}
-      share={() => {
-        if (!available) return;
-        void shareKakaoInvite(meeting.name, invite.code, invite.inviteUrl).catch(() =>
-          setMessage({
-            tone: 'error',
-            title: '카카오톡 공유를 열지 못했어요.',
-            description: '초대 링크를 복사해 공유해주세요.',
-          }),
-        );
-      }}
-      copy={() => {
-        if (!available) return;
-        void (async () => {
-          try {
-            await navigator.clipboard.writeText(invite.inviteUrl);
-            setMessage({
-              tone: 'success',
-              title: '초대 링크를 복사했어요.',
-              description: invite.inviteUrl,
-            });
-          } catch {
-            setMessage({
-              tone: 'error',
-              title: '링크를 복사하지 못했어요.',
-              description: '브라우저의 클립보드 권한을 확인해주세요.',
-            });
-          }
-        })();
-      }}
-      message={message}
-      dismiss={dismiss}
-    />
+    <>
+      {' '}
+      <CreatedView
+        meeting={meeting}
+        inviteCode={available ? invite.code : undefined}
+        inviteUrl={available ? invite.inviteUrl : undefined}
+        share={() => setShareOpen(true)}
+        copy={() => {
+          if (!available) return;
+          void (async () => {
+            try {
+              await navigator.clipboard.writeText(invite.inviteUrl);
+              setMessage({
+                tone: 'success',
+                title: '초대 링크를 복사했어요.',
+                description: invite.inviteUrl,
+              });
+            } catch {
+              setMessage({
+                tone: 'error',
+                title: '링크를 복사하지 못했어요.',
+                description: '브라우저의 클립보드 권한을 확인해주세요.',
+              });
+            }
+          })();
+        }}
+        message={message}
+        dismiss={dismiss}
+      />
+      {shareOpen && (
+        <RoomShareDialog roomId={roomId} kind="invite" onClose={() => setShareOpen(false)} />
+      )}
+    </>
   );
 }

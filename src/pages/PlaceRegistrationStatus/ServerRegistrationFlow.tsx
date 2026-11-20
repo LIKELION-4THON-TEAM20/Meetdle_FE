@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router';
 import { ApiRequestError } from '../../api/client';
 import { roomMutations } from '../../api/rooms';
 import type { RoomState } from '../../api/types';
+import RoomShareButton from '../../features/sharing/RoomShareButton';
+import { rememberShareNotice } from '../../features/sharing/shareNotice';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
 import Modal from '../../components/common/Modal/Modal';
@@ -198,6 +200,8 @@ export default function ServerRegistrationFlow({
         }
         const response = await retry.current.handle.execute();
         if ((intent === 'EXTEND' || intent === 'MINI_TIMER') && closesAt)
+          rememberShareNotice(latest, { kind: 'registrationExtended', round, closesAt });
+        if ((intent === 'EXTEND' || intent === 'MINI_TIMER') && closesAt)
           setDismissedPrompt(`${round}:${closesAt}:PROGRESS`);
         onAccepted(latest.revision);
         return response;
@@ -356,6 +360,11 @@ export default function ServerRegistrationFlow({
         {error && <p role="alert">{error}</p>}
       </main>
       <footer className={`${rootClass}__footer`}>
+        {status.host && status.open && (
+          <RoomShareButton room={room} kind="registrationRequest" disabled={busy || state.loading}>
+            장소 등록 안내 공유하기
+          </RoomShareButton>
+        )}
         {busy && <p role="status">요청을 처리 중이에요.</p>}
         {status.open &&
           participants.some(

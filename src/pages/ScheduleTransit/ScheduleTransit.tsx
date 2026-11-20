@@ -36,6 +36,7 @@ interface ScheduleTransitProps {
   onReload?: () => void;
   onViewStatus?: () => void;
   onBack?: () => void;
+  shareAction?: import('react').ReactNode;
 }
 
 function ScheduleTransit({
@@ -51,6 +52,7 @@ function ScheduleTransit({
   onReload,
   onViewStatus,
   onBack,
+  shareAction,
 }: ScheduleTransitProps) {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Set<AvailabilityCellKey>>(
@@ -114,6 +116,7 @@ function ScheduleTransit({
               <h2>가능 시간 + 이동 정보 입력</h2>
               <p>가능한 시간대와 이동 정보를 알려주세요</p>
             </div>
+            {shareAction}
             <section
               className="schedule-transit__availability"
               aria-labelledby="availability-title"

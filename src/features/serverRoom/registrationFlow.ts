@@ -45,10 +45,14 @@ export function registrationFlow(room: RoomState, now: number) {
     canMini:
       host &&
       open &&
-      completed > capacity / 2 &&
-      completed < members &&
+      completed >= Math.ceil(capacity / 2) &&
+      completed < capacity &&
       room.allowedActions.includes('START_MINI_TIMER'),
-    canExtend: host && closed && room.allowedActions.includes('EXTEND_COLLECTION'),
+    canExtend:
+      host &&
+      closed &&
+      (completed < capacity || missing.length > 0) &&
+      room.allowedActions.includes('EXTEND_COLLECTION'),
     canVote:
       host &&
       closed &&

@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router';
 import { ApiRequestError } from '../../api/client';
 import { roomMutations } from '../../api/rooms';
 import type { RoomState, VoteDecisionRequest } from '../../api/types';
+import RoomShareButton from '../../features/sharing/RoomShareButton';
+import { rememberShareNotice } from '../../features/sharing/shareNotice';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
 import { estimateServerNow } from '../../features/serverRoom/roomState';
@@ -106,6 +108,8 @@ export default function ServerVoteStatus({
           if (retry.current?.signature !== signature)
             retry.current = { signature, handle: roomMutations.decideVote(latest.roomId, body) };
           await retry.current.handle.execute();
+          if (action === 'EXTEND' && body.action === 'EXTEND')
+            rememberShareNotice(latest, { kind: 'votingExtended', round, closesAt: body.closesAt });
           setAccepted(true);
         },
       );
@@ -205,6 +209,11 @@ export default function ServerVoteStatus({
         {error && <p role="alert">{error}</p>}
       </main>
       <footer className="vote-status__footer">
+        {host && open && (
+          <RoomShareButton room={room} kind="votingRequest" disabled={blocked}>
+            투표 안내 공유하기
+          </RoomShareButton>
+        )}
         {busy && <p role="status">요청을 처리 중이에요.</p>}
         {(accepted || state.error || !data) && (
           <Button disabled={busy || state.loading} onClick={() => void state.refresh()}>

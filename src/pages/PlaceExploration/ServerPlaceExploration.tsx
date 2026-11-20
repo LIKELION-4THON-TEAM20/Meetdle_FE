@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { getSession } from '../../api/auth';
 import { api, ApiRequestError } from '../../api/client';
 import type { Category, PlaceSearchResponse, RoomState, SessionResponse } from '../../api/types';
+import RoomShareButton from '../../features/sharing/RoomShareButton';
 import Button from '../../components/common/Button/Button';
 import Modal from '../../components/common/Modal/Modal';
 import Header from '../../components/common/Header/Header';
@@ -314,6 +315,11 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
         )}
       </main>
       <footer className="place-exploration__footer">
+        {state?.me.role === 'HOST' && state.phase === 'PLACE_SUBMISSION_OPEN' && (
+          <RoomShareButton room={state} kind="registrationRequest" disabled={busy || loading}>
+            장소 등록 안내 공유하기
+          </RoomShareButton>
+        )}
         {state?.registration && !canCompleteRegistration(state) && (
           <p>장소 후보를 한 곳 이상 등록하면 완료할 수 있어요.</p>
         )}

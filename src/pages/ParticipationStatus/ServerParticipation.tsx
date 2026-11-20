@@ -1,18 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import type { RoomShare, RoomState } from '../../api/types';
-import { getRoomShare } from '../../api/rooms';
+import type { RoomState } from '../../api/types';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
 import Modal from '../../components/common/Modal/Modal';
-import { prepareKakaoShare, shareKakaoText } from '../../features/serverRoom/kakaoInviteShare';
+import RoomShareDialog from '../../features/sharing/RoomShareDialog';
 import { serverScreenUrl } from '../../features/serverRoom/routing';
 import type { useRoomState } from '../../features/serverRoom/useRoomState';
 import { PATHS } from '../../router/paths';
 import ParticipantList from './components/ParticipantList';
 import ParticipationSummary from './components/ParticipationSummary';
 import IncompleteParticipantsModal from './components/IncompleteParticipantsModal';
-import ParticipationShareModal from './components/ParticipationShareModal';
 import {
   createParticipationCommands,
   participationError,
@@ -40,13 +38,6 @@ export default function ServerParticipation({
   const running = useRef(false);
   const [error, setError] = useState('');
   const [shareKind, setShareKind] = useState<ShareKind | null>(null);
-  const [share, setShare] = useState<RoomShare | null>(null);
-  const [shareError, setShareError] = useState('');
-  const [sharing, setSharing] = useState(false);
-  const shareRequest = useRef<AbortController | null>(null);
-  const sending = useRef(false);
-  useEffect(() => () => shareRequest.current?.abort(), []);
-
   const run = async (intent: 'start' | 'calculate') => {
     if (running.current || state.loading) return;
     running.current = true;
@@ -61,56 +52,6 @@ export default function ServerParticipation({
     } finally {
       running.current = false;
       setBusy(false);
-    }
-  };
-
-  const closeShare = () => {
-    shareRequest.current?.abort();
-    setShareKind(null);
-    setShare(null);
-    setShareError('');
-    setSharing(false);
-  };
-
-  const loadShare = async (kind: ShareKind) => {
-    if (kind === 'reminder' ? !model.canRemind : !model.canNotifyHost) return;
-    shareRequest.current?.abort();
-    const request = new AbortController();
-    shareRequest.current = request;
-    setShareKind(kind);
-    setShare(null);
-    setShareError('');
-    setSharing(true);
-    try {
-      const purpose = kind === 'reminder' ? 'INPUT' : 'HOST';
-      const result = await getRoomShare(room.roomId, purpose, request.signal);
-      if (request.signal.aborted) return;
-      if (result.purpose !== purpose) throw new Error('Unexpected share purpose');
-      setShare(result);
-      void prepareKakaoShare().catch(() => undefined);
-    } catch (error) {
-      if (!request.signal.aborted) setShareError(participationError(error));
-    } finally {
-      if (!request.signal.aborted) setSharing(false);
-    }
-  };
-
-  const message = share?.messages.find(({ id }) => id === 'DEFAULT') ?? share?.messages[0];
-  const send = async () => {
-    if (!share || !message || !share.recipients.length || sending.current) return;
-    const signal = shareRequest.current?.signal;
-    sending.current = true;
-    setSharing(true);
-    setShareError('');
-    try {
-      await shareKakaoText(message.text, share.shareUrl, signal);
-      if (!signal?.aborted) closeShare();
-    } catch {
-      if (!signal?.aborted)
-        setShareError('카카오톡 공유를 열지 못했어요. 잠시 후 다시 시도해주세요.');
-    } finally {
-      sending.current = false;
-      if (!signal?.aborted) setSharing(false);
     }
   };
 
@@ -205,10 +146,10 @@ export default function ServerParticipation({
               </Button>
             )}
             {model.canRemind && (
-              <Button onClick={() => void loadShare('reminder')}>입력 재촉하기</Button>
+              <Button onClick={() => setShareKind('reminder')}>입력 재촉하기</Button>
             )}
             {model.canNotifyHost && (
-              <Button onClick={() => void loadShare('notifyHost')}>방장에게 알리기</Button>
+              <Button onClick={() => setShareKind('notifyHost')}>방장에게 알리기</Button>
             )}
           </>
         )}
@@ -236,27 +177,13 @@ export default function ServerParticipation({
         onClose={() => setConfirm(null)}
         onProceed={() => void run('calculate')}
       />
-      <ParticipationShareModal
-        kind={activeShare}
-        onClose={closeShare}
-        disabled={sharing || !message || !share?.recipients.length}
-        onSend={() => void send()}
-      >
-        {sharing && <p role="status">공유 정보를 준비 중이에요.</p>}
-        {share && (
-          <p>
-            {share.recipients.length
-              ? `대상: ${share.recipients.map(({ nickname }) => nickname).join(', ')}`
-              : '공유할 대상이 없어요.'}
-          </p>
-        )}
-        {shareError && <p role="alert">{shareError}</p>}
-        {shareError && activeShare && !share && (
-          <Button variant="secondary" onClick={() => void loadShare(activeShare)}>
-            다시 시도
-          </Button>
-        )}
-      </ParticipationShareModal>
+      {activeShare && (
+        <RoomShareDialog
+          roomId={room.roomId}
+          kind={activeShare === 'reminder' ? 'inputReminder' : 'hostRequest'}
+          onClose={() => setShareKind(null)}
+        />
+      )}
     </div>
   );
 }

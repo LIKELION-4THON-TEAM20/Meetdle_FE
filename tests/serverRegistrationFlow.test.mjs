@@ -40,9 +40,9 @@ const room = {
   },
 };
 
-test('A26 rounds half up while MINI_TIMER requires strict majority and an incomplete round member', () => {
+test('A26 and MINI_TIMER require at least half; MINI_TIMER also needs an incomplete member', () => {
   assert.equal(registrationFlow(room, now).canClose, true);
-  assert.equal(registrationFlow(room, now).canMini, false);
+  assert.equal(registrationFlow(room, now).canMini, true);
   const three = {
     ...room,
     registration: { ...room.registration, progress: { completedCount: 3, capacity: 4 } },
@@ -55,7 +55,10 @@ test('A26 rounds half up while MINI_TIMER requires strict majority and an incomp
   assert.equal(registrationFlow({ ...three, me: { role: 'MEMBER' } }, now).canClose, false);
   assert.equal(
     registrationFlow(
-      { ...three, registration: { ...three.registration, completion: [{}, {}, {}] } },
+      {
+        ...three,
+        registration: { ...three.registration, progress: { completedCount: 4, capacity: 4 } },
+      },
       now,
     ).canMini,
     false,
@@ -169,4 +172,31 @@ test('등록 마감 검토 화면은 진행 중에도 열고 전원 완료 시 �
     ),
     '/rooms/vote/start',
   );
+});
+
+test('마감 후 연장은 미완료자가 있거나 필수 후보가 비어 있어야 한다', () => {
+  const closed = {
+    ...room,
+    phase: 'PLACE_SUBMISSION_CLOSED',
+    allowedActions: ['EXTEND_COLLECTION'],
+  };
+  assert.equal(registrationFlow(closed, now).canExtend, true);
+  const allDone = {
+    ...closed,
+    registration: { ...closed.registration, progress: { completedCount: 4, capacity: 4 } },
+  };
+  assert.equal(registrationFlow(allDone, now).canExtend, false);
+  assert.equal(
+    registrationFlow(
+      { ...allDone, registration: { ...allDone.registration, categoryCounts: [] } },
+      now,
+    ).canExtend,
+    true,
+  );
+  assert.equal(registrationFlow({ ...closed, allowedActions: [] }, now).canExtend, false);
+  const belowHalf = {
+    ...room,
+    registration: { ...room.registration, progress: { completedCount: 1, capacity: 4 } },
+  };
+  assert.equal(registrationFlow(belowHalf, now).canMini, false);
 });

@@ -7,6 +7,7 @@ import Header from '../../components/common/Header/Header';
 import { TimeRegionCandidatesView } from '../../pages/TimeRegionCandidates/TimeRegionCandidates';
 import type { CandidateConfirmationRequest } from '../../pages/TimeRegionCandidates/types';
 import { candidatesForTimeReselection } from './timeReselection';
+import { rememberShareNotice } from '../sharing/shareNotice';
 import { PATHS } from '../../router/paths';
 import { serverScreenUrl } from '../serverRoom/routing';
 import { planningCandidates, meetingSelection } from './model';
@@ -100,6 +101,11 @@ export function ServerCandidates({ state, reload }: { state: RoomState; reload: 
     try {
       operation.current ??= makeOperation();
       const fresh = await operation.current.execute();
+      if (state.meeting && fresh.meeting && state.meeting.selectionId !== fresh.meeting.selectionId)
+        rememberShareNotice(fresh, {
+          kind: 'meetingChanged',
+          selectionId: fresh.meeting.selectionId,
+        });
       if (alive.current)
         navigate(path(target), { state: { meeting: fresh.meeting, roomId: fresh.roomId } });
     } catch (cause) {

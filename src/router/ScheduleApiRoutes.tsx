@@ -1,3 +1,4 @@
+import RoomShareButton from '../features/sharing/RoomShareButton';
 import RoomNotFound from '../components/common/RoomNotFound/RoomNotFound';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
@@ -70,6 +71,13 @@ function ServerScheduleForm({
     <ScheduleTransit
       room={{ id: room.roomId, candidateDates: dates }}
       stations={[]}
+      shareAction={
+        room.me.role === 'HOST' ? (
+          <RoomShareButton room={room} kind="inputRequest" disabled={freeze}>
+            조건 입력 요청 공유하기
+          </RoomShareButton>
+        ) : undefined
+      }
       initialInput={restored}
       renderStationSearch={(kind, value, onChange) => (
         <ApiStationSearch kind={kind} value={value} onChange={onChange} />
