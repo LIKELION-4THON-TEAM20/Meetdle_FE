@@ -1,0 +1,132 @@
+@use '../../styles/setting/variables' as variables;
+
+.participation-status {
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    padding: 20px 27px 24px;
+  }
+
+  &__summary {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+
+    h2 {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0;
+      color: #03000f;
+      font-size: 20px;
+      font-weight: variables.$font-weight-bold;
+      line-height: 28px;
+
+      span {
+        color: #7c5cff;
+        font-size: 24px;
+        font-weight: 800;
+        line-height: 32px;
+      }
+    }
+
+    p {
+      margin: 0;
+      color: #969696;
+      font-size: 14px;
+      line-height: 22px;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__progress {
+    width: 100%;
+    height: 8px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #eeeef0;
+
+    span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: #7c5cff;
+    }
+  }
+
+  &__footer {
+    display: grid;
+    gap: 10px;
+    padding: 14px 27px max(28px, env(safe-area-inset-bottom));
+    background: variables.$color-white;
+
+    &::before {
+      display: block;
+      height: 1px;
+      background: #d5d4d9;
+      content: '';
+    }
+  }
+
+  &__footer .common-button {
+    font-weight: 500;
+
+    &:disabled {
+      background: #d9d9d8;
+      color: #969696;
+    }
+  }
+
+  &__footer .participation-status__proceed:disabled {
+    color: #757575;
+  }
+}
+
+.common-modal:has(> :is(.incomplete-participants-modal, .participation-share-modal))::backdrop {
+  background: rgb(217 217 217 / 75%);
+}
+
+.participation-share-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 300px;
+  padding: 20px 20px 19px;
+  border-radius: 16px;
+  box-shadow: 0 0 5px rgb(0 0 0 / 25%);
+  word-break: keep-all;
+
+  &__copy {
+    display: grid;
+    gap: 6px;
+  }
+
+  h2 {
+    margin: 0;
+    color: #1e1e1e;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 24px;
+  }
+
+  p {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+    line-height: 21px;
+  }
+
+  &__send.common-button {
+    flex-shrink: 0;
+    min-height: 48px;
+    padding: 12px;
+    border-radius: 6px;
+    background-color: #fee500;
+    color: #191919;
+    box-shadow: 0 0 2px rgb(151 80 43 / 20%);
+  }
+}

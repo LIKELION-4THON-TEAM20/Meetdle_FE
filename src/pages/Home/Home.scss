@@ -1,0 +1,453 @@
+@use '../../styles/setting/variables' as variables;
+
+.home-page {
+  padding-bottom: env(safe-area-inset-bottom);
+  &__content {
+    padding: 49px 27px 120px;
+  }
+  h1 {
+    margin: 0 0 24px;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 24px;
+  }
+  &__filters {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 36px;
+    button {
+      flex-shrink: 0;
+      height: 32px;
+      padding: 0 22px;
+      border: 0;
+      border-radius: 16px;
+      background: #c4c4c4;
+      color: variables.$color-white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button:first-child {
+      min-width: 70px;
+    }
+    button[aria-selected='true'] {
+      background: #7c5cff;
+    }
+  }
+  :is(button, a, [role='tabpanel']):focus-visible {
+    outline: 2px solid #7c5cff;
+    outline-offset: 3px;
+  }
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  &__results {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  &__empty {
+    color: #86817c;
+    font-size: 14px;
+    text-align: center;
+  }
+  &__floating-container {
+    position: fixed;
+    right: 0;
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    left: 0;
+    width: 100%;
+    max-width: 440px;
+    margin-inline: auto;
+    padding-inline: 20px;
+    pointer-events: none;
+  }
+  &__add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #7c5cff;
+    box-shadow: 0 0 24px rgb(62 39 17 / 15%);
+    cursor: pointer;
+    pointer-events: auto;
+    img {
+      display: block;
+    }
+  }
+}
+
+.appointment-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 13px;
+  border: 1px solid #f1e8ff;
+  border-radius: 16px;
+  &--completed {
+    border-color: #eae7e4;
+  }
+  &__details {
+    flex: 1;
+    min-width: 0;
+  }
+  &__title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    h2 {
+      overflow: hidden;
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 21px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+  &__badge {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: #f1e8ff;
+    color: #86817c;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 17px;
+  }
+  &--completed &__badge {
+    background: #86817c;
+    color: #d9d9d9;
+  }
+  &__bottom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  &__meta {
+    display: flex;
+    flex-shrink: 0;
+    gap: 8px;
+    color: #86817c;
+    font-size: 15px;
+    line-height: 18px;
+    > span {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    img {
+      display: block;
+    }
+  }
+  &__calendar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+  }
+  &__avatars {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+  }
+  &__avatar {
+    display: block;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border: 1.5px solid variables.$color-white;
+    border-radius: 50%;
+    background: #c4c4c4;
+    object-fit: cover;
+    + .appointment-card__avatar {
+      margin-left: -6px;
+    }
+  }
+  &__chevron {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    img {
+      display: block;
+    }
+  }
+}
+
+.add-appointment-sheet {
+  position: fixed;
+  inset: auto 0 0;
+  width: 100%;
+  max-width: 440px;
+  height: 222px;
+  max-height: calc(100dvh - env(safe-area-inset-top));
+  margin: 0 auto;
+  padding: 0 0 max(34px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  border: 0;
+  border-radius: 16px 16px 0 0;
+  background: variables.$color-white;
+  box-shadow: 0 0 20px rgb(21 21 23 / 17%);
+  color: variables.$color-black;
+  &::backdrop {
+    max-width: 440px;
+    margin-inline: auto;
+    background: rgb(217 217 217 / 75%);
+  }
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 68px;
+    padding: 0 25px;
+    h2 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: variables.$font-weight-bold;
+      line-height: 1.4;
+    }
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      margin-right: -8px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+    }
+  }
+  &__action {
+    img {
+      transform: rotate(180deg);
+    }
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 60px;
+    padding: 0 25px;
+    border: 0;
+    background: variables.$color-white;
+    color: #7b746a;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    &[aria-disabled='true'] {
+      cursor: default;
+    }
+  }
+  img {
+    display: block;
+  }
+  :is(button, a):focus-visible {
+    outline: 2px solid #7c5cff;
+    outline-offset: -3px;
+  }
+}
+
+@media (max-width: 359px) {
+  .home-page__filters {
+    button {
+      flex: 1;
+      padding-inline: 8px;
+    }
+    button:first-child {
+      min-width: 0;
+    }
+  }
+  .appointment-card {
+    gap: 4px;
+    padding-inline: 10px;
+    &__bottom-row {
+      flex-wrap: wrap;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .home-page button,
+  .add-appointment-sheet__action {
+    transition:
+      background-color 200ms ease,
+      transform 180ms ease;
+    &:not([aria-disabled='true']):active {
+      transform: scale(0.98);
+    }
+  }
+  .add-appointment-sheet[open] {
+    animation: sheet-enter 220ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  .add-appointment-sheet::backdrop {
+    animation: backdrop-enter 180ms ease;
+  }
+  @keyframes sheet-enter {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes backdrop-enter {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+.appointment-card-container {
+  position: relative;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+
+  &__link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  &:has(.appointment-card-delete--visible) .appointment-card {
+    // 삭제 영역의 너비는 드래그 거리에 맞춰 아래에서 조절한다.
+    background: #ededee;
+    border-color: #f4f3f1;
+    user-select: none;
+
+    h2 {
+      color: #969696;
+    }
+  }
+}
+
+.appointment-card-delete {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  // 클릭 시 transform: scale(...)이 적용돼도 중앙 정렬을 유지한다.
+  translate: 0 -50%;
+  cursor: pointer;
+
+  &--visible,
+  &:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  img {
+    display: block;
+  }
+}
+
+.appointment-delete-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 328px;
+  padding: 24px;
+  box-shadow:
+    -1px -1px 2px rgb(0 0 0 / 10%),
+    2px 2px 4px rgb(0 0 0 / 10%);
+
+  h2 {
+    margin: 0;
+    color: #03000f;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 26px;
+  }
+
+  p {
+    margin: 0;
+    color: #969696;
+    font-size: 14px;
+    line-height: 22px;
+  }
+
+  .common-button {
+    font-weight: 500;
+  }
+
+  .common-button--secondary {
+    background: #d9d9d8;
+  }
+
+  &--notice {
+    gap: 11px;
+    padding-block: 28px 27px;
+  }
+}
+
+.appointment-card-container {
+  .appointment-card {
+    padding-right: calc(13px + var(--delete-reveal, 0px));
+    transition:
+      padding-right 180ms ease,
+      background-color 180ms ease;
+  }
+
+  .appointment-card-delete {
+    opacity: var(--delete-opacity, 0);
+    clip-path: inset(0 0 0 calc(100% - var(--delete-reveal, 0px)));
+    transition:
+      opacity 180ms ease,
+      clip-path 180ms ease;
+
+    &:focus-visible {
+      opacity: 1;
+      clip-path: none;
+    }
+  }
+
+  &--dragging {
+    user-select: none;
+
+    .appointment-card,
+    .appointment-card-delete {
+      transition: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appointment-card-container .appointment-card,
+  .appointment-card-container .appointment-card-delete {
+    transition: none;
+  }
+}

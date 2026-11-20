@@ -1,0 +1,44 @@
+@use '../../../styles/setting/variables' as variables;
+
+.common-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 14px 20px;
+  border: 0;
+  border-radius: 12px;
+  color: variables.$color-white;
+  font-family: variables.$font-family-base;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  cursor: pointer;
+
+  &--primary {
+    background-color: #7c5cff;
+  }
+  &--secondary,
+  &:disabled {
+    background-color: #d5d4d9;
+  }
+  &:disabled {
+    color: #757575;
+    cursor: default;
+  }
+  &:focus-visible {
+    outline: 2px solid #7c5cff;
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      background-color 200ms ease,
+      color 200ms ease,
+      transform 180ms ease;
+    &:enabled:active {
+      transform: scale(0.98);
+    }
+  }
+}

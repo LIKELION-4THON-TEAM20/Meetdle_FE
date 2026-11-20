@@ -1,0 +1,51 @@
+.room-not-found {
+  padding: 0 27px max(62px, env(safe-area-inset-bottom));
+  color: #0b0a1a;
+
+  &__message {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-block: 32px;
+    text-align: center;
+    transform: translateY(-8px);
+
+    h1 {
+      margin: 32px 0 16px;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 25px;
+    }
+
+    p {
+      margin: 0;
+      color: #666;
+      font-size: 14px;
+      line-height: 20px;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__illustration {
+    flex-shrink: 0;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #eeedf0;
+  }
+
+  &__footer {
+    flex-shrink: 0;
+    text-align: center;
+
+    p {
+      margin: 12px 0 0;
+      color: #666;
+      font-size: 12px;
+      line-height: 18px;
+    }
+  }
+}

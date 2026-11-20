@@ -1,0 +1,265 @@
+@use '../../styles/setting/variables' as variables;
+
+.create-room {
+  color: #1e1e1e;
+
+  p,
+  h2,
+  h3 {
+    margin: 0;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+  button:focus-visible {
+    outline: 2px solid #7c5cff;
+    outline-offset: 3px;
+  }
+
+  &__form {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+  &__content {
+    padding: 20px 27px 24px;
+  }
+  &__intro {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 22px;
+    h2 {
+      color: #03000f;
+      font-size: 24px;
+      font-weight: variables.$font-weight-bold;
+      line-height: 32px;
+    }
+    p {
+      color: #969696;
+      font-size: 14px;
+      line-height: 22px;
+    }
+  }
+  &__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  &__field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 10px;
+  }
+  &__label {
+    color: #666;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+  }
+  &__name {
+    width: 100%;
+    min-width: 0;
+    height: 52px;
+    padding: 14px;
+    border: 0;
+    border-radius: 12px;
+    background: #eeeef0;
+    color: #1e1e1e;
+    outline: none;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  &__name::placeholder {
+    color: #969696;
+  }
+  &__date-help {
+    color: #999;
+    font-size: 13px;
+    line-height: 16px;
+  }
+  &__date-help:empty {
+    display: none;
+  }
+  &__capacity {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    legend {
+      margin-bottom: 10px;
+      padding: 0;
+    }
+  }
+  &__notice {
+    margin-top: 22px !important;
+    color: #969696;
+    font-size: 12px;
+    line-height: 18px;
+  }
+  &__footer {
+    margin-top: auto;
+    padding: 14px 27px max(28px, env(safe-area-inset-bottom));
+    background: variables.$color-white;
+    &::before {
+      display: block;
+      height: 1px;
+      margin-bottom: 10px;
+      background: #d5d4d9;
+      content: '';
+    }
+  }
+  &__sr-only {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.date-calendar {
+  -webkit-user-select: none;
+  user-select: none;
+  padding: 14px;
+  border-radius: 12px;
+  background: #fafafa;
+  &__navigation {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 24px;
+    margin-bottom: 4px;
+    font-size: 15px;
+    font-weight: 600;
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 24px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+    img {
+      display: block;
+    }
+  }
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    row-gap: 4px;
+  }
+  &__weekday,
+  &__empty,
+  &__day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 40px;
+    height: 32px;
+    justify-self: center;
+    font-size: 13px;
+  }
+  &__weekday {
+    color: #969696;
+  }
+  &__empty {
+    color: #eeeef0;
+  }
+  &__day {
+    padding: 0;
+    border: 0;
+    border-radius: 16px;
+    background: transparent;
+    color: #1e1e1e;
+    &:disabled {
+      color: #c4c4c4;
+    }
+    &--endpoint {
+      background: #7c5cff;
+      color: variables.$color-white;
+      font-weight: 600;
+    }
+    &--within {
+      background: #b9a8ff;
+      color: variables.$color-white;
+      font-weight: 600;
+    }
+  }
+}
+
+.capacity-picker {
+  position: relative;
+  height: 83px;
+  border-radius: 12px;
+  background: #fafafa;
+  &__highlight {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    width: 60px;
+    height: 51px;
+    transform: translateX(-50%);
+    border-radius: 14px;
+    background: #b9a8ff;
+    pointer-events: none;
+  }
+  &__scroll {
+    position: relative;
+    display: flex;
+    width: min(100%, 210px);
+    margin-inline: auto;
+    height: 100%;
+    align-items: center;
+    overflow-x: auto;
+    padding-inline: min(84px, calc(50% - 21px));
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    cursor: grab;
+    user-select: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    &:active {
+      cursor: grabbing;
+    }
+    &:focus-visible {
+      outline: 2px solid #7c5cff;
+      outline-offset: 3px;
+      border-radius: 12px;
+    }
+  }
+  &__number {
+    flex: 0 0 42px;
+    height: 51px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-weight: 600;
+    scroll-snap-align: center;
+    transition: color 140ms ease;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .create-room {
+    button:not(.common-button) {
+      transition:
+        background-color 200ms ease,
+        color 200ms ease,
+        transform 180ms ease,
+        opacity 180ms ease;
+    }
+    button:not(.common-button):enabled:active {
+      transform: scale(0.96);
+    }
+  }
+}

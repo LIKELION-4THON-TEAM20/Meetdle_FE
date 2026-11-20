@@ -1,0 +1,35 @@
+.room-recruitment {
+  &__intro {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    padding-block: 10px;
+    text-align: center;
+    word-break: keep-all;
+
+    h2 {
+      margin: 0;
+      color: #1e1e1e;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 30px;
+    }
+
+    p {
+      margin: 0;
+      color: #666;
+      font-size: 14px;
+      line-height: 21px;
+    }
+  }
+
+  &__icon {
+    display: grid;
+    width: 56px;
+    height: 56px;
+    place-items: center;
+    border-radius: 50%;
+    background: #f7f7f5;
+    font-size: 28px;
+  }
+}

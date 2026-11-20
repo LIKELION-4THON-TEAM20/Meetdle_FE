@@ -1,0 +1,52 @@
+﻿.meeting-info {
+  &__footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 27px max(28px, env(safe-area-inset-bottom));
+
+    &--divider::before {
+      height: 1px;
+      background: #d5d4d9;
+      content: '';
+    }
+  }
+
+  &__summary {
+    display: grid;
+    gap: 6px;
+    padding: 16px;
+    border-radius: 14px;
+    background: #fafafa;
+    overflow-wrap: anywhere;
+
+    h3 {
+      margin: 0;
+      color: #03000f;
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 26px;
+    }
+
+    p {
+      margin: 0;
+      color: #666;
+      font-size: 14px;
+      line-height: 22px;
+    }
+  }
+
+  &__notice {
+    margin: 0;
+    color: #969696;
+    font-size: 14px;
+    line-height: 22px;
+    word-break: keep-all;
+
+    &--waiting {
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 22px;
+    }
+  }
+}

@@ -1,0 +1,183 @@
+{
+  "source": "mock",
+  "roomId": "exploration-preview",
+  "currentUserId": "haneul",
+  "areaLabel": "왕십리역 근처",
+  "meetingAt": 1795192797893,
+  "deadline": 1795126327893,
+  "registrationOpen": true,
+  "area": {
+    "center": {
+      "latitude": 37.5619,
+      "longitude": 127.0377
+    },
+    "radiusMeters": 2500
+  },
+  "categories": [
+    {
+      "id": "restaurant",
+      "label": "식당",
+      "required": true
+    },
+    {
+      "id": "cafe",
+      "label": "카페",
+      "required": true
+    },
+    {
+      "id": "pub",
+      "label": "주점",
+      "required": false
+    },
+    {
+      "id": "culture",
+      "label": "문화시설",
+      "required": false
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "restaurant-a",
+      "name": "A 식당",
+      "categoryId": "restaurant",
+      "coordinates": {
+        "latitude": 37.5631,
+        "longitude": 127.0351
+      },
+      "distanceMeters": 320,
+      "address": "서울 성동구 (목 데이터)",
+      "kakaoPlaceId": null,
+      "kakaoMapUrl": "https://map.kakao.com/link/map/A%20%EC%8B%9D%EB%8B%B9,37.5631,127.0351",
+      "eligible": true
+    },
+    {
+      "id": "restaurant-b",
+      "name": "성수 갈비살집",
+      "categoryId": "restaurant",
+      "coordinates": {
+        "latitude": 37.5652,
+        "longitude": 127.039
+      },
+      "distanceMeters": 420,
+      "address": "서울 성동구 (목 데이터)",
+      "kakaoPlaceId": null,
+      "kakaoMapUrl": "https://map.kakao.com/link/map/%EC%84%B1%EC%88%98%20%EA%B0%88%EB%B9%84%EC%82%B4%EC%A7%91,37.5652,127.039",
+      "eligible": true
+    },
+    {
+      "id": "restaurant-c",
+      "name": "식당 C",
+      "categoryId": "restaurant",
+      "coordinates": {
+        "latitude": 37.5601,
+        "longitude": 127.034
+      },
+      "distanceMeters": 510,
+      "address": "서울 성동구 (목 데이터)",
+      "kakaoPlaceId": null,
+      "kakaoMapUrl": "https://map.kakao.com/link/map/%EC%8B%9D%EB%8B%B9%20C,37.5601,127.034",
+      "eligible": true
+    },
+    {
+      "id": "cafe-a",
+      "name": "성수동 브런치카페",
+      "categoryId": "cafe",
+      "coordinates": {
+        "latitude": 37.5638,
+        "longitude": 127.0335
+      },
+      "distanceMeters": 350,
+      "address": "서울 성동구 (목 데이터)",
+      "kakaoPlaceId": null,
+      "kakaoMapUrl": "https://map.kakao.com/link/map/%EC%84%B1%EC%88%98%EB%8F%99%20%EB%B8%8C%EB%9F%B0%EC%B9%98%EC%B9%B4%ED%8E%98,37.5638,127.0335",
+      "eligible": true
+    },
+    {
+      "id": "cafe-b",
+      "name": "B 카페",
+      "categoryId": "cafe",
+      "coordinates": {
+        "latitude": 37.568,
+        "longitude": 127.041
+      },
+      "distanceMeters": 780,
+      "address": "서울 성동구 (목 데이터)",
+      "kakaoPlaceId": null,
+      "kakaoMapUrl": "https://map.kakao.com/link/map/B%20%EC%B9%B4%ED%8E%98,37.568,127.041",
+      "eligible": true
+    },
+    {
+      "id": "pub-a",
+      "name": "A 주점",
+      "categoryId": "pub",
+      "coordinates": {
+        "latitude": 37.558,
+        "longitude": 127.036
+      },
+      "distanceMeters": 640,
+      "address": "서울 성동구 (목 데이터)",
+      "kakaoPlaceId": null,
+      "kakaoMapUrl": "https://map.kakao.com/link/map/A%20%EC%A3%BC%EC%A0%90,37.558,127.036",
+      "eligible": true
+    },
+    {
+      "id": "pub-b",
+      "name": "B 주점",
+      "categoryId": "pub",
+      "coordinates": {
+        "latitude": 37.56,
+        "longitude": 127.045
+      },
+      "distanceMeters": 880,
+      "address": "서울 성동구 (목 데이터)",
+      "kakaoPlaceId": null,
+      "kakaoMapUrl": "https://map.kakao.com/link/map/B%20%EC%A3%BC%EC%A0%90,37.56,127.045",
+      "eligible": true
+    },
+    {
+      "id": "culture-a",
+      "name": "언더스탠드에비뉴",
+      "categoryId": "culture",
+      "coordinates": {
+        "latitude": 37.558,
+        "longitude": 127.042
+      },
+      "distanceMeters": 610,
+      "address": "서울 성동구 (목 데이터)",
+      "kakaoPlaceId": null,
+      "kakaoMapUrl": "https://map.kakao.com/link/map/%EC%96%B8%EB%8D%94%EC%8A%A4%ED%83%A0%EB%93%9C%EC%97%90%EB%B9%84%EB%89%B4,37.558,127.042",
+      "eligible": true
+    }
+  ],
+  "registrations": [
+    {
+      "id": "mine-restaurant",
+      "userId": "haneul",
+      "placeId": "restaurant-a",
+      "categoryId": "restaurant"
+    }
+  ],
+  "participants": [
+    {
+      "id": "sangmin",
+      "name": "상민",
+      "status": "completed"
+    },
+    {
+      "id": "jieun",
+      "name": "지은",
+      "status": "completed"
+    },
+    {
+      "id": "haneul",
+      "name": "하늘",
+      "status": "inProgress"
+    },
+    {
+      "id": "yujin",
+      "name": "유진",
+      "status": "completed"
+    }
+  ],
+  "registeredPlaceCount": 8
+}

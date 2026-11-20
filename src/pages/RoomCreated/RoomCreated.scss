@@ -1,0 +1,87 @@
+@use '../../styles/setting/variables' as variables;
+
+.room-created {
+  .common-header__back path {
+    stroke-width: 1;
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    padding: 20px 27px 0;
+
+    .meeting-info-card {
+      border-color: #eaeaea;
+    }
+
+    .meeting-info-card__row--name,
+    .meeting-info-card__participants {
+      border-color: #d1d0d5;
+    }
+
+    .invite-code-copy {
+      background: #f5f3ff;
+    }
+  }
+
+  &__intro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+
+    h2 {
+      margin: 0;
+      color: #03000f;
+      font-size: 20px;
+      font-weight: variables.$font-weight-bold;
+      line-height: 28px;
+    }
+
+    p {
+      margin: 0;
+      color: #969696;
+      font-size: 14px;
+      line-height: 22px;
+      word-break: keep-all;
+    }
+  }
+
+  &__footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 38px 27px max(28px, env(safe-area-inset-bottom));
+    background: variables.$color-white;
+
+    &::before {
+      display: block;
+      height: 1px;
+      background: #d1d0d5;
+      content: '';
+    }
+  }
+
+  &__action {
+    font-weight: 500;
+
+    &--link {
+      background: #c1c1c1;
+    }
+  }
+
+  &__home-link {
+    display: inline-flex;
+    align-self: center;
+    gap: 3px;
+    margin-top: 14px;
+    color: #85817d;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 24px;
+    text-align: center;
+    text-decoration: none;
+  }
+}
