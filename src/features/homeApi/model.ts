@@ -1,5 +1,5 @@
 import { getTodayKey } from '../../pages/Home/appointment.utils';
-import type { MemberStatus, MyRoomSummary, Phase } from '../../api/types';
+import type { MemberSummary, MyRoomSummary, Phase } from '../../api/types';
 import type { Appointment } from '../../pages/Home/appointment.types';
 import { ApiRequestError } from '../../api/client';
 import { isServerRoomId } from '../../api/rooms';
@@ -26,7 +26,7 @@ export function phaseLabel(phase: Phase) {
   return PHASE_LABELS[phase];
 }
 export function roomParticipants(
-  room: { roomId: string; members?: MemberStatus[] | null },
+  room: { roomId: string; members?: Array<Omit<MemberSummary, 'profileImageUrl'> & { profileImageUrl?: string | null }> | null },
   expectedRoomId: string,
 ): Appointment['participants'] {
   if (room.roomId !== expectedRoomId)
@@ -63,7 +63,7 @@ export function toAppointment(room: MyRoomSummary): Appointment {
     name: room.title ?? '이름 없는 약속',
     date,
     status: room.phase === 'ENDED' ? 'completed' : 'in-progress',
-    participants: [],
+    participants: roomParticipants(room, room.roomId),
     participantCount: room.joinedCount,
     badgeLabel: phaseLabel(room.phase),
     canHide: isPastRoom(room),

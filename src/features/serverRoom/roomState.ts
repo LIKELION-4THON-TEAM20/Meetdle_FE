@@ -76,7 +76,7 @@ export function createRoomStateStore(roomId: string, read = getRoomState, client
     cancel();
     const controller = new AbortController();
     current = controller;
-    publish({ ...snapshot, error: null, loading: true });
+    publish({ ...snapshot, error: null, loading: snapshot.room === null });
     const task = Promise.resolve().then(async () => {
       try {
         if (checkSession) await client.getSession({ refresh: true });
@@ -122,7 +122,7 @@ export function createRoomStateStore(roomId: string, read = getRoomState, client
         try {
           if (scope !== start) throw new Error('The room session changed.');
           const value = await execute(room, receivedAt);
-          if (scope === start) await refresh({ replace: true });
+          if (scope === start) await refresh({ replace: true, checkSession: false });
           return value;
         } catch (error) {
           if (scope === start && error instanceof ApiRequestError && error.status === 409) {
@@ -130,7 +130,7 @@ export function createRoomStateStore(roomId: string, read = getRoomState, client
               ...snapshot,
               notice: '약속방 상태가 바뀌었어요. 최신 정보를 다시 확인해주세요.',
             });
-            await refresh({ replace: true });
+            await refresh({ replace: true, checkSession: false });
           }
           throw error;
         }

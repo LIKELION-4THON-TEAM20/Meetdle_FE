@@ -1,9 +1,11 @@
 import profileIcon from '../../../assets/icons/room-created/profile.svg';
+import type { MemberSummary } from '../../../api/types';
 import type { MeetingInfo } from '../types';
 import './MeetingInfoCard.scss';
 
 type MeetingInfoCardProps = {
   meeting: MeetingInfo;
+  members?: MemberSummary[];
 } & ({ variant?: 'host' } | { variant: 'participant'; hostName: string });
 
 function MeetingInfoCard(props: MeetingInfoCardProps) {
@@ -43,7 +45,9 @@ function MeetingInfoCard(props: MeetingInfoCardProps) {
                 {Array.from(
                   { length: Math.min(4, Math.max(0, meeting.participantCount)) },
                   (_, i) => (
-                    <span key={i} className="meeting-info-card__avatar-placeholder" />
+                    <span key={props.members?.[i]?.participantId ?? i} className="meeting-info-card__avatar-placeholder">
+                      {props.members?.[i]?.profileImageUrl && <img src={props.members[i].profileImageUrl!} alt="" onError={event => { event.currentTarget.style.visibility = 'hidden'; }} />}
+                    </span>
                   ),
                 )}
               </span>

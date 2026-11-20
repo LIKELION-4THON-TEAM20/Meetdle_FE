@@ -79,7 +79,7 @@
 ## SCREEN 02 서버 연동과 화면 간 계약
 
 - SCREEN 01의 A05 성공 처리에서 `createdRoomDestination(response)`를 사용한다. 반환하는 `{ to, state }`를 `navigate(to, { state })`에 전달한다. 주소는 `/rooms/create/complete?mode=api&roomId=<서버 UUID>`이고 state는 `{ createdRoom: A05 응답 }`이다. 02는 A08에서 인증·방 ID·방장 권한과 현재 초대를 확인한 다음 일치하는 A05 초대 데이터를 사용한다. 새로고침과 직접 진입은 A08만으로 복원한다.
-- 공개 초대는 `/invite/:inviteToken`이다. A03으로 세션을 확인하고 A06 미리보기를 조회한다. 비로그인 CTA는 A01에 `inviteToken`과 현재 `returnOrigin`을 전달한다. A02 복귀 후 A03을 다시 조회한다. 로그인 사용자는 A25로 코드를 검증한 뒤 별도 버튼에서 A07을 호출한다. 증표는 메모리에서만 보관한다.
+- 공개 초대는 `/invite/:inviteToken`이다. A03으로 세션을 확인하고 A06 미리보기를 조회한다. 비로그인 CTA는 A01에 `inviteToken`과 현재 `returnOrigin`을 전달한다. A02 복귀 후 A03을 다시 조회한다. 로그인 사용자는 A25에 `{ inviteToken }`만 보내 가입 증표를 발급받고, 참여하기 버튼에서 A07을 호출한다. 홈에서 코드를 입력한 경우는 기존 `{ code }` 요청을 유지한다. 증표는 메모리에서만 보관한다.
 - A06·A25가 `MEMBER`를 반환하거나 A07이 성공하면 `/rooms/<서버 UUID>`에서 A08을 읽는다. 홈의 코드 입력은 홈 담당자가 A25·A07을 완료한 후 `serverRoomUrl(roomId)`로 이동한다. `joinProof`·CSRF·역할은 URL에 넣지 않는다.
 - `useRoomState(roomId)`는 방별 외부 스토어로 A08, 현재 역할·허용 동작·버전, 서버 시각 보정을 제공한다. `mutate(action, execute)`는 허용된 동작만 시작하고, 성공 또는 409 뒤 A08을 다시 조회한다. 읽기 교체·이탈 시 AbortSignal을 정리하며 세션 무효화 알림에서 방 데이터를 즉시 제거한다.
 - 서버 진입은 `/rooms/:roomId`와 명시적 `mode=api`로 구분한다. 기존 목 라우트와 scenario는 기존 경로에서 유지한다. 서버 진입에서는 phase·me.role·allowedActions로 목적 화면을 결정하고, 이번 범위 밖 화면은 공통 서버 상태를 표시한다. 진행 현황만 가시 상태에서 15초마다 다시 읽고, 화면 복귀 시에는 별도 재조회한다.
@@ -91,7 +91,7 @@
 
 - 로그인만 확인하려면 [localhost 복귀용 A01](https://api.meetdle.co.kr/api/auth/kakao/start?returnOrigin=http%3A%2F%2Flocalhost%3A5173)에서 직접 카카오 인증한다. 기본 콜백 경로 `/rooms`는 기존 홈으로 이동한다. 돌아온 localhost의 DevTools에서 아래 GET의 상태를 확인한다. 200이면 세션이 전달됐으며, 쿠키와 CSRF 값은 출력하지 않는다.
 - HOST는 본인이 만든 테스트 방 UUID로 `http://localhost:5173/rooms/create/complete?mode=api&roomId=<UUID>`에서 새로고침, 서버 초대 코드·링크 복사 및 카카오 공유를 확인한다. 공유에는 `VITE_KAKAO_SHARE_APP_KEY`와 카카오 앱의 Web 도메인·제품 링크 도메인 등록이 필요하다.
-- MEMBER는 별도 Chrome 프로필에서 테스트 방의 토큰으로 `http://localhost:5173/invite/<TOKEN>`에 접속한다. 로그인 복귀, 틀린 코드, 올바른 코드 확인, 가입을 순서대로 검증한다. 같은 링크를 다시 열었을 때 A08로 이동하고 A07이 재호출되지 않는지 확인한다.
+- MEMBER는 별도 Chrome 프로필에서 테스트 방의 토큰으로 `http://localhost:5173/invite/<TOKEN>`에 접속한다. 로그인 복귀 후 코드 재입력 없이 토큰 확인과 가입을 검증한다. 잘못된 코드 검증은 홈의 코드 입장 흐름에서 확인한다. 같은 링크를 다시 열었을 때 A08로 이동하고 A07이 재호출되지 않는지 확인한다.
 - 인증된 A03·A08 payload 및 실제 A25·A07은 테스트 계정과 테스트 방에서 확인해야 한다. A08의 상세 명세와 Swagger 차이 및 쓰기 성공 코드 차이는 아래 배포 비교에 정리되어 있다.
 
 ```js
@@ -148,7 +148,7 @@ fetch('https://api.meetdle.co.kr/api/me', { credentials: 'include' }).then((r) =
 
 | 화면              | 연결 순서와 상태 기준                                                                                                                                                                                                                                                                                                 |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 02 생성·초대      | 01의 A05(201) 응답에서 roomId·invite 공유. A06 공개 미리보기 → 필요 시 A01/A02 → A03 → A25 6자리 코드 검증 → 동일 세션 joinProof로 A07 → A08. 토큰·증표 만료와 FULL/CLOSED 처리.                                                                                                                                      |
+| 02 생성·초대      | 01의 A05(201) 응답에서 roomId·invite 공유. A06 공개 미리보기 → 필요 시 A01/A02 → A03 → A25 링크 토큰 또는 홈의 6자리 코드 검증 → 동일 세션 joinProof로 A07 → A08. 토큰·증표 만료와 FULL/CLOSED 처리.                                                                                                                                      |
 | 04 모집·입력      | A08의 inputStatus와 allowedActions 표시. START_ROOM이면 A31에 최신 revision을 보내 현재 정원으로 가입 마감. CALCULATE_OPTIONS이면 A11에 최신 inputVersion을 보내 완료자 스냅샷으로 추천. A33 INPUT/HOST로 재촉.                                                                                                       |
 | 06·07 확정 정보   | 05의 A12 이후 A08 meeting 사용. 장소 등록 전 SELECT_MEETING 재선택에서 최신 selectionId 사용. EDIT_ROOM을 노출하는 화면은 A30 성공 후 입력·추천·확정 캐시를 무효화하고 A08로 복귀.                                                                                                                                    |
 | 08 등록 설정      | REGION_CONFIRMED 방장이 A28로 반경·가용성 조회. A08 deadlinePolicy/serverNow, OPEN_COLLECTION과 최신 selectionId로 A13. 필수 목록은 FOOD·CAFE·BAR 중 하나 이상.                                                                                                                                                       |
@@ -283,7 +283,7 @@ fetch('https://api.meetdle.co.kr/api/me', { credentials: 'include' }).then(({ st
 | A17·18·19    | A17 round·closesAt → 빈 응답. A18 round·draftRevision·selections → 새 Draft, 일부/빈 목록 저장 가능. A19 round·최신 draftRevision → 빈 응답, VOTE 후보 전체 선택 필요.                                                          |
 | A20·21·22    | A20 round·closesAt → 새 round와 closesAt. A21 round·resultRevision·choices → 빈 응답. A22 round·resultRevision·candidateIds → 빈 응답.                                                                                          |
 | A23·24       | A23 round·mode·closesAt → 같은 round 및 새 closesAt. A24 scope(ALL/UPCOMING/PAST)·limit(1~50, 기본 20)·cursor → MyRoomsPage.                                                                                                    |
-| A25·26·27    | A25 6자리 code·선택 inviteToken → preview·joinProof·만료. 증표는 발급 후 최대 10분이며 같은 세션에 묶인다. 코드 불일치 5회/10분 뒤 429. A26 round → 빈 응답. A27 round·action·closesAt → 빈 응답.                               |
+| A25·26·27    | A25 링크는 inviteToken만, 코드 입장은 6자리 code → preview·joinProof·만료. 증표는 발급 후 최대 10분이며 같은 세션에 묶인다. 코드 불일치 5회/10분 뒤 429. A26 round → 빈 응답. A27 round·action·closesAt → 빈 응답.                               |
 | A28·29       | A28 roomId → selectionId와 카테고리 반경·가용성, 기본 2500m에서 필요 시 3000m. A29 공개 헬스 → status=UP.                                                                                                                       |
 | A30·31·32    | A30 title·dates·capacity·expectedRevision, A31 expectedRevision, A32 본문 없음. 모두 빈 응답. A32는 요청자의 지난 약속 목록에서만 숨김.                                                                                         |
 | A33·34·35·36 | A33 purpose → Share. A34 round·category·pickToken → candidateId. A35 path candidateId·query round → 빈 응답. A36 round·resultRevision → 빈 응답.                                                                                |
@@ -423,3 +423,11 @@ Notion 개별 A11/A12 페이지는 이번 작업에서 연결된 계정으로 �
 - 선택한 문구를 카카오 텍스트 본문에 반영하며 기존 A33 링크·대상과 A08의 인원/마감 정보를 유지한다. 임의의 입력 마감은 만들지 않는다. 카카오 텍스트 200자 제한은 유지한다.
 - 입력 재촉 기본 선택지는 `얼른 입력 안하면 우리끼리 정한다~`, 방장 알림 문구는 `우리 이제 다음 단계로 넘어갈 수 있대!`다.
 - 공유 클릭은 준비된 SDK를 동기 호출하고, 배경·ESC 닫힘을 차단한다. 닫기 버튼은 제공하며 모달 바깥 그림자는 사용하지 않는다.
+
+
+### 2026-11-20 초대·프로필 및 자동 조회 보완
+
+- A25는 링크 진입 시 `{ inviteToken }`으로 요청한다. 응답 preview와 joinProof를 현재 세션 메모리에 보관하고, 만료 시 같은 토큰으로 증표만 다시 발급한다. 참여는 A07에서 별도로 수행한다.
+- A06 preview.members 및 A24 items[].members의 participantId·nickname·profileImageUrl을 초대 미리보기와 홈 카드에 사용한다. 목록 카드 사진 때문에 방별 A08을 추가 호출하지 않는다. 사진이 null이면 기본 원을 표시한다.
+- 자동 방 조회는 A03 재조회와 초기 로딩 화면을 반복하지 않는다. 실제 세션 변경·접근 거부는 기존 보호 동작을 유지한다.
+- 일정 PUT 성공 뒤 A08 반영이 늦으면 GET만 최대 3회 더 확인한다. 저장 성공을 추정하지 않으며, 확인되지 않으면 선택을 보존하고 재시도에서 GET부터 수행한다.

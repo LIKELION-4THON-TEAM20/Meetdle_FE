@@ -1,10 +1,10 @@
 import { getKakaoMapUrl } from '../../PlaceVote/voteUtils';
 import { safeKakaoMapUrl } from '../../../lib/kakaoMaps/placeLink';
 import type { ResultPlace } from '../types';
-import restaurant from '../../../assets/vote-result/restaurant.svg';
-import cafe from '../../../assets/vote-result/cafe.svg';
-import pub from '../../../assets/vote-result/pub.svg';
-import culture from '../../../assets/place-exploration/culture.png';
+import restaurant from '../../../assets/place-exploration/restaurant-thumbnail.svg';
+import cafe from '../../../assets/place-exploration/cafe-thumbnail.svg';
+import pub from '../../../assets/place-exploration/pub-thumbnail.svg';
+import culture from '../../../assets/place-exploration/culture-thumbnail.svg';
 
 const icons: Record<string, string> = { restaurant, cafe, pub, culture, bar: pub };
 
@@ -39,9 +39,7 @@ export default function ResultPlaceCard({
           <img
             src={place.imageUrl ?? icon}
             alt=""
-            className={
-              categoryId === 'restaurant' || categoryId === 'cafe' ? 'fills-tile' : undefined
-            }
+            className="fills-tile"
           />
         )}
       </span>
@@ -60,18 +58,18 @@ export default function ResultPlaceCard({
             </button>
           )}
         </div>
-        {distance !== undefined && Number.isFinite(distance) && distance > 0 && (
-          <p>
+        <p className="result-place-card__distance" aria-hidden={distance === undefined}>
+          {distance !== undefined && Number.isFinite(distance) && distance >= 0 && (<>
             역에서 {distance >= 1000 ? `${Number((distance / 1000).toFixed(1))}km` : `${distance}m`}
-          </p>
-        )}
+          </>)}
+        </p>
         {place.address && <p className="result-place-card__address">{place.address}</p>}
         {mapUrl ? (
           <a className="result-place-card__map" href={mapUrl} target="_blank" rel="noreferrer">
             카카오맵 바로가기 ↗
           </a>
         ) : (
-          <span className="result-place-card__map">카카오맵 미연동</span>
+          <span className="result-place-card__map" aria-disabled="true" title="등록된 카카오맵 링크가 없어요">카카오맵 바로가기 ↗</span>
         )}
       </div>
     </article>

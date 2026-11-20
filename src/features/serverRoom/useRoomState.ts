@@ -18,7 +18,7 @@ export function useRoomState(
   useEffect(() => {
     const disconnect = store.connect();
     const refresh = () => {
-      if (!document.hidden) void store.refresh();
+      if (!document.hidden) void store.refresh({ checkSession: false });
     };
     void store.refresh();
     window.addEventListener('focus', refresh);
@@ -34,7 +34,7 @@ export function useRoomState(
   useEffect(() => {
     if (!polling) return;
     const timer = window.setInterval(() => {
-      if (!document.hidden) void store.refresh();
+      if (!document.hidden) void store.refresh({ checkSession: false });
     }, pollInterval);
     return () => window.clearInterval(timer);
   }, [polling, pollInterval, store]);

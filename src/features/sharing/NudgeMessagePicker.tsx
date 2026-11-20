@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import divider from '../../assets/icons/sharing/message-divider.svg';
+import divider from '../../assets/icons/sharing/message-divider.svg?no-inline';
 
 export default function NudgeMessagePicker({
   options,
@@ -57,7 +57,9 @@ export default function NudgeMessagePicker({
               {option}
             </button>
             <div className="nudge-picker__divider">
-              <img src={divider} alt="" />
+              <svg width={246} height={1} viewBox="0 0 246 1" aria-hidden="true">
+                <use href={`${divider}#Line 15`} />
+              </svg>
             </div>
           </div>
         ))}

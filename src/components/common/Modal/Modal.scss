@@ -34,6 +34,9 @@
     max-width: 392px;
     min-width: 0;
     max-height: 100%;
+    flex: 0 1 auto;
+    box-sizing: border-box;
+    > * { flex-shrink: 0; }
     overflow-y: auto;
     overscroll-behavior: contain;
     overflow-wrap: anywhere;

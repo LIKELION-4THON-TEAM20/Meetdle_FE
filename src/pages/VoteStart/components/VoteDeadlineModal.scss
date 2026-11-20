@@ -2,8 +2,10 @@
   max-width: 348px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
   padding: 27px;
+  border-radius: 16px;
+  > * { flex-shrink: 0; min-width: 0; max-width: 100%; }
   h2 {
     margin: 0;
     color: #03000f;
@@ -11,18 +13,32 @@
     font-weight: 600;
     line-height: 26px;
   }
+  &__field {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    border: 1.5px solid #aba9b2;
+    border-radius: 12px;
+    background: #fafafa;
+  }
   input {
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
     min-height: 56px;
     padding: 16px;
-    border: 1px solid #d5d4d9;
+    display: block;
+    max-width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    border: 0;
+    outline: none;
+    box-shadow: none;
     border-radius: 12px;
     background: #fafafa;
     color: #03000f;
     font: inherit;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 22px;
   }
   p {
@@ -49,3 +65,14 @@
 .common-modal:has(> :is(.registration-status-modal, .vote-deadline-modal--registration))::backdrop {
   background: rgb(217 217 217 / 75%);
 }
+
+.vote-deadline-modal input::-webkit-date-and-time-value { text-align: left; min-width: 0; }
+.vote-deadline-modal input::-webkit-datetime-edit { padding: 0; min-width: 0; }
+.vote-deadline-modal .vote-deadline-modal__description { color: #666; font-size: 14px; line-height: 22px; }
+.vote-deadline-modal:not(.vote-deadline-modal--registration) .vote-deadline-modal__help { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+.vote-deadline-modal__field { position: relative; min-height: 56px; }
+.vote-deadline-modal__field:focus-within { border-color: #7c5cff; }
+.vote-deadline-modal__value { display: block; padding: 16px 44px 16px 16px; color: #03000f; font-size: 16px; font-weight: 500; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.vote-deadline-modal__calendar { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.vote-deadline-modal__field > input { position: absolute; inset: 0; height: 100%; opacity: 0; cursor: pointer; }

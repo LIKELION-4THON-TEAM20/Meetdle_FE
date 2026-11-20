@@ -188,10 +188,13 @@
   }
   &__divider {
     max-width: 100%;
-    overflow: hidden;
+    min-height: 1px;
+    overflow: visible;
     line-height: 0;
-    img {
+    svg {
       display: block;
+      flex-shrink: 0;
+      overflow: visible;
     }
   }
   &__manual {
@@ -223,8 +226,17 @@
     font-size: 14px;
     line-height: 21px;
   }
-  button:focus-visible,
+  textarea:focus,
   textarea:focus-visible {
+    outline: none;
+    border: 1px solid #aba9b2;
+    box-shadow: none;
+  }
+  textarea {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  button:focus-visible {
     outline: 2px solid #7c5cff;
     outline-offset: 1px;
   }

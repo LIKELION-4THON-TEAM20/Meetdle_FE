@@ -247,9 +247,14 @@ export interface RoomRef {
   roomId: string;
 }
 
-export interface ResolveInviteRequest {
-  code: string;
-  inviteToken?: string;
+export type ResolveInviteRequest =
+  | { code: string; inviteToken?: string }
+  | { inviteToken: string; code?: never };
+
+export interface MemberSummary {
+  participantId: string;
+  nickname: string;
+  profileImageUrl: string | null;
 }
 
 export interface InvitePreview {
@@ -260,6 +265,7 @@ export interface InvitePreview {
   joinedCount: number;
   capacity: number;
   entryStatus: 'OPEN' | 'FULL' | 'CLOSED' | 'MEMBER';
+  members?: MemberSummary[];
 }
 
 export interface ResolvedInvite {
@@ -273,6 +279,7 @@ export interface StationsResponse {
 }
 
 export interface MyRoomSummary {
+  members?: MemberSummary[];
   roomId: string;
   title: string | null;
   dates: DateRange;
