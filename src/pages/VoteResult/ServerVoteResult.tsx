@@ -77,8 +77,7 @@ export default function ServerVoteResult({
   }>();
   const [deadline, setDeadline] = useState('');
   const [confirmationVersion, setConfirmationVersion] = useState<number>();
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [mapOpen, setMapOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<'details' | 'map' | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [accepted, setAccepted] = useState<{
@@ -359,16 +358,17 @@ export default function ServerVoteResult({
       </ol>
       <div className="vote-result__links">
         {breakdown.length > 0 && <button type="button" className="vote-result__text-button"
-          aria-expanded={detailsOpen} onClick={() => setDetailsOpen(!detailsOpen)}>
+          aria-expanded={activePanel === 'details'}
+          onClick={() => setActivePanel(current => current === 'details' ? null : 'details')}>
           {permissions.finalized ? '투표 결과 펼쳐보기' : '투표 결과 보기'}
         </button>}
         {breakdown.length > 0 && (result?.meeting ?? room.meeting)?.station && <img src={dotIcon} alt="" />}
         {(result?.meeting ?? room.meeting)?.station && <button type="button"
-          className="vote-result__text-button" aria-expanded={mapOpen}
-          onClick={() => setMapOpen(!mapOpen)}>지도 보기</button>}
+          className="vote-result__text-button" aria-expanded={activePanel === 'map'}
+          onClick={() => setActivePanel(current => current === 'map' ? null : 'map')}>지도 보기</button>}
       </div>
-      {detailsOpen && breakdown.length > 0 && <VoteBreakdown categories={breakdown} />}
-      {mapOpen && (result?.meeting ?? room.meeting)?.station && <ResultMap
+      {activePanel === 'details' && breakdown.length > 0 && <VoteBreakdown categories={breakdown} />}
+      {activePanel === 'map' && (result?.meeting ?? room.meeting)?.station && <ResultMap
         places={selected} center={(result?.meeting ?? room.meeting)!.station} />}
 
     </>
