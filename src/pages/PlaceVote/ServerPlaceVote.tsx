@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { ApiRequestError } from '../../api/client';
 import { roomMutations } from '../../api/rooms';
 import type { Draft, Preference, RoomState, Voting } from '../../api/types';
+import RoomShareButton from '../../features/sharing/RoomShareButton';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
 import Modal from '../../components/common/Modal/Modal';
@@ -184,6 +185,11 @@ export default function ServerPlaceVote({
             <p className="place-vote__count">
               {completed} / {ballot.total}곳 선택 완료 · 제출 전
             </p>
+            {room.me.role === 'HOST' && permissions.edit && (
+              <RoomShareButton room={room} kind="votingRequest" disabled={busy}>
+                투표 안내 공유하기
+              </RoomShareButton>
+            )}
             <p className="place-vote__description">
               투표 대상 후보마다 선호도를 골라주세요. 내 선택은 나만 볼 수 있어요.
             </p>

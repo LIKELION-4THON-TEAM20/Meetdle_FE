@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import Button from '../../components/common/Button/Button';
-import Toast, { type ToastMessage } from '../../components/common/Toast/Toast';
 import type { RoomState } from '../../api/types';
 import { toUiCategory } from '../../api/mappers';
-import { prepareKakaoShare, shareKakaoText } from '../../features/serverRoom/kakaoInviteShare';
+import RoomShareButton from '../../features/sharing/RoomShareButton';
 import {
   meetingActions,
   meetingDetails,
@@ -28,37 +26,10 @@ export default function ServerMeeting({
   confirmation: boolean;
 }) {
   const navigate = useNavigate();
-  const [notice, setNotice] = useState<ToastMessage | null>(null);
-  const sharing = useRef<AbortController | null>(null);
   const meeting = meetingDetails(room);
   const payload = meetingShareText(room);
-  const shareAvailable = confirmation && payload !== null;
   const actions = meetingActions(room, now);
   const registration = room.registration;
-
-  useEffect(() => {
-    if (shareAvailable) void prepareKakaoShare().catch(() => undefined);
-    return () => sharing.current?.abort();
-  }, [shareAvailable]);
-
-  async function share() {
-    if (!payload || (sharing.current && !sharing.current.signal.aborted)) return;
-    const request = new AbortController();
-    sharing.current = request;
-    try {
-      await shareKakaoText(payload.text, payload.url, request.signal);
-    } catch {
-      if (!request.signal.aborted) {
-        setNotice({
-          tone: 'error',
-          title: '카카오톡 공유를 열지 못했어요.',
-          description: '잠시 후 다시 시도해주세요.',
-        });
-      }
-    } finally {
-      if (sharing.current === request) sharing.current = null;
-    }
-  }
 
   if (!meeting || !room.meeting) return null;
   const selectionId = room.meeting.selectionId;
@@ -95,14 +66,14 @@ export default function ServerMeeting({
             </Button>
           )}
           {actions.canReselect && <Link to={link(PATHS.candidates)}>일시·지역 다시 선택하기</Link>}
-          <Button
-            variant="secondary"
+          <RoomShareButton
+            room={room}
+            kind="meetingConfirmed"
             className="meeting-confirmed__action meeting-confirmed__action--outline"
             disabled={!payload}
-            onClick={() => void share()}
           >
             카카오톡으로 공유하기
-          </Button>
+          </RoomShareButton>
         </footer>
       ) : (
         <footer
@@ -170,7 +141,6 @@ export default function ServerMeeting({
           )}
         </footer>
       )}
-      <Toast message={notice} onDismiss={() => setNotice(null)} />
     </MeetingConfirmationLayout>
   );
 }

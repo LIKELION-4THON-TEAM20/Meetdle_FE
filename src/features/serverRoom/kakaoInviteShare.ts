@@ -5,6 +5,7 @@ interface KakaoShare {
     sendDefault(input: {
       objectType: 'text';
       text: string;
+      buttonTitle?: string;
       link: { mobileWebUrl: string; webUrl: string };
     }): void;
   };
@@ -64,5 +65,19 @@ export async function shareKakaoText(text: string, url: string, signal?: AbortSi
     objectType: 'text',
     text,
     link: { mobileWebUrl: url, webUrl: url },
+  });
+}
+
+export async function shareKakaoMessage(
+  message: { text: string; url: string; buttonTitle: string },
+  signal?: AbortSignal,
+) {
+  const kakao = await prepareKakaoShare();
+  signal?.throwIfAborted();
+  kakao.Share.sendDefault({
+    objectType: 'text',
+    text: message.text,
+    buttonTitle: message.buttonTitle,
+    link: { webUrl: message.url, mobileWebUrl: message.url },
   });
 }

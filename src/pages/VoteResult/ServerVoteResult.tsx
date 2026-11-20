@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ApiRequestError } from '../../api/client';
 import { toUiCategory } from '../../api/mappers';
-import { getRoomShare, getRoomState, roomMutations } from '../../api/rooms';
+import { getRoomState, roomMutations } from '../../api/rooms';
 import type { Category, ResultPlace, RoomState } from '../../api/types';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
@@ -20,7 +20,8 @@ import type { useRoomState } from '../../features/serverRoom/useRoomState';
 import { categoryLabels } from '../../features/serverRoom/voting';
 import { PATHS } from '../../router/paths';
 import MeetingConfirmationLayout from '../MeetingConfirmed/components/MeetingConfirmationLayout';
-import { prepareKakaoShare, shareKakaoText } from '../../features/serverRoom/kakaoInviteShare';
+import RoomShareButton from '../../features/sharing/RoomShareButton';
+import { rememberShareNotice } from '../../features/sharing/shareNotice';
 import {
   parseSeoulInput,
   registrationWindow,
@@ -84,8 +85,6 @@ export default function ServerVoteResult({
     revision: number;
   }>();
   const sending = useRef(false);
-  const shareRequest = useRef<AbortController | null>(null);
-  useEffect(() => () => shareRequest.current?.abort(), []);
   const retry = useRef<{ signature: string; handle: ReturnType<typeof roomMutations.recollect> }>(
     undefined,
   );
@@ -176,7 +175,12 @@ export default function ServerVoteResult({
               signature,
               handle: roomMutations.recollect(latest.roomId, { round, closesAt }),
             };
-          await retry.current.handle.execute();
+          const reopened = await retry.current.handle.execute();
+          rememberShareNotice(latest, {
+            kind: 'registrationRestarted',
+            round: reopened.round,
+            closesAt: reopened.closesAt,
+          });
         } else if (intent === 'tie') {
           const live = latest.tieDecision;
           const validated = tieChoices(latest, choices);
@@ -249,29 +253,6 @@ export default function ServerVoteResult({
     }
   }
 
-  useEffect(() => {
-    if (permissions.finalized) void prepareKakaoShare().catch(() => undefined);
-  }, [permissions.finalized]);
-  async function shareFinalResult() {
-    if (busy || !permissions.finalized || shareRequest.current) return;
-    const request = new AbortController();
-    shareRequest.current = request;
-    setBusy(true);
-    setError('');
-    try {
-      const payload = await getRoomShare(room.roomId, 'RESULT', request.signal);
-      const message = payload.messages.find((item) => item.id === 'DEFAULT') ?? payload.messages[0];
-      if (!message) throw new Error('No share message');
-      await shareKakaoText(message.text, payload.shareUrl, request.signal);
-    } catch {
-      if (!request.signal.aborted)
-        setError('카카오톡 공유를 열지 못했어요. 잠시 후 다시 시도해주세요.');
-    } finally {
-      shareRequest.current = null;
-      if (!request.signal.aborted) setBusy(false);
-    }
-  }
-
   const orderChanged = editing && editing.revision !== result?.resultRevision;
   const orderSheet = dialog === 'order' && editing && permissions.order && (
     <VisitOrderSheet
@@ -328,9 +309,9 @@ export default function ServerVoteResult({
         </Button>
       )}
       {permissions.finalized && (
-        <Button disabled={blocked} onClick={() => void shareFinalResult()}>
+        <RoomShareButton room={room} kind="finalResult" disabled={blocked} variant="primary">
           카카오톡으로 공유하기
-        </Button>
+        </RoomShareButton>
       )}
       <Link className="common-button common-button--secondary vote-result__home" to={PATHS.home}>
         홈으로 돌아가기 ↗︎
