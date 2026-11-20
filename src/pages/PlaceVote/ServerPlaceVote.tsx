@@ -4,10 +4,9 @@ import { Link, useNavigate } from 'react-router';
 import { ApiRequestError } from '../../api/client';
 import { roomMutations } from '../../api/rooms';
 import type { Draft, Preference, RoomState, Voting } from '../../api/types';
-import RoomShareButton from '../../features/sharing/RoomShareButton';
+import { sortPlaceCategories } from '../../features/places/categoryOrder';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
-import Modal from '../../components/common/Modal/Modal';
 import { estimateServerNow } from '../../features/serverRoom/roomState';
 import { serverScreenUrl } from '../../features/serverRoom/routing';
 import type { useRoomState } from '../../features/serverRoom/useRoomState';
@@ -43,7 +42,6 @@ export default function ServerPlaceVote({
   const [receipt, setReceipt] = useState<Draft>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [confirm, setConfirm] = useState(false);
   const sending = useRef(false);
   const page = useRef<HTMLDivElement>(null);
   const footer = useRef<HTMLElement>(null);
@@ -61,7 +59,10 @@ export default function ServerPlaceVote({
   const needsSave =
     !currentDraft || changes.length > 0 || currentDraft.selections.length !== completed;
   const statusUrl = serverScreenUrl(PATHS.voteStatus, room.roomId);
-  const categories = Array.from(new Set(room.voting.candidates.map(({ place }) => place.category)));
+  const categories = sortPlaceCategories(
+    Array.from(new Set(room.voting.candidates.map(({ place }) => place.category)))
+      .map((category) => ({ category })),
+  ).map(({ category }) => category);
 
   useLayoutEffect(() => {
     const root = page.current;
@@ -95,7 +96,6 @@ export default function ServerPlaceVote({
     sending.current = true;
     setBusy(true);
     setError('');
-    setConfirm(false);
     try {
       let draft = currentDraft;
       if (needsSave && permissions.edit) {
@@ -157,7 +157,7 @@ export default function ServerPlaceVote({
       className={`page place-vote${submitted ? '' : ' place-vote--with-fixed-cta'}`}
       data-room-screen={PATHS.vote}
     >
-      <Header title={room.title ?? '약속방'} showBackButton onBack={() => navigate(statusUrl)} />
+      <Header title={room.title ?? '약속방'} showBackButton onBack={() => navigate(PATHS.home)} />
       <main className="place-vote__content">
         {submitted ? (
           <h2 className="place-vote__submitted" role="status">
@@ -186,22 +186,14 @@ export default function ServerPlaceVote({
             <p className="place-vote__count">
               {completed} / {ballot.total}곳 선택 완료 · 제출 전
             </p>
-            {room.me.role === 'HOST' && permissions.edit && (
-              <RoomShareButton room={room} kind="votingRequest" disabled={busy}>
-                투표 안내 공유하기
-              </RoomShareButton>
-            )}
             <p className="place-vote__description">
-              투표 대상 후보마다 선호도를 골라주세요. 내 선택은 나만 볼 수 있어요.
+              각 후보마다 하나씩 골라주세요. 내 선택은 나만 볼 수 있어요.
             </p>
           </section>
         )}
         {categories.map((category) => {
           const candidates = room.voting.candidates.filter(
             ({ place }) => place.category === category,
-          );
-          const setting = room.registration?.categories.find(
-            (entry) => entry.category === category,
           );
           return (
             <section
@@ -212,7 +204,6 @@ export default function ServerPlaceVote({
               <h3 id={`category-${category}`}>
                 {categoryLabels[category]}
                 <span>
-                  {setting && (setting.required ? '필수 · ' : '선택 · ')}
                   {candidates.length}곳
                 </span>
               </h3>
@@ -275,18 +266,6 @@ export default function ServerPlaceVote({
                 {expired && (
                   <p role="status">투표 마감 시각이 지났어요. 서버 상태를 확인하고 있어요.</p>
                 )}
-                {!ballot.complete && (
-                  <p className="place-vote__incomplete">아직 선택하지 않은 후보가 있어요.</p>
-                )}
-                {changes.length > 0 && (
-                  <Button
-                    variant="secondary"
-                    disabled={locked || !permissions.edit || state.loading}
-                    onClick={() => void run(false)}
-                  >
-                    초안 저장
-                  </Button>
-                )}
                 <Button
                   disabled={
                     locked ||
@@ -295,30 +274,16 @@ export default function ServerPlaceVote({
                     state.loading ||
                     (!permissions.edit && needsSave)
                   }
-                  onClick={() => setConfirm(true)}
+                  onClick={() => void run(true)}
                 >
                   {busy ? '처리 중…' : '투표 제출'}
                 </Button>
+                <p>제출 전에는 수정할 수 있고, 제출 후에는 수정할 수 없어요.</p>
               </>
             )}
           </>
         )}
       </footer>
-      <Modal
-        open={confirm && permissions.submit && !locked}
-        onClose={() => setConfirm(false)}
-        className="server-ballot-confirm"
-        aria-labelledby="server-ballot-confirm"
-      >
-        <h2 id="server-ballot-confirm">투표를 제출할까요?</h2>
-        <p>제출한 뒤에는 선택을 바꿀 수 없어요.</p>
-        <Button variant="secondary" onClick={() => setConfirm(false)}>
-          돌아가기
-        </Button>
-        <Button disabled={state.loading} onClick={() => void run(true)}>
-          투표 제출하기
-        </Button>
-      </Modal>
     </div>
   );
 }

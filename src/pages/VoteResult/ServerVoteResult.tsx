@@ -16,7 +16,6 @@ import {
   validVisitOrder,
 } from '../../features/serverRoom/result';
 import { estimateServerNow } from '../../features/serverRoom/roomState';
-import { serverScreenUrl } from '../../features/serverRoom/routing';
 import type { useRoomState } from '../../features/serverRoom/useRoomState';
 import { categoryLabels } from '../../features/serverRoom/voting';
 import { PATHS } from '../../router/paths';
@@ -31,6 +30,8 @@ import {
 import ResultPlaceCard from './components/ResultPlaceCard';
 import VisitOrderSheet from './components/VisitOrderSheet';
 import VoteBreakdown from './components/VoteBreakdown';
+import ResultMap from './components/ResultMap';
+import dotIcon from '../../assets/vote-result/dot.svg';
 import './VoteResult.scss';
 
 type Intent = 'tie' | 'order' | 'confirm' | 'recover';
@@ -77,6 +78,7 @@ export default function ServerVoteResult({
   const [deadline, setDeadline] = useState('');
   const [confirmationVersion, setConfirmationVersion] = useState<number>();
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [accepted, setAccepted] = useState<{
@@ -137,7 +139,7 @@ export default function ServerVoteResult({
     return entry ? [entry] : [];
   });
   const visible = room.phase !== 'WAITING_FOR_HOST_DECISION' || room.me.role === 'HOST';
-  const back = () => navigate(serverScreenUrl(PATHS.info, room.roomId, room.meeting?.selectionId));
+  const back = () => navigate(PATHS.home);
   const modal = (intent: Intent | 'share') => {
     setError('');
     setDialog(intent);
@@ -255,7 +257,7 @@ export default function ServerVoteResult({
   }
 
   const orderChanged = editing && editing.revision !== result?.resultRevision;
-  const orderSheet = dialog === 'order' && editing && permissions.order && (
+  const orderSheet = dialog === 'order' && editing && !permissions.finalized && permissions.order && (
     <VisitOrderSheet
       categories={selected.map((entry) => ({
         id: entry.candidateId,
@@ -285,7 +287,7 @@ export default function ServerVoteResult({
   );
   const controls = (
     <footer className="vote-result__footer">
-      {permissions.order && (
+      {!permissions.finalized && permissions.order && (
         <Button
           variant="secondary"
           disabled={blocked}
@@ -298,7 +300,7 @@ export default function ServerVoteResult({
           방문 순서 변경하기
         </Button>
       )}
-      {permissions.confirm && (
+      {!permissions.finalized && permissions.confirm && (
         <Button
           disabled={blocked || !!editing}
           onClick={() => {
@@ -314,9 +316,6 @@ export default function ServerVoteResult({
           카카오톡으로 공유하기
         </RoomShareButton>
       )}
-      <Link className="common-button common-button--secondary vote-result__home" to={PATHS.home}>
-        홈으로 돌아가기 ↗︎
-      </Link>
     </footer>
   );
 
@@ -341,10 +340,14 @@ export default function ServerVoteResult({
               ));
           return (
             <li className="vote-result__category" key={entry.candidateId}>
-              <div className="vote-result__category-heading">
+              {!permissions.finalized && <div className="vote-result__category-heading">
                 <h2>{categoryLabels[category]}</h2>
-                {automatic && <span className="vote-result__reason">자동 선정</span>}
-              </div>
+                {(automatic || entry.aggregate) && <span className="vote-result__reason">{
+                  automatic ? '자동 선정' : entry.aggregate!.dislike === 0
+                    ? entry.aggregate!.like + entry.aggregate!.neutral === 0 ? '집계된 응답이 없어요' : entry.aggregate!.neutral === 0 ? '모두가 좋아한 장소예요' : '아무도 싫어하지 않는 장소예요'
+                    : '가장 많은 사람이 좋아한 장소예요'
+                }</span>}
+              </div>}
               <ResultPlaceCard
                 place={cardData(entry)}
                 categoryId={toUiCategory[category]}
@@ -354,19 +357,20 @@ export default function ServerVoteResult({
           );
         })}
       </ol>
-      {breakdown.length > 0 && (
-        <>
-          <button
-            type="button"
-            className="vote-result__text-button"
-            aria-expanded={detailsOpen}
-            onClick={() => setDetailsOpen(!detailsOpen)}
-          >
-            투표 결과 보기
-          </button>
-          {detailsOpen && <VoteBreakdown categories={breakdown} countsOnly />}
-        </>
-      )}
+      <div className="vote-result__links">
+        {breakdown.length > 0 && <button type="button" className="vote-result__text-button"
+          aria-expanded={detailsOpen} onClick={() => setDetailsOpen(!detailsOpen)}>
+          {permissions.finalized ? '투표 결과 펼쳐보기' : '투표 결과 보기'}
+        </button>}
+        {breakdown.length > 0 && (result?.meeting ?? room.meeting)?.station && <img src={dotIcon} alt="" />}
+        {(result?.meeting ?? room.meeting)?.station && <button type="button"
+          className="vote-result__text-button" aria-expanded={mapOpen}
+          onClick={() => setMapOpen(!mapOpen)}>지도 보기</button>}
+      </div>
+      {detailsOpen && breakdown.length > 0 && <VoteBreakdown categories={breakdown} />}
+      {mapOpen && (result?.meeting ?? room.meeting)?.station && <ResultMap
+        places={selected} center={(result?.meeting ?? room.meeting)!.station} />}
+
     </>
   );
 
@@ -400,6 +404,8 @@ export default function ServerVoteResult({
             if (!busy) setDialog(null);
           }}
           className="vote-result__tie-dialog"
+          closeOnBackdropClick={false}
+          closeOnEscape={false}
           aria-labelledby="server-result-dialog"
         >
           <h2 id="server-result-dialog">
@@ -409,6 +415,7 @@ export default function ServerVoteResult({
                 ? '장소 등록을 다시 시작할까요?'
                 : '최종 일정을 확정할까요?'}
           </h2>
+          {dialog === 'confirm' && <p>확정된 일시와 장소로 약속을 정할까요?</p>}
           {dialog === 'recover' && (
             <>
               <p>확정된 일시와 지역을 유지하며 새 장소 등록 회차를 열어요.</p>
@@ -430,8 +437,9 @@ export default function ServerVoteResult({
               결과 상태 다시 확인
             </Button>
           )}
+          <div className="vote-result__dialog-actions">
           <Button variant="secondary" disabled={busy} onClick={() => setDialog(null)}>
-            돌아가기
+            조금 더 확인하기
           </Button>
           {dialog === 'confirm' && confirmationVersion !== result?.resultRevision && (
             <p role="status">결과가 바뀌었어요. 최신 방문 순서를 다시 확인해주세요.</p>
@@ -445,8 +453,9 @@ export default function ServerVoteResult({
             }
             onClick={() => void run(dialog)}
           >
-            확인
+            {busy ? '처리 중…' : dialog === 'confirm' || dialog === 'tie' ? '확정하기' : '확인'}
           </Button>
+          </div>
         </Modal>
       )}
     </>
@@ -486,9 +495,6 @@ export default function ServerVoteResult({
           className="vote-result__content vote-result__confirmed"
           data-room-screen={PATHS.result}
         >
-          <p>
-            {room.title ?? '약속방'} · {result.round}회차
-          </p>
           {cards}
           {status}
           {controls}
@@ -534,13 +540,12 @@ export default function ServerVoteResult({
         ) : (
           <>
             <div className="vote-result__intro">
-              <h2>{room.title ?? '약속방'}</h2>
+              <h2>모두가 함께 갈 수 있는 곳으로 정했어요</h2>
               {meeting && (
                 <p>
                   {meeting.dateTime} · {meeting.area}
                 </p>
               )}
-              {visible && result && <p>{result.round}회차 · 최종 일정 확정 대기</p>}
             </div>
             {visible && cards}
             {room.phase === 'WAITING_FOR_HOST_DECISION' &&

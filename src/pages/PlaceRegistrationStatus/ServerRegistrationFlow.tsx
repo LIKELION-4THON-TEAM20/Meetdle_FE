@@ -1,4 +1,5 @@
 import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
+import lockIcon from '../../assets/screen11/lock.svg';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { ApiRequestError } from '../../api/client';
@@ -260,7 +261,7 @@ export default function ServerRegistrationFlow({
       <Header
         title={isRegistration ? '등록 현황' : isVote ? '투표 시작' : '등록 마감'}
         showBackButton
-        onBack={() => navigate(link(isVote ? PATHS.closeRegistration : PATHS.info))}
+        onBack={() => navigate(isRegistration ? PATHS.home : link(isVote ? PATHS.closeRegistration : PATHS.info))}
       />
       <main className={`${rootClass}__content`}>
         {isRegistration ? (
@@ -293,7 +294,25 @@ export default function ServerRegistrationFlow({
           </>
         ) : (
           <>
-            <section className={isVote ? 'vote-start__hero' : 'registration-close__intro'}>
+            {isVote ? (
+              <>
+                <section className="vote-start__hero">
+                  <span className="vote-start__emoji" aria-hidden="true">🗳️</span>
+                  <h2>장소 후보가 모두 모였어요.</h2>
+                  <p>이제 투표로 함께 갈 곳을 정해요.</p>
+                </section>
+                <dl className="vote-start__categories" aria-label="카테고리별 후보 수">
+                  {status.rows.map((row) => <div key={row.category}>
+                    <dt>{row.name}</dt><dd>{row.count === undefined ? '비공개' : `${row.count}곳`}</dd>
+                  </div>)}
+                </dl>
+                <dl className="vote-start__summary">
+                  <div><dt>모인 후보</dt><dd>{room.registration.uniqueCandidateCount === undefined ? '비공개' : `${room.registration.uniqueCandidateCount}곳`}</dd></div>
+                  <div><dt>등록 완료 인원</dt><dd>{status.completed} / {status.members}명</dd></div>
+                </dl>
+              </>
+            ) : (<>
+            <section className={'registration-close__intro'}>
               <h2>{status.open ? '장소 등록을 마감할까요?' : '장소 등록이 마감됐어요.'}</h2>
               <p>
                 회차 {room.registration.round} · 등록 완료 {status.completed} / {status.members}명
@@ -334,6 +353,7 @@ export default function ServerRegistrationFlow({
                 </p>
               )}
             </section>
+            </>)}
             {isVote && status.canVote && (
               <section className="vote-start__deadline">
                 <h3>투표 마감</h3>
@@ -349,13 +369,14 @@ export default function ServerRegistrationFlow({
                 </button>
                 {Number.isFinite(voteRange.maximum) && (
                   <p>
-                    최소 {room.deadlinePolicy?.votingMinimumMinutes ?? 30}분 · 상한{' '}
-                    {formatSeoulDeadline(voteRange.maximum, now)}
+                    * 최소 {room.deadlinePolicy?.votingMinimumMinutes ?? 30}분 동안 진행돼요.<br />
+                    * 약속 시작 3시간 전에는 투표가 끝나야 해요.
                   </p>
                 )}
                 {!validVote && <p role="status">유효한 마감 시간을 선택해주세요.</p>}
               </section>
             )}
+            {isVote && <p className="vote-start__privacy"><img src={lockIcon} width={16} height={16} alt="" />후보 장소 이름은 투표 화면에서 처음 공개돼요.</p>}
           </>
         )}
         {state.notice && <p role="status">{state.notice}</p>}
@@ -369,7 +390,7 @@ export default function ServerRegistrationFlow({
             description="잠시만 기다려주세요."
           />
         )}
-        {status.open &&
+        {isRegistration && status.open &&
           participants.some(
             ({ id, status }) => id !== room.me.participantId && status !== 'completed',
           ) && <Button onClick={() => setShare('reminder')}>등록 재촉하기</Button>}

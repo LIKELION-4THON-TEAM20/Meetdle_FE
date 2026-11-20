@@ -49,7 +49,7 @@ function InvitationContent({ auth }: { auth: AuthState }) {
     };
   }, []);
   useEffect(() => {
-    if (!token) return;
+    if (!token || auth.status === 'checking' || auth.status === 'error') return;
     if (auth.status === 'authenticated') {
       try {
         clearMatchingLoginReturn(sessionStorage, inviteReturnPath(token));
@@ -58,7 +58,10 @@ function InvitationContent({ auth }: { auth: AuthState }) {
       }
     }
     const controller = new AbortController();
-    getInvitePreview(token, controller.signal).then(
+    const request = auth.status === 'authenticated'
+      ? invitationFlow.resolveToken(token).then(result => result.preview)
+      : getInvitePreview(token, controller.signal);
+    request.then(
       (value) => {
         if (!controller.signal.aborted) {
           try {
@@ -120,6 +123,7 @@ function InvitationContent({ auth }: { auth: AuthState }) {
       return;
     }
     if (!verified) {
+      if (token) { setLoading(true); setAttempt(value => value + 1); return; }
       setCodeOpen(true);
       return;
     }
@@ -160,6 +164,7 @@ function InvitationContent({ auth }: { auth: AuthState }) {
             <MeetingInfoCard
               variant="participant"
               hostName={preview.hostNickname}
+              members={preview.members}
               meeting={{
                 name: preview.title ?? '이름 없는 약속',
                 candidateDates: `${preview.dates.from} ~ ${preview.dates.through}`,
@@ -217,7 +222,7 @@ function InvitationContent({ auth }: { auth: AuthState }) {
                 ? '약속방으로 이동'
                 : verified
                   ? '참여하기'
-                  : '초대 코드 확인하기'}
+                  : token ? '참여하기' : '초대 코드 확인하기'}
         </Button>
       </footer>
       <LoginRequiredModal

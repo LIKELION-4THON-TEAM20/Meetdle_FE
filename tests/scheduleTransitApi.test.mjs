@@ -312,3 +312,14 @@ test('station failures distinguish authentication, endpoint access and network e
     /연결/,
   );
 });
+
+test('일정 저장 후 상태 반영이 늦어도 PUT을 반복하지 않고 GET으로 완료를 확인한다', async () => {
+  let writes = 0, reads = 0;
+  const saver = createScheduleSaver(state, owner, deps({
+    save: () => ({ execute: async () => { writes++; return completed; } }),
+    getState: async () => ++reads === 1 ? state : savedState,
+  }));
+  assert.equal(await saver.run(input), savedState);
+  assert.equal(writes, 1);
+  assert.equal(reads, 2);
+});

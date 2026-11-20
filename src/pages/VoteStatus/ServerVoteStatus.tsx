@@ -4,7 +4,6 @@ import { useNavigate, useLocation } from 'react-router';
 import { ApiRequestError } from '../../api/client';
 import { roomMutations } from '../../api/rooms';
 import type { RoomState, VoteDecisionRequest } from '../../api/types';
-import RoomShareButton from '../../features/sharing/RoomShareButton';
 import { rememberShareNotice } from '../../features/sharing/shareNotice';
 import Button from '../../components/common/Button/Button';
 import Header from '../../components/common/Header/Header';
@@ -13,8 +12,6 @@ import { serverScreenUrl } from '../../features/serverRoom/routing';
 import type { useRoomState } from '../../features/serverRoom/useRoomState';
 import { useVoteClock } from '../../features/serverRoom/useVoteClock';
 import {
-  ballotPermissions,
-  hasSubmittedVote,
   voteDecisionPermissions,
   voteError,
   voteExtensionRange,
@@ -22,7 +19,6 @@ import {
 import { PATHS } from '../../router/paths';
 import ServerRegistrationShare from '../PlaceRegistrationStatus/ServerRegistrationShare';
 import {
-  formatSeoulDeadline,
   parseSeoulInput,
   seoulInput,
 } from '../PlaceRegistrationSetup/serverSetupModel';
@@ -61,9 +57,7 @@ export default function ServerVoteStatus({
   const data = reviewing ? (room.voteReview ?? room.voting) : room.voting;
   const open = room.phase === 'VOTING_OPEN' && !expired && now < deadline;
   const host = room.me.role === 'HOST';
-  const submitted = hasSubmittedVote(room);
   const permissions = voteDecisionPermissions(room);
-  const ballot = ballotPermissions(room, now);
   const blocked = busy || accepted || state.loading || !!state.error;
   const canRemind =
     open &&
@@ -166,41 +160,29 @@ export default function ServerVoteStatus({
       <main className="vote-status__content">
         {data ? (
           <>
-            <section className="vote-status__summary" aria-labelledby="vote-status-title">
-              <h2 id="vote-status-title">
-                {completed} / {capacity}명
+            {allCompleted || reviewing || expired ? (
+              <h2 className="vote-status__ended" role="status">
+                {allCompleted ? '모두 장소 투표를 마쳤어요.' : '투표 시간이 끝났어요'}
               </h2>
-              <p>
-                {data.round}회차 · 미완료 {Math.max(0, capacity - completed)}명 ·{' '}
-                {submitted ? '내 투표 완료' : '내 투표 미완료'}
-              </p>
-              {open && (
+            ) : (
+              <section className="vote-status__summary" aria-labelledby="vote-status-title">
+                <h2 id="vote-status-title">{completed} / {capacity}명</h2>
                 <p>
-                  마감까지 <span role="timer">{formatVoteRemaining(deadline, now)}</span> 남았어요.{' '}
-                  <time dateTime={room.voting?.closesAt}>{formatSeoulDeadline(deadline, now)}</time>
+                  투표가 진행 중이에요.
+                  {open && <> 마감까지 <span role="timer">{formatVoteRemaining(deadline, now)}</span> 남았어요.</>}
                 </p>
-              )}
-              {allCompleted && <h3>모두 장소 투표를 마쳤어요.</h3>}
-              {expired && (
-                <p role="status">투표 마감 시각이 지났어요. 서버 상태를 확인하고 있어요.</p>
-              )}
-              {reviewing && <h3>장소 투표 시간이 끝났어요.</h3>}
-              {reviewing && (
-                <p>
-                  {host ? '마감 후 진행 방법을 선택해주세요.' : '방장의 결정을 기다리고 있어요.'}
-                </p>
-              )}
-              <div
-                className="vote-status__progress"
-                role="progressbar"
-                aria-label="투표 완료율"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={progress}
-              >
-                <span style={{ width: `${progress}%` }} />
-              </div>
-            </section>
+                <div
+                  className="vote-status__progress"
+                  role="progressbar"
+                  aria-label="투표 완료율"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progress}
+                >
+                  <span style={{ width: `${progress}%` }} />
+                </div>
+              </section>
+            )}
             <VoteParticipantList participants={participants} />
           </>
         ) : (
@@ -210,11 +192,6 @@ export default function ServerVoteStatus({
         {error && <RequestStatus title="투표 현황 요청을 처리하지 못했어요." description={error} />}
       </main>
       <footer className="vote-status__footer">
-        {host && open && (
-          <RoomShareButton room={room} kind="votingRequest" disabled={blocked}>
-            투표 안내 공유하기
-          </RoomShareButton>
-        )}
         {busy && (
           <RequestStatus
             loading
@@ -222,39 +199,38 @@ export default function ServerVoteStatus({
             description="잠시만 기다려주세요."
           />
         )}
-        {(accepted || state.error || !data) && (
+        {(state.error || !data) && (
           <Button disabled={busy || state.loading} onClick={() => void state.refresh()}>
             투표 상태 다시 확인
           </Button>
         )}
-        {(ballot.edit || ballot.submit) && (
-          <Button disabled={blocked} onClick={() => go(PATHS.vote)}>
-            장소 투표하기
-          </Button>
-        )}
-        {canRemind && (
+        {canRemind && !allCompleted && (
           <Button disabled={blocked} onClick={() => setDialog('reminder')}>
             투표 재촉하기
           </Button>
         )}
-        {permissions.extend && (
+        {permissions.extend && !allCompleted && (
           <Button disabled={blocked || !validExtension} onClick={() => setDialog('EXTEND')}>
             조금 더 기다리기
           </Button>
         )}
-        {permissions.extend && !validExtension && <p>투표를 연장할 시간이 부족해요.</p>}
+        {permissions.extend && !allCompleted && !validExtension && <p>투표를 연장할 시간이 부족해요.</p>}
         {host && open && (
-          <Button disabled={blocked} onClick={() => setDialog('SUMMARY')}>
+          <Button
+            className={allCompleted ? undefined : 'vote-status__outline'}
+            disabled={blocked}
+            onClick={() => setDialog(allCompleted ? 'PROCEED' : 'SUMMARY')}
+          >
             투표 마감하기
           </Button>
         )}
         {host && resultAvailable && (
-          <Button disabled={blocked} onClick={() => go(PATHS.result)}>
+          <Button className={allCompleted ? undefined : 'vote-status__outline'} disabled={blocked} onClick={() => go(PATHS.result)}>
             투표 마감하기
           </Button>
         )}
         {permissions.proceed && (
-          <Button disabled={blocked} onClick={() => void decide('PROCEED')}>
+          <Button className={allCompleted ? undefined : 'vote-status__outline'} disabled={blocked} onClick={() => void decide('PROCEED')}>
             투표 마감하기
           </Button>
         )}

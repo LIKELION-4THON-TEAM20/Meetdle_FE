@@ -19,7 +19,7 @@ interface InvitationDependencies {
 }
 interface VerifiedInvitation {
   resolved: ResolvedInvite;
-  code: string;
+  code?: string;
   inviteToken?: string;
   userId: string;
   csrfToken: string;
@@ -49,6 +49,7 @@ export function assertInvitePreview(value: unknown): asserts value is InvitePrev
 
 export function createInvitationFlow(deps: InvitationDependencies) {
   const entries = new Map<string, VerifiedInvitation>();
+  const tokenReads = new Map<string, Promise<ResolvedInvite>>();
   let identity: string | undefined;
   const now = deps.now ?? Date.now;
   const unsubscribe = deps.subscribe((session) => {
@@ -63,18 +64,30 @@ export function createInvitationFlow(deps: InvitationDependencies) {
     const normalized = code.trim().toUpperCase();
     if (!/^[A-Z0-9]{6}$/.test(normalized))
       throw new ApiRequestError(400, { code: 'INVALID_INVITATION', message: 'Invalid code.' });
+    return verify({ code: normalized, ...(inviteToken ? { inviteToken } : {}) });
+  }
+  async function resolveToken(inviteToken: string) {
+    if (!/^[A-Za-z0-9_-]{43}$/.test(inviteToken))
+      throw new ApiRequestError(400, { code: 'INVALID_INVITATION', message: 'Invalid token.' });
     const session = await deps.getSession();
-    const result = await deps
-      .resolve({ code: normalized, ...(inviteToken ? { inviteToken } : {}) })
-      .execute();
+    const key = JSON.stringify([inviteToken, session.user.userId, session.csrfToken]);
+    const pending = tokenReads.get(key);
+    if (pending) return pending;
+    const task = verify({ inviteToken }).finally(() => tokenReads.delete(key));
+    tokenReads.set(key, task);
+    return task;
+  }
+  async function verify(body: ResolveInviteRequest) {
+    const session = await deps.getSession();
+    const result = await deps.resolve(body).execute();
     const current = await deps.getSession();
     if (session.user.userId !== current.user.userId || session.csrfToken !== current.csrfToken)
       throw changed();
     assertInvitePreview(result?.preview);
     entries.set(result.preview.roomId, {
       resolved: result,
-      code: normalized,
-      inviteToken,
+      code: body.code,
+      inviteToken: body.inviteToken,
       userId: session.user.userId,
       csrfToken: session.csrfToken,
     });
@@ -96,7 +109,9 @@ export function createInvitationFlow(deps: InvitationDependencies) {
     const expiresAt = Date.parse(entry.resolved.joinProofExpiresAt);
     if (!Number.isFinite(expiresAt)) throw invalid();
     if (expiresAt <= now()) {
-      const resolved = await resolve(entry.code, entry.inviteToken);
+      const resolved = entry.code
+        ? await resolve(entry.code, entry.inviteToken)
+        : await resolveToken(entry.inviteToken!);
       if (resolved.preview.roomId !== roomId) throw invalid();
       entry = entries.get(roomId)!;
       if (entry.resolved.preview.entryStatus !== 'OPEN') return join(roomId);
@@ -110,7 +125,7 @@ export function createInvitationFlow(deps: InvitationDependencies) {
     if (result?.roomId !== roomId) throw invalid();
     return result;
   }
-  return { resolve, peek, join, clear: () => entries.clear(), dispose: unsubscribe };
+  return { resolve, resolveToken, peek, join, clear: () => entries.clear(), dispose: unsubscribe };
 }
 
 export const invitationFlow = createInvitationFlow({

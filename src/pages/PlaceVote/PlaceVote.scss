@@ -4,7 +4,7 @@
   color: #1e1e1e;
   &--with-fixed-cta {
     // Reserve the measured CTA height, including wrapped notices and the safe area.
-    padding-bottom: var(--place-vote-footer-height, calc(220px + env(safe-area-inset-bottom, 0px)));
+    padding-bottom: var(--place-vote-footer-height, calc(144px + env(safe-area-inset-bottom, 0px)));
 
     .place-vote__footer {
       position: fixed;
@@ -14,7 +14,7 @@
       box-sizing: border-box;
       width: 100%;
       max-width: 440px;
-      padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
       background: #fff;
       transform: translateX(-50%);
 
@@ -73,6 +73,7 @@
     height: 8px;
     border-radius: 4px;
     background: #eeeef0;
+    overflow: hidden;
     span {
       display: block;
       height: 100%;
@@ -147,15 +148,5 @@
     font-weight: 500;
     line-height: 24px;
     text-decoration: none;
-  }
-}
-
-.server-ballot-confirm {
-  display: grid;
-  gap: 12px;
-
-  h2,
-  p {
-    margin: 0;
   }
 }

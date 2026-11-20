@@ -12,7 +12,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
-    flex-wrap: wrap;
+
     h4 {
       min-width: 0;
       margin: 0;
@@ -23,11 +23,20 @@
       overflow-wrap: anywhere;
     }
   }
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+  }
   &__map {
     color: #aba9b2;
     font-size: 12px;
     font-weight: 600;
-    line-height: 22px;
+    line-height: 19px;
+    white-space: nowrap;
+    flex-shrink: 0;
     text-decoration: underline;
     text-underline-offset: 2px;
     &[aria-disabled='true'] {
@@ -38,7 +47,7 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
-    margin-top: -9px;
+
     p {
       margin: 0;
       color: #aba9b2;
