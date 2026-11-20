@@ -1,3 +1,4 @@
+import RequestStatus from '../../../components/common/RequestStatus/RequestStatus';
 import { useRef, useState } from 'react';
 import Modal from '../../../components/common/Modal/Modal';
 import Button from '../../../components/common/Button/Button';
@@ -147,7 +148,7 @@ export default function VisitOrderSheet({
           </Button>
         </>
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && <RequestStatus title="방문 순서를 저장하지 못했어요." description={error} />}
       {onRetry && (
         <Button variant="secondary" onClick={onRetry}>
           결과 상태 다시 확인

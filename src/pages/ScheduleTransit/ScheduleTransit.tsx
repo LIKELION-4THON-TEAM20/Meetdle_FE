@@ -1,4 +1,6 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useNavigate } from 'react-router';
+import { PATHS } from '../../router/paths';
 import { useRef, useState } from 'react';
 import Header from '../../components/common/Header/Header';
 import Button from '../../components/common/Button/Button';
@@ -36,7 +38,6 @@ interface ScheduleTransitProps {
   onReload?: () => void;
   onViewStatus?: () => void;
   onBack?: () => void;
-  shareAction?: import('react').ReactNode;
 }
 
 function ScheduleTransit({
@@ -52,7 +53,6 @@ function ScheduleTransit({
   onReload,
   onViewStatus,
   onBack,
-  shareAction,
 }: ScheduleTransitProps) {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Set<AvailabilityCellKey>>(
@@ -77,7 +77,7 @@ function ScheduleTransit({
 
   return (
     <div className="page schedule-transit">
-      <Header title="일정 입력" showBackButton onBack={onBack ?? (() => navigate(-1))} />
+      <Header title="일정 입력" showBackButton onBack={onBack ?? (() => navigate(PATHS.home))} />
       <form
         className="schedule-transit__form"
         onSubmit={async (event) => {
@@ -116,7 +116,6 @@ function ScheduleTransit({
               <h2>가능 시간 + 이동 정보 입력</h2>
               <p>가능한 시간대와 이동 정보를 알려주세요</p>
             </div>
-            {shareAction}
             <section
               className="schedule-transit__availability"
               aria-labelledby="availability-title"
@@ -188,11 +187,19 @@ function ScheduleTransit({
               )}
             </section>
           </fieldset>
-          {submitting && <p role="status">입력을 저장하고 서버 상태를 확인하고 있어요.</p>}
+          {submitting && (
+            <RequestStatus
+              loading
+              title="입력한 정보를 저장하는 중이에요."
+              description="저장 후 참여 현황으로 이동해요."
+            />
+          )}
           {notice && (
-            <p className="schedule-transit__notice" role="alert">
-              {notice}
-            </p>
+            <RequestStatus
+              title="입력 정보를 확인해주세요."
+              description={notice}
+              onRetry={requiresReload ? onReload : undefined}
+            />
           )}
         </main>
         <footer className="schedule-transit__footer">
@@ -207,11 +214,6 @@ function ScheduleTransit({
               aria-busy={submitting}
             >
               {submitting ? '저장 확인 중…' : '입력 완료'}
-            </Button>
-          )}
-          {onReload && !submitting && (
-            <Button type="button" variant="secondary" onClick={onReload}>
-              서버 입력 다시 불러오기
             </Button>
           )}
         </footer>

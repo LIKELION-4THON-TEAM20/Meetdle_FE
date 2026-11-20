@@ -33,6 +33,9 @@
   }
 
   &__name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     flex: 1;
     min-width: 0;
     color: variables.$color-black;
@@ -40,6 +43,17 @@
     font-weight: 600;
     line-height: normal;
     overflow-wrap: anywhere;
+
+    > span {
+      min-width: 0;
+    }
+
+    small {
+      flex-shrink: 0;
+      font-size: 13px;
+      line-height: 20px;
+      white-space: nowrap;
+    }
   }
 
   &__badge {

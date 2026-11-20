@@ -1,3 +1,4 @@
+import RequestStatus from '../../../components/common/RequestStatus/RequestStatus';
 import { useRef } from 'react';
 import searchIcon from '../../../assets/icons/schedule-transit/search.svg';
 import checkIcon from '../../../assets/icons/schedule-transit/check.svg';
@@ -86,17 +87,16 @@ function StationSearch({
           aria-label={isDestination ? '이후 목적지 검색 결과' : '출발역 검색 결과'}
         >
           {loading ? (
-            <li className="station-search__empty" role="status">
-              역을 검색하고 있어요.
+            <li className="station-search__empty">
+              <RequestStatus loading title="역을 검색하는 중이에요." />
             </li>
           ) : error ? (
-            <li className="station-search__empty" role="alert">
-              {error}
-              {onRetry && (
-                <button type="button" onClick={onRetry}>
-                  검색 다시 시도
-                </button>
-              )}
+            <li className="station-search__empty">
+              <RequestStatus
+                title="역을 검색하지 못했어요."
+                description={error}
+                onRetry={onRetry}
+              />
             </li>
           ) : results.length ? (
             results.map((station) => {

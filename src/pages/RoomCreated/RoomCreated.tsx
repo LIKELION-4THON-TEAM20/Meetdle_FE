@@ -67,7 +67,13 @@ function CreatedView({
           홈으로 돌아가기<span aria-hidden="true">↗</span>
         </Link>
       </footer>
-      {dismiss && <Toast message={message ?? null} onDismiss={dismiss} />}
+      {dismiss && (
+        <Toast
+          message={message ?? null}
+          onDismiss={dismiss}
+          durationMs={message?.tone === 'success' ? 1000 : 2500}
+        />
+      )}
     </div>
   );
 }

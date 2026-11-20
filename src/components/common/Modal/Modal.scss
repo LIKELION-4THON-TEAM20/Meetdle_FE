@@ -39,6 +39,7 @@
     overflow-wrap: anywhere;
     border-radius: 20px;
     background: variables.$color-white;
+    box-shadow: none;
 
     // Padding, typography, and actions belong to each modal's content component.
     &:focus-visible {

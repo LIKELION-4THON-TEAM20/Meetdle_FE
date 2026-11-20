@@ -1,3 +1,4 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import circlesTop from '../../assets/images/login/circles-top.svg';
 import circlesBottom from '../../assets/images/login/circles-bottom.svg';
 import wordmark from '../../assets/images/login/wordmark.svg';
@@ -29,15 +30,14 @@ function Login({ onKakaoLogin, helpUrl, message, busy = false, onRetry }: LoginP
       </div>
       <div className="login-page__actions">
         {message && (
-          <p className="login-page__message" role="alert">
-            {message}
-          </p>
+          <RequestStatus
+            title="로그인을 완료하지 못했어요."
+            description={message}
+            onRetry={onRetry}
+            disabled={busy}
+          />
         )}
-        {onRetry && (
-          <button type="button" onClick={onRetry}>
-            연결 다시 확인
-          </button>
-        )}
+
         <button
           className="login-page__kakao"
           type="button"

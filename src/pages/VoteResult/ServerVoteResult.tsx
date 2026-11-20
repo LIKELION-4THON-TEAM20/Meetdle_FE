@@ -1,3 +1,4 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ApiRequestError } from '../../api/client';
@@ -372,8 +373,16 @@ export default function ServerVoteResult({
   const status = (
     <>
       {state.notice && <p role="status">{state.notice}</p>}
-      {error && dialog !== 'order' && <p role="alert">{error}</p>}
-      {busy && <p role="status">요청을 처리 중이에요.</p>}
+      {error && dialog !== 'order' && (
+        <RequestStatus title="결과 요청을 처리하지 못했어요." description={error} />
+      )}
+      {busy && (
+        <RequestStatus
+          loading
+          title="결과를 반영하는 중이에요."
+          description="잠시만 기다려주세요."
+        />
+      )}
       {(awaitingRead || state.error) && (
         <Button disabled={busy || state.loading} onClick={() => void state.refresh()}>
           결과 상태 다시 확인
@@ -415,7 +424,7 @@ export default function ServerVoteResult({
               </label>
             </>
           )}
-          {error && <p role="alert">{error}</p>}
+          {error && <RequestStatus title="결과를 확정하지 못했어요." description={error} />}
           {!!state.error && (
             <Button disabled={state.loading || busy} onClick={() => void state.refresh()}>
               결과 상태 다시 확인
@@ -570,10 +579,18 @@ export default function ServerVoteResult({
                   </Button>
                 </>
               ) : (
-                <p role="status">방장의 동률 후보 결정을 기다리고 있어요.</p>
+                <RequestStatus
+                  loading
+                  title="방장이 동률 후보를 선택하는 중이에요."
+                  description="선택이 끝나면 결과를 확인할 수 있어요."
+                />
               ))}
             {room.phase === 'RESULT_READY' && !result && (
-              <p role="status">결과를 정리하고 있어요.</p>
+              <RequestStatus
+                loading
+                title="결과를 정리하고 있어요."
+                description="잠시만 기다려주세요."
+              />
             )}
           </>
         )}

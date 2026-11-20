@@ -1,3 +1,4 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { RoomState } from '../../api/types';
@@ -116,7 +117,7 @@ export default function ServerParticipation({
             )}
           </>
         )}
-        {error && <p role="alert">{error}</p>}
+        {error && <RequestStatus title="참여 현황 요청을 처리하지 못했어요." description={error} />}
         {state.notice && <p role="status">{state.notice}</p>}
       </main>
       <footer className="participation-status__footer">

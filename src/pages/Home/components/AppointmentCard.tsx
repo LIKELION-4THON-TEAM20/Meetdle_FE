@@ -17,6 +17,25 @@ interface AppointmentCardProps {
   onDelete?: () => void;
 }
 
+function ParticipantAvatar({ participant }: { participant: Appointment['participants'][number] }) {
+  const [failed, setFailed] = useState(false);
+  return participant.imageUrl && !failed ? (
+    <img
+      className="appointment-card__avatar"
+      src={participant.imageUrl}
+      alt={participant.name}
+      draggable={false}
+      onError={() => setFailed(true)}
+    />
+  ) : (
+    <span
+      className="appointment-card__avatar"
+      role="img"
+      aria-label={`${participant.name}, 프로필 이미지 없음`}
+    />
+  );
+}
+
 function AppointmentCard({
   appointment,
   today,
@@ -67,26 +86,12 @@ function AppointmentCard({
             </span>
           </div>
           <div className="appointment-card__avatars" role="group" aria-label="참여자">
-            {appointment.participants
-              .slice(0, 4)
-              .map((participant) =>
-                participant.imageUrl ? (
-                  <img
-                    key={participant.id}
-                    className="appointment-card__avatar"
-                    src={participant.imageUrl}
-                    alt={participant.name}
-                    draggable={false}
-                  />
-                ) : (
-                  <span
-                    key={participant.id}
-                    className="appointment-card__avatar"
-                    role="img"
-                    aria-label={`${participant.name}, 프로필 이미지 없음`}
-                  />
-                ),
-              )}
+            {appointment.participants.slice(0, 4).map((participant) => (
+              <ParticipantAvatar
+                key={`${participant.id}:${participant.imageUrl ?? ''}`}
+                participant={participant}
+              />
+            ))}
           </div>
         </div>
       </div>

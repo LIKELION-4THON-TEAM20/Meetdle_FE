@@ -128,15 +128,34 @@
 
 .availability-grid {
   min-width: 0;
+  container-type: inline-size;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #d5d4d9 transparent;
+  &.availability-grid--scrollable table {
+    width: calc(52px + (100cqw - 52px) / 4.35 * var(--date-count));
+  }
   table {
     width: 100%;
-    min-width: calc(52px + var(--date-count) * 48px);
+    min-width: 100%;
     table-layout: fixed;
     border-spacing: 0 3px;
     user-select: none;
     -webkit-user-select: none;
+  }
+  thead th:first-child,
+  &__hour {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #fff;
+  }
+  &__group th > span {
+    position: sticky;
+    left: 0;
+    display: inline-block;
+    background: #fff;
   }
   &__time-column {
     width: 52px;

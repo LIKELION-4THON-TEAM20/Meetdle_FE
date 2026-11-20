@@ -1,5 +1,5 @@
+import RequestStatus, { RequestStatusPage } from '../components/common/RequestStatus/RequestStatus';
 import { Link, Navigate, Outlet, ScrollRestoration, useLocation } from 'react-router';
-import Header from '../components/common/Header/Header';
 import { PATHS } from './paths';
 import { ROOM_SCREENS, serverRoomId } from './roomRoutes';
 import { ServerRoomCreated } from '../pages/RoomCreated/RoomCreated';
@@ -35,15 +35,12 @@ export default function FlowLayout() {
 }
 export function RoomRecovery({ message }: { message: string }) {
   return (
-    <div className="page">
-      <Header title="약속 정보 확인" />
-      <main style={{ padding: 27 }}>
-        <p role="alert">{message}</p>
-        <Link to={PATHS.home}>내 약속 홈으로 이동</Link>
-      </main>
-    </div>
+    <RequestStatusPage footer={<Link to={PATHS.home}>홈으로 가기</Link>}>
+      <RequestStatus title="약속방을 확인해주세요" description={message} />
+    </RequestStatusPage>
   );
 }
+
 export function LegacyJoinRedirect() {
   const { search } = useLocation();
   return <Navigate to={`${PATHS.invitation}${search}`} replace />;
