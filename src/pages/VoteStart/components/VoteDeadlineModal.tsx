@@ -7,6 +7,7 @@ import {
   getRegistrationExtensionWindow,
   isValidRegistrationExtension,
 } from '../../PlaceRegistrationStatus/statusUtils';
+import calendarIcon from '../../../assets/screen11/calendar.svg';
 import './VoteDeadlineModal.scss';
 
 interface Props {
@@ -73,9 +74,12 @@ export default function VoteDeadlineModal({
           ? '장소 등록 마감 시간 연장'
           : voteExtension
             ? '장소 투표 마감 시간 연장'
-            : '투표 마감 시간 설정'}
+            : '투표 마감 일시'}
       </h2>
-      {(registrationExtension || voteExtension) && <p>마감 일시를 선택해주세요</p>}
+      <p className="vote-deadline-modal__description">마감 일시를 선택해주세요</p>
+      <div className="vote-deadline-modal__field">
+      <span className="vote-deadline-modal__value" aria-hidden="true">{value ? value.replaceAll('-', '.').replace('T', '-') : '마감 일시를 선택해주세요'}</span>
+      <img className="vote-deadline-modal__calendar" src={calendarIcon} width={21} height={21} alt="" />
       <input
         aria-label={registrationExtension ? '등록 마감 일시' : '투표 마감 일시'}
         aria-describedby="vote-deadline-help"
@@ -86,7 +90,8 @@ export default function VoteDeadlineModal({
         max={toInput(maximum)}
         onChange={(event) => setValue(event.target.value)}
       />
-      <p id="vote-deadline-help">
+      </div>
+      <p id="vote-deadline-help" className="vote-deadline-modal__help">
         {serverRange?.hint ??
           `${registrationExtension ? '등록은 지금부터 최소 1시간 열어둬야 해요. ' : ''}투표 시간은 최소 30분 이상이어야 하고, 약속 시작 3시간 전까지는 종료돼야 해요.`}
       </p>

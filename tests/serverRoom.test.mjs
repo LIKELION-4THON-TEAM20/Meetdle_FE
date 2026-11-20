@@ -728,3 +728,18 @@ test('정원별 입력 기준과 전원 완료에 따라 계산·알림·재촉�
     }
   }
 });
+
+test('백그라운드 방 조회 중에는 기존 화면과 선택을 유지하고 초기 로딩으로 돌아가지 않는다', async () => {
+  const next = deferred();
+  let count = 0;
+  const client = createApiClient('https://example.test', async () => Response.json(session));
+  const store = createRoomStateStore(id, async () => ++count === 1 ? dto() : next.promise, client);
+  await store.refresh();
+  const previous = store.getSnapshot().room;
+  const refreshing = store.refresh({ checkSession: false });
+  assert.equal(store.getSnapshot().loading, false);
+  assert.equal(store.getSnapshot().room, previous);
+  next.resolve(dto(id, 4));
+  await refreshing;
+  assert.equal(store.getSnapshot().room.revision, 4);
+});

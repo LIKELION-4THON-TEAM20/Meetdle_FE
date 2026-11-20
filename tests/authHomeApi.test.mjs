@@ -394,3 +394,43 @@ test('home card avatars use only matching room members and preserve photo URLs w
     code: 'INVALID_RESPONSE',
   });
 });
+
+test('링크 토큰만으로 가입 증표를 발급하고 만료되면 같은 토큰으로 재발급한다', async () => {
+  let now = 1000;
+  let resolves = 0;
+  const token = 'a'.repeat(43);
+  const members = [{ participantId: 'p1', nickname: '방장', profileImageUrl: 'https://example.test/photo.png' }];
+  const client = createApiClient('https://example.test', async (url, options) => {
+    if (url.pathname === '/api/me') return json(session);
+    if (url.pathname === '/api/invitations/resolve') {
+      assert.deepEqual(JSON.parse(options.body), { inviteToken: token });
+      resolves++;
+      return json({ preview: { ...preview, members }, joinProof: `proof-${resolves}`, joinProofExpiresAt: new Date(now + 1000).toISOString() });
+    }
+    assert.equal(url.pathname, `/api/rooms/${id}/join`);
+    assert.deepEqual(JSON.parse(options.body), { joinProof: 'proof-2' });
+    return json({ roomId: id });
+  });
+  const flow = flowFor(client, () => now);
+  const result = await flow.resolveToken(token);
+  assert.deepEqual(result.preview.members, members);
+  now += 1100;
+  assert.deepEqual(await flow.join(id), { roomId: id });
+  assert.equal(resolves, 2);
+  flow.dispose();
+});
+
+test('동일한 세션 재조회는 인증 revision과 화면 구독을 갱신하지 않는다', async () => {
+  const client = createApiClient('https://example.test', async () => json(session));
+  const store = createSessionStore(client);
+  await store.refresh();
+  const snapshot = store.getSnapshot();
+  await store.refresh();
+  assert.equal(store.getSnapshot(), snapshot);
+});
+
+test('홈 약속 카드의 프로필은 목록 응답 members에서 직접 복원한다', () => {
+  const room = { ...preview, phase: 'WAITING_FOR_DEPARTURE', meetingAt: null, endsAt: null,
+    members: [{ participantId: 'p1', nickname: '가', profileImageUrl: 'https://example.test/photo.png' }] };
+  assert.deepEqual(toAppointment(room).participants, [{ id: 'p1', name: '가', imageUrl: 'https://example.test/photo.png' }]);
+});

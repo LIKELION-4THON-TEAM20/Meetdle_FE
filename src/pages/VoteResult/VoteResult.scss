@@ -10,7 +10,7 @@ $border: #d5d4d9;
     flex-direction: column;
     gap: 24px;
     min-width: 0;
-    padding: 22px clamp(16px, 7vw, 27px) max(40px, env(safe-area-inset-bottom));
+    padding: 20px clamp(16px, 7vw, 27px) max(40px, env(safe-area-inset-bottom));
   }
 
   &__intro {
@@ -32,6 +32,7 @@ $border: #d5d4d9;
 
   &__category,
   .tie-break-panel {
+    min-width: 0;
     margin-inline: clamp(0px, 2vw, 8px);
   }
 
@@ -64,8 +65,9 @@ $border: #d5d4d9;
     flex-wrap: wrap;
     gap: 16px;
     padding-inline: 8px;
-    color: $muted;
+    color: #aba9b2;
     font-size: 14px;
+    img { display: block; flex-shrink: 0; }
   }
 
   &__text-button {
@@ -115,9 +117,9 @@ $border: #d5d4d9;
 
   &__confirmed {
     padding-top: 0;
-    .common-button {
-      margin-top: 38px;
-    }
+    .vote-result__footer { margin-top: 14px; border: 0; }
+    .vote-result__category { margin: 0; }
+    .vote-result__itinerary { gap: 32px; }
   }
 
   &__itinerary {
@@ -127,6 +129,10 @@ $border: #d5d4d9;
     padding: 0;
     list-style: none;
     > li {
+      display: block;
+    }
+  }
+  &__confirmed &__itinerary > li {
       display: grid;
       grid-template-columns: 10px minmax(0, 1fr);
       align-items: center;
@@ -137,13 +143,21 @@ $border: #d5d4d9;
         background: $accent;
         content: '';
       }
-    }
   }
 
   &__tie-dialog {
-    padding: 20px;
-    max-width: 342px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px;
+    max-width: 348px;
+    h2 { margin: 0; font-size: 18px; font-weight: 600; line-height: 26px; }
+    p { margin: 0; color: #969696; font-size: 14px; line-height: 22px; }
   }
+  &__dialog-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  &__dialog-actions .common-button { padding: 12px 8px; }
+  &__dialog-actions .common-button--secondary { border: 1px solid #d5d4d9; background: #fff; color: #7c5cff; }
+
 }
 
 .result-place-card {
@@ -258,7 +272,7 @@ $border: #d5d4d9;
   display: grid;
   gap: 14px;
   padding: 15px clamp(14px, 8vw, 33px);
-  border: 1px solid #aaa8b4;
+  border: 1px solid #d5d4d9;
   border-radius: 16px;
   h2 {
     margin: 0;
@@ -405,9 +419,11 @@ $border: #d5d4d9;
       border-radius: 12px;
       background: #fafafa;
     }
+    li { position: relative; will-change: transform; }
     li.is-dragging {
-      outline: 2px solid #b9a8ff;
+      z-index: 2;
       background: #f7f5ff;
+      box-shadow: 0 8px 20px rgb(124 92 255 / 15%);
     }
   }
   &__row {
@@ -483,3 +499,30 @@ $border: #d5d4d9;
 .vote-result__home {
   text-decoration: none;
 }
+
+.result-place-card {
+  position: relative;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 17px;
+  min-width: 0;
+  min-height: 84px;
+  padding: 9px 13px;
+  &__image { width: 64px; height: 64px; overflow: hidden; border-radius: 12px; background: #f0f0f0; }
+  &__image img.fills-tile { object-fit: contain; }
+  &__details { display: block; align-self: stretch; padding: 0 0 0; }
+  &__heading { padding-right: 0; }
+  &__heading h3 { font-size: 16px; font-weight: 600; line-height: 19px; }
+  &__distance { min-height: 12px; margin-top: 4px !important; color: #d5d4d9 !important; line-height: 12px !important; }
+  &__address { max-width: calc(100% - 76px); margin-top: 4px !important; color: #969696 !important; line-height: 12px !important; }
+  &__map { position: absolute; right: 13px; bottom: 10px; max-width: calc(100% - 26px); font-size: 8px; line-height: 10px; text-decoration: none; }
+  &__select { position: absolute; top: 12px; right: 13px; min-height: 24px; }
+  &:has(.result-place-card__select) .result-place-card__heading { padding-right: 58px; }
+}
+.vote-result__home { display: block; padding: 16px 0; color: #86817c; font-size: 14px; text-align: center; }
+.vote-result__itinerary { gap: 22px; }
+.vote-result__intro p { color: #969696; }
+.vote-result__confirmed .vote-result__text-button { color: #7c5cff; }
+
+.vote-result-map { position: relative; min-width: 0; border-radius: 16px; overflow: hidden; }
+.vote-result-map__canvas { width: 100%; height: 432px; background: #fafafa; }
+.vote-result-map .request-status { position: absolute; inset: 0; justify-content: center; }

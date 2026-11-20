@@ -130,3 +130,6 @@
     margin-left: -7px;
   }
 }
+
+.meeting-info-card__avatar-placeholder { flex-shrink: 0; overflow: hidden; }
+.meeting-info-card__avatar-placeholder > img { width: 100%; height: 100%; object-fit: cover; }

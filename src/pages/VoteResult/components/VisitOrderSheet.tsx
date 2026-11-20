@@ -1,5 +1,5 @@
 import RequestStatus from '../../../components/common/RequestStatus/RequestStatus';
-import { useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Modal from '../../../components/common/Modal/Modal';
 import Button from '../../../components/common/Button/Button';
 import type { ResultCategory, ResultRole } from '../types';
@@ -31,7 +31,36 @@ export default function VisitOrderSheet({
   const [announcement, setAnnouncement] = useState('');
   const list = useRef<HTMLOListElement>(null);
   const rows = useRef(new Map<string, HTMLLIElement>());
-  const drag = useRef<{ id: string; pointerId: number; original: string[] } | null>(null);
+  const drag = useRef<{
+    id: string; pointerId: number; original: string[]; y: number; active: boolean;
+    node: HTMLLIElement; timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const previousBounds = useRef(new Map<string, DOMRect>());
+  const reducedMotion = () => globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function clearDrag() {
+    const current = drag.current;
+    if (!current) return;
+    clearTimeout(current.timer);
+    current.node.style.removeProperty('transform');
+    current.node.style.removeProperty('transition');
+    drag.current = null;
+    setDragging(null);
+  }
+  useEffect(() => () => {
+    if (drag.current) clearTimeout(drag.current.timer);
+  }, []);
+  useLayoutEffect(() => {
+    if (!reducedMotion()) for (const [id, before] of previousBounds.current) {
+      const node = rows.current.get(id);
+      if (!node) continue;
+      const after = node.getBoundingClientRect();
+      node.animate([
+        { transform: `translateY(${before.top - after.top}px) scale(${before.width / after.width})` },
+        { transform: 'translateY(0) scale(1)' },
+      ], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    }
+    previousBounds.current.clear();
+  }, [draft]);
   const host = role === 'host';
   const move = (id: string, target: number) => {
     if (!host || busy) return;
@@ -58,36 +87,38 @@ export default function VisitOrderSheet({
         className="visit-order-sheet__list"
         ref={list}
         onPointerMove={(event) => {
-          if (!drag.current || drag.current.pointerId !== event.pointerId) return;
-          const positions = draft.map((rowId, rowIndex) => {
-            const rect = rows.current.get(rowId)?.getBoundingClientRect();
-            return {
-              index: rowIndex,
-              distance: rect ? Math.abs(event.clientY - (rect.top + rect.height / 2)) : Infinity,
-            };
-          });
-          const nearest = positions.reduce((best, position) =>
-            position.distance < best.distance ? position : best,
-          );
-          if (nearest.index !== draft.indexOf(drag.current.id))
-            move(drag.current.id, nearest.index);
+          const start = drag.current;
+          if (!start || start.pointerId !== event.pointerId) return;
+          const delta = event.clientY - start.y;
+          if (!start.active && Math.abs(delta) >= 8) {
+            clearTimeout(start.timer);
+            start.active = true;
+            setDragging(start.id);
+          }
+          if (start.active) {
+            start.node.style.transition = 'none';
+            start.node.style.transform = `translateY(${delta - 3}px) scale(1.04)`;
+          }
         }}
         onPointerUp={(event) => {
-          if (drag.current?.pointerId !== event.pointerId) return;
-          drag.current = null;
-          setDragging(null);
-          event.currentTarget.releasePointerCapture(event.pointerId);
+          const start = drag.current;
+          if (!start || start.pointerId !== event.pointerId) return;
+          if (start.active) {
+            previousBounds.current = new Map([...rows.current].map(([id, node]) => [id, node.getBoundingClientRect()]));
+            const rects = start.original.map((id, index) => {
+              const node = rows.current.get(id);
+              const rect = node?.getBoundingClientRect();
+              const center = rect ? rect.top + rect.height / 2 - (id === start.id ? event.clientY - start.y - 3 : 0) : Infinity;
+              return { index, distance: Math.abs(event.clientY - center) };
+            });
+            const target = rects.reduce((best, row) => row.distance < best.distance ? row : best);
+            move(start.id, target.index);
+          }
+          clearDrag();
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
         }}
-        onPointerCancel={() => {
-          if (drag.current) setDraft(drag.current.original);
-          drag.current = null;
-          setDragging(null);
-        }}
-        onLostPointerCapture={() => {
-          if (drag.current) setDraft(drag.current.original);
-          drag.current = null;
-          setDragging(null);
-        }}
+        onPointerCancel={clearDrag}
+        onLostPointerCapture={clearDrag}
       >
         {draft.map((id, index) => {
           const category = categories.find((item) => item.id === id);
@@ -120,9 +151,20 @@ export default function VisitOrderSheet({
                     }}
                     onPointerDown={(event) => {
                       if (!host || event.button !== 0 || !event.isPrimary) return;
+                      if (busy) return;
+                      const node = rows.current.get(id);
+                      if (!node) return;
+                      clearDrag();
                       list.current?.setPointerCapture(event.pointerId);
-                      drag.current = { id, pointerId: event.pointerId, original: [...draft] };
-                      setDragging(id);
+                      const timer = setTimeout(() => {
+                        const start = drag.current;
+                        if (!start) return;
+                        start.active = true;
+                        setDragging(id);
+                        if (!reducedMotion()) node.style.transition = 'transform 160ms cubic-bezier(.2,.8,.2,1)';
+                        node.style.transform = 'translateY(-3px) scale(1.04)';
+                      }, 220);
+                      drag.current = { id, pointerId: event.pointerId, original: [...draft], y: event.clientY, active: false, node, timer };
                     }}
                   >
                     ≡

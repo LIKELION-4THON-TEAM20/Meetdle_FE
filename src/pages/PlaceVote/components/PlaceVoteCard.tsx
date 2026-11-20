@@ -32,9 +32,15 @@ export default function PlaceVoteCard({
       aria-labelledby={`place-${place.id}`}
     >
       <div className="place-vote-card__heading">
-        <h4 id={`place-${place.id}`}>{place.name}</h4>
+        <div className="place-vote-card__info">
+          <h4 id={`place-${place.id}`}>{place.name}</h4>
+          <div className="place-vote-card__details">
+            <p>{category}{Number.isFinite(place.distanceMeters) && ` · ${place.distanceMeters}m`}</p>
+            <p>{place.address}</p>
+          </div>
+        </div>
         {automatic ? <span className="place-vote-card__badge">자동 선정</span> : null}
-        {mapUrl && (!automatic || serverProvided) ? (
+        {mapUrl && !automatic ? (
           <a
             className="place-vote-card__map"
             href={mapUrl}
@@ -53,16 +59,6 @@ export default function PlaceVoteCard({
             카카오맵 바로가기 ›
           </span>
         ) : null}
-      </div>
-      <div className="place-vote-card__details">
-        <p>
-          {category}
-          {Number.isFinite(place.distanceMeters) && ` · ${place.distanceMeters}m`}
-        </p>
-        <p>{place.address}</p>
-        {place.imageUrl && (
-          <img src={place.imageUrl} alt="" width={64} height={64} loading="lazy" />
-        )}
       </div>
       {automatic ? (
         <p className="place-vote-card__automatic-note">후보가 1곳뿐이라 투표 없이 선정돼요.</p>

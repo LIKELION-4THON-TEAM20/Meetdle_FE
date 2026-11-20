@@ -4,7 +4,7 @@ import circlesBottom from '../../assets/images/login/circles-bottom.svg';
 import wordmark from '../../assets/images/login/wordmark.svg';
 import tagline from '../../assets/images/login/tagline.svg';
 import kakao from '../../assets/images/login/kakao.svg';
-import helpUnderline from '../../assets/images/login/help-underline.svg';
+import helpUnderline from '../../assets/images/login/help-underline.svg?no-inline';
 import './Login.scss';
 
 interface LoginProps {
@@ -51,12 +51,16 @@ function Login({ onKakaoLogin, helpUrl, message, busy = false, onRetry }: LoginP
         {helpUrl ? (
           <a className="login-page__help" href={helpUrl}>
             로그인에 문제가 있나요?
-            <img src={helpUnderline} alt="" draggable={false} />
+            <svg width={136} height={1} viewBox="0 0 136 1" aria-hidden="true">
+              <use href={`${helpUnderline}#Line 9`} />
+            </svg>
           </a>
         ) : (
           <span className="login-page__help" role="link" aria-disabled="true">
             로그인에 문제가 있나요?
-            <img src={helpUnderline} alt="" draggable={false} />
+            <svg width={136} height={1} viewBox="0 0 136 1" aria-hidden="true">
+              <use href={`${helpUnderline}#Line 9`} />
+            </svg>
           </span>
         )}
       </div>

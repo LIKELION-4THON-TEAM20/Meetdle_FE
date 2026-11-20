@@ -59,6 +59,19 @@ export function createScheduleSaver(
       invalidScheduleResponse('Saved input is not reflected in RoomState');
     return state;
   };
+  // The save receipt is authoritative, but state projection can lag briefly.
+  // Retry only the read; never submit a second PUT for an accepted input.
+  const waitForSavedState = async () => {
+    for (let attempt = 0; ; attempt++) {
+      const state = await readState();
+      if (saved && body && state.myInput.completedAt &&
+          state.myInput.inputRevision >= saved.inputRevision &&
+          matchesSavedInput(state.myInput, body)) return confirmedState(state);
+      if (attempt >= 3 || !body || state.myInput.inputRevision > (saved?.inputRevision ?? body.inputRevision))
+        return confirmedState(state);
+      await new Promise(resolve => setTimeout(resolve, 200 * (attempt + 1)));
+    }
+  };
   const run = (input: ScheduleTransitInput): Promise<RoomState> => {
     if (pending) return pending;
     pending = (async () => {
@@ -68,7 +81,7 @@ export function createScheduleSaver(
         conflict = await readState();
         throw new ScheduleConflictError(conflict);
       }
-      if (saved) return confirmedState(await readState());
+      if (saved) return waitForSavedState();
       if (uncertain && body) {
         const current = await readState();
         if (
@@ -118,7 +131,7 @@ export function createScheduleSaver(
         !matchesSavedInput(response, body)
       )
         invalidScheduleResponse('Incomplete save response');
-      return confirmedState(await readState());
+      return waitForSavedState();
     })().finally(() => {
       pending = undefined;
     });

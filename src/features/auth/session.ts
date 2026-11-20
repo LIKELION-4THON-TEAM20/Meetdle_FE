@@ -17,6 +17,8 @@ export function createSessionStore(client: ReturnType<typeof createApiClient>) {
     listeners.forEach((listener) => listener());
   };
   client.subscribeSession((session) => {
+    if (session && state.status === 'authenticated' &&
+        JSON.stringify(state.session) === JSON.stringify(session)) return;
     publish(
       session
         ? { status: 'authenticated', session, revision: state.revision + 1 }
