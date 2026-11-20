@@ -289,3 +289,26 @@ test('완료 표시나 새 버전이 없는 저장 응답은 성공으로 이동
     await assert.rejects(saver.run(input), { code: 'INVALID_RESPONSE' });
   }
 });
+
+test('station failures distinguish authentication, endpoint access and network errors without blaming the room', async () => {
+  const { stationSearchErrorMessage } = await server.ssrLoadModule(
+    '/src/pages/ScheduleTransit/api/errors.ts',
+  );
+  const denied = stationSearchErrorMessage(
+    new ApiRequestError(403, { code: 'FORBIDDEN', message: 'Forbidden' }),
+  );
+  assert.match(denied, /역 검색 요청이 거절/);
+  assert.doesNotMatch(denied, /약속방|입력 권한/);
+  assert.match(
+    stationSearchErrorMessage(
+      new ApiRequestError(401, { code: 'UNAUTHENTICATED', message: 'Unauthorized' }),
+    ),
+    /로그인/,
+  );
+  assert.match(
+    stationSearchErrorMessage(
+      new ApiRequestError(null, { code: 'NETWORK_ERROR', message: 'Network failure' }),
+    ),
+    /연결/,
+  );
+});

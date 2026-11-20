@@ -1,4 +1,4 @@
-import RoomShareButton from '../features/sharing/RoomShareButton';
+import RequestStatus, { RequestStatusPage } from '../components/common/RequestStatus/RequestStatus';
 import RoomNotFound from '../components/common/RoomNotFound/RoomNotFound';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
@@ -6,8 +6,6 @@ import { ApiRequestError } from '../api/client';
 import { getRoomState } from '../api/rooms';
 import type { RoomState, SessionResponse } from '../api/types';
 import ScheduleTransit from '../pages/ScheduleTransit/ScheduleTransit';
-import Header from '../components/common/Header/Header';
-import Button from '../components/common/Button/Button';
 import ApiStationSearch from '../pages/ScheduleTransit/api/ApiStationSearch';
 import { candidateDates, restoreScheduleInput } from '../pages/ScheduleTransit/api/model';
 import {
@@ -24,19 +22,22 @@ function ApiState({ error, reload }: { error?: unknown; reload?: () => void }) {
   const loginReturn = `${PATHS.schedule}?roomId=${encodeURIComponent(params.get('roomId') ?? '')}`;
   if (error instanceof ApiRequestError && error.status === 404) return <RoomNotFound />;
   return (
-    <div className="page schedule-transit">
-      <Header title="일정 입력" />
-      <main className="schedule-api-state">
-        <p role={error ? 'alert' : 'status'}>
-          {error ? scheduleErrorMessage(error) : '서버의 일정 정보를 불러오는 중이에요.'}
-        </p>
-        {!!error && reload && <Button onClick={reload}>다시 불러오기</Button>}
+    <RequestStatusPage footer={error ? <Link to={PATHS.home}>홈으로 가기</Link> : undefined}>
+      <RequestStatus
+        loading={!error}
+        title={error ? scheduleErrorMessage(error) : '일정 정보를 불러오는 중이에요.'}
+        description={
+          error ? '잠시 후 다시 시도해주세요.' : '선택할 날짜와 기존 입력을 확인하고 있어요.'
+        }
+        onRetry={error ? reload : undefined}
+      >
         {error instanceof ApiRequestError && error.status === 401 && (
-          <Link to={`${PATHS.login}?returnTo=${encodeURIComponent(loginReturn)}`}>로그인하기</Link>
+          <Link to={`${PATHS.login}?returnTo=${encodeURIComponent(loginReturn)}`}>
+            카카오 로그인
+          </Link>
         )}
-        {!!error && <Link to={PATHS.home}>홈으로 이동</Link>}
-      </main>
-    </div>
+      </RequestStatus>
+    </RequestStatusPage>
   );
 }
 
@@ -71,13 +72,6 @@ function ServerScheduleForm({
     <ScheduleTransit
       room={{ id: room.roomId, candidateDates: dates }}
       stations={[]}
-      shareAction={
-        room.me.role === 'HOST' ? (
-          <RoomShareButton room={room} kind="inputRequest" disabled={freeze}>
-            조건 입력 요청 공유하기
-          </RoomShareButton>
-        ) : undefined
-      }
       initialInput={restored}
       renderStationSearch={(kind, value, onChange) => (
         <ApiStationSearch kind={kind} value={value} onChange={onChange} />
@@ -95,7 +89,7 @@ function ServerScheduleForm({
               : undefined
       }
       onReload={reload}
-      onBack={() => navigate(serverScreenUrl(PATHS.participation, room.roomId))}
+      onBack={() => navigate(PATHS.home)}
       onViewStatus={() => {
         void getRoomState(room.roomId).then(
           () => {
@@ -122,7 +116,7 @@ function ServerScheduleForm({
           }
           throw new Error(
             error instanceof ScheduleConflictError
-              ? '서버 입력이 변경되거나 잠겼어요. 서버 입력 다시 불러오기를 눌러 최신 내용을 확인해주세요.'
+              ? '서버 입력이 변경되거나 잠겼어요. 다시 시도를 눌러 최신 내용을 확인해주세요.'
               : scheduleErrorMessage(error),
             { cause: error },
           );

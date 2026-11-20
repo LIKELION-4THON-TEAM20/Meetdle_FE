@@ -2,6 +2,10 @@ import { ApiRequestError } from '../../../api/client';
 
 export function scheduleErrorMessage(error: unknown): string {
   if (error instanceof ApiRequestError) {
+    if (error.code === 'SESSION_TIMEOUT')
+      return '로그인 상태 확인이 지연되고 있어요. 다시 시도해주세요.';
+    if (error.code === 'ROOM_TIMEOUT')
+      return '일정 정보를 불러오는 데 시간이 오래 걸리고 있어요. 다시 시도해주세요.';
     if (error.status === 401 || error.code === 'SESSION_CHANGED')
       return '로그인 세션이 바뀌었어요. 다시 로그인하거나 서버 정보를 다시 불러와주세요.';
     if (error.code === 'STALE_INPUT')
@@ -23,4 +27,20 @@ export function scheduleErrorMessage(error: unknown): string {
       return '서버에 연결하지 못했어요. 연결 상태를 확인하고 다시 시도해주세요.';
   }
   return '일정 정보를 처리하지 못했어요. 다시 시도해주세요.';
+}
+
+export function stationSearchErrorMessage(error: unknown): string {
+  if (error instanceof ApiRequestError) {
+    if (error.status === 401 || error.code === 'SESSION_CHANGED')
+      return '역을 검색하려면 로그인이 필요해요. 로그인 상태를 다시 확인해주세요.';
+    if (error.status === 403)
+      return '역 검색 요청이 거절됐어요. 로그인 상태와 서버의 역 검색 권한 설정을 확인해주세요.';
+    if (error.status === 400) return '역 이름을 확인해주세요. 1~40자로 입력할 수 있어요.';
+    if (error.status === 429) return '검색 요청이 많아요. 잠시 후 다시 시도해주세요.';
+    if (error.code === 'NETWORK_ERROR')
+      return '역 검색 서버에 연결하지 못했어요. 연결 상태를 확인하고 다시 시도해주세요.';
+    if (error.code === 'INVALID_RESPONSE')
+      return '역 검색 응답을 확인하지 못했어요. 다시 시도해주세요.';
+  }
+  return '역 검색 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
 }

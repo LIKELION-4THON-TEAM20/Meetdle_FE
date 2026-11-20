@@ -1,3 +1,4 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { roomMutations } from '../../api/rooms';
@@ -103,7 +104,7 @@ function CreateRoom() {
           </div>
           <p className="create-room__notice">방장만 약속 정보를 수정할 수 있어요.</p>
         </main>
-        {error && <p role="alert">{error}</p>}
+        {error && <RequestStatus title="약속방을 만들지 못했어요." description={error} />}
         <footer className="create-room__footer">
           <Button type="submit" disabled={!canCreate || busy}>
             {busy ? '생성 중…' : '약속방 만들기'}

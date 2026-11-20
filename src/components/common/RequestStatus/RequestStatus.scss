@@ -1,0 +1,117 @@
+.request-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 24px 20px;
+  border-radius: 16px;
+  background: #fff;
+  text-align: center;
+  color: #03000f;
+  &__icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin-bottom: 14px;
+    color: #aaa7b2;
+    svg {
+      width: 40px;
+      height: 40px;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+  }
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 24px;
+    overflow-wrap: anywhere;
+  }
+  p {
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 20px;
+    color: #777;
+    overflow-wrap: anywhere;
+  }
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 24px;
+    > button,
+    > a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 120px;
+      min-height: 40px;
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 10px;
+      background: #eeeef0;
+      color: #03000f;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      &:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      &:focus-visible {
+        outline: 2px solid #7c5cff;
+        outline-offset: 3px;
+      }
+    }
+  }
+  &__spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #eeeef0;
+    border-top-color: #7c5cff;
+    border-radius: 50%;
+    animation: request-status-spin 1s linear infinite;
+  }
+}
+.request-status-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: 24px;
+  &__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+  &__footer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    padding: 24px 0 max(24px, env(safe-area-inset-bottom));
+    a {
+      color: #777;
+      font-size: 14px;
+    }
+  }
+}
+@keyframes request-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .request-status__spinner {
+    animation: none;
+  }
+}

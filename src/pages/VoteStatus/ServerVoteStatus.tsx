@@ -1,3 +1,4 @@
+import RequestStatus from '../../components/common/RequestStatus/RequestStatus';
 import { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { ApiRequestError } from '../../api/client';
@@ -206,7 +207,7 @@ export default function ServerVoteStatus({
           <p role="status">투표 현황을 불러오지 못했어요.</p>
         )}
         {state.notice && <p role="status">{state.notice}</p>}
-        {error && <p role="alert">{error}</p>}
+        {error && <RequestStatus title="투표 현황 요청을 처리하지 못했어요." description={error} />}
       </main>
       <footer className="vote-status__footer">
         {host && open && (
@@ -214,7 +215,13 @@ export default function ServerVoteStatus({
             투표 안내 공유하기
           </RoomShareButton>
         )}
-        {busy && <p role="status">요청을 처리 중이에요.</p>}
+        {busy && (
+          <RequestStatus
+            loading
+            title="투표 상태를 변경하는 중이에요."
+            description="잠시만 기다려주세요."
+          />
+        )}
         {(accepted || state.error || !data) && (
           <Button disabled={busy || state.loading} onClick={() => void state.refresh()}>
             투표 상태 다시 확인

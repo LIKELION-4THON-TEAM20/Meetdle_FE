@@ -1,3 +1,4 @@
+import RequestStatus from '../components/common/RequestStatus/RequestStatus';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { startKakaoLogin } from '../api/auth';
@@ -18,7 +19,6 @@ import { roomEntryUrl } from '../features/homeApi/model';
 import Header from '../components/common/Header/Header';
 import Button from '../components/common/Button/Button';
 import MeetingInfoCard from '../pages/RoomCreated/components/MeetingInfoCard';
-import participantAvatars from '../assets/icons/room-invitation/participants.svg';
 import JoinByCodeDialog from '../pages/Home/components/JoinByCodeDialog';
 import AuthStatus from './AuthStatus';
 import { PATHS } from './paths';
@@ -141,7 +141,13 @@ function InvitationContent({ auth }: { auth: AuthState }) {
     <div className="page room-invitation">
       <Header title="약속 초대" showBackButton onBack={() => navigate(PATHS.home)} />
       <main className="room-invitation__content">
-        {loading && <p role="status">초대 정보를 불러오는 중이에요.</p>}
+        {loading && (
+          <RequestStatus
+            loading
+            title="초대 정보를 불러오는 중이에요."
+            description="약속방 정보를 확인하고 있어요."
+          />
+        )}
         {preview && (
           <>
             <div className="room-invitation__hero">
@@ -154,7 +160,6 @@ function InvitationContent({ auth }: { auth: AuthState }) {
             <MeetingInfoCard
               variant="participant"
               hostName={preview.hostNickname}
-              participantAvatarsSrc={participantAvatars}
               meeting={{
                 name: preview.title ?? '이름 없는 약속',
                 candidateDates: `${preview.dates.from} ~ ${preview.dates.through}`,
@@ -175,24 +180,25 @@ function InvitationContent({ auth }: { auth: AuthState }) {
           </p>
         )}
         {loginErrorMessage(params.get('loginError')) && (
-          <p role="alert">{loginErrorMessage(params.get('loginError'))}</p>
+          <RequestStatus
+            title="카카오 로그인을 완료하지 못했어요."
+            description={loginErrorMessage(params.get('loginError')) ?? undefined}
+          />
         )}
         {error && (
-          <div role="alert">
-            <p>{error}</p>
-            {token && (
-              <button
-                type="button"
-                onClick={() => {
-                  setLoading(true);
-                  setError('');
-                  setAttempt((value) => value + 1);
-                }}
-              >
-                초대 정보 다시 확인
-              </button>
-            )}
-          </div>
+          <RequestStatus
+            title="초대 요청을 처리하지 못했어요."
+            description={error}
+            onRetry={
+              token
+                ? () => {
+                    setLoading(true);
+                    setError('');
+                    setAttempt((value) => value + 1);
+                  }
+                : undefined
+            }
+          />
         )}
       </main>
       <footer className="room-invitation__footer">

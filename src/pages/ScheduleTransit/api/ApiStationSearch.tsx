@@ -4,7 +4,7 @@ import StationSearch from '../components/StationSearch';
 import { normalizeStationQuery } from '../scheduleUtils';
 import type { Station, StationSearchValue } from '../types';
 import { invalidScheduleResponse, toUiStation } from './model';
-import { scheduleErrorMessage } from './errors';
+import { stationSearchErrorMessage } from './errors';
 
 export default function ApiStationSearch({
   kind,
@@ -44,7 +44,7 @@ export default function ApiStationSearch({
           },
           (error) => {
             if (!controller.signal.aborted)
-              setResponse({ key, items: [], error: scheduleErrorMessage(error) });
+              setResponse({ key, items: [], error: stationSearchErrorMessage(error) });
           },
         );
     }, 250);

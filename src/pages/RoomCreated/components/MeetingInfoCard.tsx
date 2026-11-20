@@ -4,9 +4,7 @@ import './MeetingInfoCard.scss';
 
 type MeetingInfoCardProps = {
   meeting: MeetingInfo;
-} & (
-  { variant?: 'host' } | { variant: 'participant'; hostName: string; participantAvatarsSrc: string }
-);
+} & ({ variant?: 'host' } | { variant: 'participant'; hostName: string });
 
 function MeetingInfoCard(props: MeetingInfoCardProps) {
   const { meeting } = props;
@@ -41,7 +39,14 @@ function MeetingInfoCard(props: MeetingInfoCardProps) {
           <div className="meeting-info-card__row">
             <dt>현재 참여 상태</dt>
             <dd className="meeting-info-card__participation">
-              <img src={props.participantAvatarsSrc} width={42} height={24} alt="" />
+              <span className="meeting-info-card__avatar-stack" aria-hidden="true">
+                {Array.from(
+                  { length: Math.min(4, Math.max(0, meeting.participantCount)) },
+                  (_, i) => (
+                    <span key={i} className="meeting-info-card__avatar-placeholder" />
+                  ),
+                )}
+              </span>
               <span>
                 {meeting.participantCount} / {meeting.capacity}명 참여 중
               </span>

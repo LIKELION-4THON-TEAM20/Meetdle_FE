@@ -10,7 +10,7 @@ after(() => server.close());
 const { createApiClient, ApiRequestError } = await server.ssrLoadModule('/src/api/client.ts');
 const { createSessionStore } = await server.ssrLoadModule('/src/features/auth/session.ts');
 const { createInvitationFlow } = await server.ssrLoadModule('/src/features/auth/invitations.ts');
-const { toAppointment, roomEntryUrl } = await server.ssrLoadModule(
+const { toAppointment, roomEntryUrl, roomParticipants } = await server.ssrLoadModule(
   '/src/features/homeApi/model.ts',
 );
 const { rememberLoginReturn, consumeLoginReturn, loginErrorMessage } = await server.ssrLoadModule(
@@ -376,4 +376,21 @@ test('숨김 실패는 성공으로 처리하지 않고 재시도하며 사용�
   current = { user: { userId: 'other', nickname: '나' }, csrfToken: 'other-csrf' };
   await assert.rejects(hider.hide(id), { code: 'SESSION_CHANGED' });
   assert.equal(writes, 2);
+});
+
+test('home card avatars use only matching room members and preserve photo URLs without inventing missing images', () => {
+  const members = Array.from({ length: 6 }, (_, i) => ({
+    participantId: `p${i}`,
+    nickname: `참여자${i}`,
+    profileImageUrl: i === 1 ? null : `https://images.example.com/${i}.jpg`,
+  }));
+  const people = roomParticipants({ roomId: id, members }, id);
+  assert.equal(people.length, 4);
+  assert.equal(people[0].imageUrl, 'https://images.example.com/0.jpg');
+  assert.equal(people[1].imageUrl, null);
+  assert.equal(people[2].name, '참여자2');
+  assert.deepEqual(roomParticipants({ roomId: id, members: null }, id), []);
+  assert.throws(() => roomParticipants({ roomId: 'other', members }, id), {
+    code: 'INVALID_RESPONSE',
+  });
 });
