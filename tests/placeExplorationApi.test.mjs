@@ -61,10 +61,13 @@ function setCandidates(places) {
   }));
 }
 let state, search, requests, failGet, failPut, putStatus;
+let staleReads = 0, staleState;
 let sessionUser = 'user';
 let deleteStatus = 204;
 function reset() {
   sessionUser = 'user';
+  staleReads = 0;
+  staleState = undefined;
   deleteStatus = 204;
   state = structuredClone(base);
   search = {
@@ -90,6 +93,7 @@ globalThis.fetch = async (url, init) => {
     });
   if (url.pathname.endsWith('/state')) {
     if (failGet) throw new Error('GET failed');
+    if (staleReads > 0) { staleReads--; return Response.json(staleState); }
     return Response.json(state);
   }
   if (url.pathname.endsWith('/places/search')) return Response.json(search);
@@ -407,4 +411,17 @@ test('place entry reuses the validated parent session instead of publishing anot
   assert.equal(requests.filter((r) => r.path.endsWith('/state')).length, 1);
   await repo.reload();
   assert.equal(requests.filter((r) => r.path === '/api/me').length, 0);
+});
+
+
+test('후보 등록 뒤 A08 반영이 늦어도 새로고침 없이 복원하고 POST는 한 번만 보낸다', async () => {
+  reset();
+  const repo = await open();
+  await repo.search('CAFE', '');
+  staleState = structuredClone(state);
+  staleReads = 2;
+  const fresh = await repo.nominate('CAFE', placeKey(place), now).execute();
+  assert.equal(fresh.registration.myCandidates[0].candidateId, candidateId);
+  assert.equal(writes().length, 1);
+  assert.equal(staleReads, 0);
 });
