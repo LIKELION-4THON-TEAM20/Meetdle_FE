@@ -23,6 +23,7 @@ import {
   registeredCandidates,
   placeKey,
   registrationEditable,
+  RegistrationConfirmationPending,
   type ApiExplorationRepository,
 } from './apiRepository';
 import { formatRemaining, formatDistance } from './placeUtils';
@@ -231,7 +232,9 @@ export default function ServerPlaceExploration({ roomId }: { roomId: string }) {
             onRetry={!failedIntent ? () => void refresh(true) : undefined}
             disabled={busy || loading}
             title={
-              failedIntent
+              error instanceof RegistrationConfirmationPending
+                ? '등록 요청의 반영을 확인하고 있어요.'
+                : failedIntent
                 ? '장소 등록 요청을 처리하지 못했어요.'
                 : '장소 등록 정보를 불러오지 못했어요.'
             }
@@ -472,8 +475,16 @@ function ServerSearch({
         ...searchPlaces,
       ]
     : response ? places : nearbyItems.map((item) => displayPlace(item.place, item));
-  const selected = [...places, ...nearbyItems.map((item) => displayPlace(item.place, item))].find(
-    (p) => p.id === selectedId,
+  const savedPlaces = registeredCandidates(state)
+    .filter(({ place }) => place.category === category)
+    .map(({ place }) => displayPlace(place));
+  const registeredId = (key: string) => {
+    const candidate = repository.findRegisteredPlace(state, key);
+    return candidate ? placeKey(candidate.place) : undefined;
+  };
+  const mapSelectedId = selectedId && (registeredId(selectedId) ?? selectedId);
+  const selected = [...places, ...nearbyItems.map((item) => displayPlace(item.place, item)), ...savedPlaces].find(
+    (p) => p.id === mapSelectedId,
   );
   async function more() {
     if (!response?.nextPage || moreLock.current || paused) return;
@@ -497,7 +508,7 @@ function ServerSearch({
     }
   }
   const card = (place: RecommendedPlace) => {
-    const registered = registeredCandidates(state).some(({ place: p }) => placeKey(p) === place.id);
+    const registered = registeredId(place.id);
     const blocked =
       !place.eligible || !response?.available || !categoryAvailable
         ? '서버에서 등록할 수 없는 장소로 판정했어요.'
@@ -509,8 +520,8 @@ function ServerSearch({
         key={place.id}
         place={place}
         categoryLabel={categoryLabels[category!]}
-        selected={selectedId === place.id}
-        registered={registered}
+        selected={mapSelectedId === (registered ?? place.id)}
+        registered={!!registered}
         pending={false}
         blocked={blocked}
         onSelect={() => setSelectedId(place.id)}
@@ -528,15 +539,13 @@ function ServerSearch({
       places={[
         ...new Map(
           [
-            ...registeredCandidates(state)
-              .filter(({ place }) => place.category === category)
-              .map(({ place }) => displayPlace(place)),
-            ...mapPlaces,
+            ...savedPlaces,
+            ...mapPlaces.filter(({ id }) => (registeredId(id) ?? id) === id),
           ].map((place) => [place.id, place]),
         ).values(),
       ]}
-      registeredIds={registeredCandidates(state).map(({ place }) => placeKey(place))}
-      selectedId={selectedId}
+      registeredIds={savedPlaces.map(({ id }) => id)}
+      selectedId={mapSelectedId}
       onSelect={(id) => {
         const item =
           response?.items.find((item) => placeKey(item.place) === id) ??

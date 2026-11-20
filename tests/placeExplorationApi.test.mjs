@@ -60,7 +60,7 @@ function setCandidates(places) {
     place: p,
   }));
 }
-let state, search, requests, failGet, failPut, putStatus;
+let state, search, requests, failGet, failPut, putStatus, savedPlace;
 let staleReads = 0, staleState;
 let sessionUser = 'user';
 let deleteStatus = 204;
@@ -81,6 +81,7 @@ function reset() {
   failGet = false;
   failPut = false;
   putStatus = 204;
+  savedPlace = place;
 }
 reset();
 const originalFetch = globalThis.fetch;
@@ -110,7 +111,7 @@ globalThis.fetch = async (url, init) => {
     if (!state.registration.myCandidates.some((c) => c.candidateId === addedId))
       state.registration.myCandidates = [
         ...state.registration.myCandidates,
-        { candidateId: addedId, place: p },
+        { candidateId: addedId, place: p === place ? savedPlace : p },
       ];
   } else if (init.method === 'DELETE') {
     state.registration.myCandidates = state.registration.myCandidates.filter(
@@ -136,6 +137,7 @@ const {
   registrationEditable,
   canCompleteRegistration,
   registeredCandidates,
+  RegistrationConfirmationPending,
 } = await vite.ssrLoadModule('/src/pages/PlaceExploration/apiRepository.ts');
 const { api } = await vite.ssrLoadModule('/src/api/client.ts');
 after(async () => {
@@ -272,7 +274,7 @@ test('성공 PUT 뒤 GET 실패는 재전송 없이 조회만 재시도한다', 
   await repo.search('CAFE', '');
   const op = repo.nominate('CAFE', placeKey(place), now);
   failGet = true;
-  await assert.rejects(op.execute());
+  await assert.rejects(op.execute(), RegistrationConfirmationPending);
   failGet = false;
   await op.execute();
   assert.equal(writes().length, 1);
@@ -294,10 +296,11 @@ test('다른 회차·불일치 결과와 명시적 409 거절은 성공으로 �
   await repo.search('CAFE', '');
   const op = repo.nominate('CAFE', placeKey(place), now);
   putStatus = 409;
-  await assert.rejects(op.execute());
+  await assert.rejects(op.execute(), (error) => error.status === 409);
   setCandidates([place]);
-  await assert.rejects(op.execute());
+  await assert.rejects(op.execute(), (error) => error.status === 409);
   assert.equal(writes().length, 1);
+  setCandidates([]);
   await repo.open();
   putStatus = 204;
   await repo.search('CAFE', '');
@@ -424,4 +427,39 @@ test('후보 등록 뒤 A08 반영이 늦어도 새로고침 없이 복원하고
   assert.equal(fresh.registration.myCandidates[0].candidateId, candidateId);
   assert.equal(writes().length, 1);
   assert.equal(staleReads, 0);
+});
+
+for (const query of ['', '카페']) {
+  test(`${query ? '검색 결과' : '지도 선택'} 등록은 A08의 장소 정보가 달라도 후보 ID로 확인한다`, async () => {
+    reset();
+    savedPlace = { ...place, name: '저장된 카페', address: '서울 성동구 왕십리로', lat: 37.562001 };
+    const repo = await open();
+    const result = await repo.search('CAFE', query);
+    const key = displayPlace(result.items[0].place, result.items[0]).id;
+    const fresh = await repo.nominate('CAFE', key, now).execute();
+    assert.notEqual(placeKey(savedPlace), key);
+    assert.deepEqual(fresh.registration.myCandidates, [{ candidateId, place: savedPlace }]);
+    assert.equal(repo.findRegisteredPlace(fresh, key)?.candidateId, candidateId);
+    await repo.search('CAFE', query);
+    assert.throws(() => repo.nominate('CAFE', key, now));
+    assert.equal(writes().length, 1);
+    const withdrawn = await repo.withdraw(candidateId, now).execute();
+    assert.equal(repo.findRegisteredPlace(withdrawn, key), undefined);
+  });
+}
+
+test('같은 장소 키의 다른 후보 ID는 네 번 조회해도 등록을 확정하지 않는다', async () => {
+  reset();
+  const repo = await open();
+  await repo.search('CAFE', '');
+  staleState = structuredClone(state);
+  staleState.registration.myCandidates = [{ candidateId: secondId, place }];
+  staleReads = 4;
+  const op = repo.nominate('CAFE', placeKey(place), now);
+  const countReads = () => requests.filter((r) => r.path.endsWith('/state')).length;
+  const before = countReads();
+  await assert.rejects(op.execute(), RegistrationConfirmationPending);
+  assert.equal(countReads() - before, 4);
+  assert.equal((await op.execute()).registration.myCandidates[0].candidateId, candidateId);
+  assert.equal(writes().length, 1);
 });
