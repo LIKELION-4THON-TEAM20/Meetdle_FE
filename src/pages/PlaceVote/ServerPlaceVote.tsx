@@ -58,6 +58,11 @@ export default function ServerPlaceVote({
   const completed = ballot.selections.length;
   const needsSave =
     !currentDraft || changes.length > 0 || currentDraft.selections.length !== completed;
+  // SUBMIT_VOTE may only be granted after the complete draft is persisted.
+  // Allow starting that save, then recheck server permission before submitting.
+  const canStartSubmission = ballot.complete &&
+    (permissions.submit || (needsSave && permissions.edit)) &&
+    (!needsSave || permissions.edit);
   const statusUrl = serverScreenUrl(PATHS.voteStatus, room.roomId);
   const categories = sortPlaceCategories(
     Array.from(new Set(room.voting.candidates.map(({ place }) => place.category)))
@@ -92,7 +97,7 @@ export default function ServerPlaceVote({
   }
 
   async function run(submit: boolean) {
-    if (locked || sending.current || state.loading || (submit && !permissions.submit)) return;
+    if (locked || sending.current || state.loading || (submit && !canStartSubmission)) return;
     sending.current = true;
     setBusy(true);
     setError('');
@@ -269,10 +274,8 @@ export default function ServerPlaceVote({
                 <Button
                   disabled={
                     locked ||
-                    !permissions.submit ||
-                    !ballot.complete ||
-                    state.loading ||
-                    (!permissions.edit && needsSave)
+                    !canStartSubmission ||
+                    state.loading
                   }
                   onClick={() => void run(true)}
                 >
