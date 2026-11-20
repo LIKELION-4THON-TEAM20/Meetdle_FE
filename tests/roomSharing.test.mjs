@@ -211,7 +211,7 @@ test('1119 reminder options use stage-specific copy and only actual server deadl
       registration.rows.find((row) => row.label === '등록 마감').value,
     ),
   );
-  assert.equal(nudgeTitle('votingReminder'), '투표 안 한 친구 재촉하기');
+  assert.equal(nudgeTitle('votingReminder'), '투표 안 한 친구 재촉하기 👀');
   assert.equal(isReminder('finalResult'), false);
 });
 
