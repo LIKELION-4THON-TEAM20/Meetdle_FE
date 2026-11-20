@@ -74,12 +74,11 @@ $border: #d5d4d9;
     padding: 6px 2px;
     border: 0;
     background: transparent;
-    color: inherit;
+    color: #969696;
     font: inherit;
     cursor: pointer;
-    &[aria-pressed='true'] {
+    &[aria-expanded='true'] {
       color: $accent;
-      font-weight: 700;
     }
   }
 
@@ -521,7 +520,6 @@ $border: #d5d4d9;
 .vote-result__home { display: block; padding: 16px 0; color: #86817c; font-size: 14px; text-align: center; }
 .vote-result__itinerary { gap: 22px; }
 .vote-result__intro p { color: #969696; }
-.vote-result__confirmed .vote-result__text-button { color: #7c5cff; }
 
 .vote-result-map { position: relative; min-width: 0; border-radius: 16px; overflow: hidden; }
 .vote-result-map__canvas { width: 100%; height: 432px; background: #fafafa; }
