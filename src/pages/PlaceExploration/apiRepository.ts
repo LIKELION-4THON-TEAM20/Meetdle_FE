@@ -127,13 +127,20 @@ export function createApiExplorationRepository(roomId: string) {
               throw error;
             }
           }
-          const fresh = await load();
-          if (rejected) throw rejected;
-          if (fresh.registration?.round !== state.registration!.round || !matches(fresh)) {
-            throw new Error('서버의 등록 상태가 요청과 달라요. 최신 상태를 다시 확인해주세요.');
+          // The write can finish before A08 reflects the candidate. Confirm via
+          // bounded GET retries while keeping this write handle single-use.
+          for (let attempt = 0; ; attempt++) {
+            const fresh = await load();
+            if (rejected) throw rejected;
+            const sameRound = fresh.registration?.round === state.registration!.round;
+            if (sameRound && matches(fresh)) {
+              mutation = undefined;
+              return fresh;
+            }
+            if (!sameRound || attempt >= 3)
+              throw new Error('서버의 등록 상태가 요청과 달라요. 최신 상태를 다시 확인해주세요.');
+            await new Promise(resolve => setTimeout(resolve, 200 * (attempt + 1)));
           }
-          mutation = undefined;
-          return fresh;
         })().finally(() => {
           pending = undefined;
         });

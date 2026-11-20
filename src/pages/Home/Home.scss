@@ -35,8 +35,8 @@
       background: #7c5cff;
     }
   }
-  :is(button, a, [role='tabpanel']):focus-visible {
-    outline: 2px solid #7c5cff;
+  :is(button, a):focus-visible {
+    outline: 2px solid #86817c;
     outline-offset: 3px;
   }
   &__list {
@@ -263,7 +263,7 @@
     display: block;
   }
   :is(button, a):focus-visible {
-    outline: 2px solid #7c5cff;
+    outline: 2px solid #86817c;
     outline-offset: -3px;
   }
 }
@@ -446,4 +446,12 @@
   .appointment-card-container .appointment-card-delete {
     transition: none;
   }
+}
+
+// Safari can retain focus after a tap or dialog focus restoration.
+.home-page [role='tabpanel']:focus,
+.home-page [role='tabpanel']:focus-visible { outline: none; }
+@media (hover: none) {
+  .home-page :is(button, a):focus-visible,
+  .add-appointment-sheet :is(button, a):focus-visible { outline: none; }
 }

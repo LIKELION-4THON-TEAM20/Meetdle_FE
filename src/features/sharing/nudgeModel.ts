@@ -6,7 +6,7 @@ export function isReminder(kind: ShareKind) {
 export function nudgeTitle(kind: ShareKind) {
   if (kind === 'hostRequest') return '방장에게 알리기';
   if (kind === 'registrationReminder') return '등록 안 한 친구 재촉하기 👀';
-  if (kind === 'votingReminder') return '투표 안 한 친구 재촉하기';
+  if (kind === 'votingReminder') return '투표 안 한 친구 재촉하기 👀';
   return '입력 안 한 친구 재촉하기';
 }
 export function nudgeOptions(message: ShareMessage) {
